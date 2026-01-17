@@ -1,0 +1,2318 @@
+Messages.tsx:
+import { useState, useEffect, useRef } from 'react';
+import { MessageCircle, Send, ArrowLeft, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  subscribeToConversations,
+  subscribeToMessages,
+  sendMessage,
+  markMessagesAsRead,
+  Conversation,
+  Message
+} from '@/services/firestore';
+import { isFirebaseConfigured } from '@/lib/firebase';
+import { Timestamp } from 'firebase/firestore';
+import { cn } from '@/lib/utils';
+
+interface MessagesProps {
+  initialConversationId?: string | null;
+  onBack?: () => void;
+}
+
+const Messages = ({ initialConversationId, onBack }: MessagesProps) => {
+  const { user } = useAuth();
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selectedConversation, setSelectedConversation] = useState<string | null>(initialConversationId || null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const shouldAutoScrollRef = useRef(true);
+  const previousMessagesLengthRef = useRef(0);
+
+  // Subscribe to conversations
+  useEffect(() => {
+    if (!isFirebaseConfigured() || !user) {
+      setLoading(false);
+      return;
+    }
+
+    const unsubscribe = subscribeToConversations(user.uid, (convs) => {
+      setConversations(convs);
+      setLoading(false);
+      
+      if (initialConversationId && convs.some(c => c.id === initialConversationId)) {
+        setSelectedConversation(initialConversationId);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user, initialConversationId]);
+
+  // Subscribe to messages when conversation is selected
+  useEffect(() => {
+    if (!isFirebaseConfigured() || !selectedConversation || !user) {
+      return;
+    }
+
+    const unsubscribe = subscribeToMessages(selectedConversation, (msgs) => {
+      setMessages(msgs);
+      markMessagesAsRead(selectedConversation, user.uid);
+    });
+
+    return () => unsubscribe();
+  }, [selectedConversation, user]);
+
+  // Auto-collapse sidebar when conversation is selected on desktop
+  useEffect(() => {
+    if (selectedConversation) {
+      setSidebarCollapsed(true);
+    }
+  }, [selectedConversation]);
+
+  // Check if user is near bottom of scroll
+  const isNearBottom = () => {
+    if (!messagesContainerRef.current) return true;
+    
+    const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+    const threshold = 150;
+    
+    return scrollHeight - scrollTop - clientHeight < threshold;
+  };
+
+  // Handle scroll event to detect if user manually scrolled up
+  const handleScroll = () => {
+    if (messagesContainerRef.current) {
+      shouldAutoScrollRef.current = isNearBottom();
+    }
+  };
+
+  // Smart auto-scroll
+  useEffect(() => {
+    const isNewMessage = messages.length > previousMessagesLengthRef.current;
+    const lastMessage = messages[messages.length - 1];
+    const isOwnMessage = lastMessage?.senderId === user?.uid;
+
+    if (isNewMessage && (isOwnMessage || shouldAutoScrollRef.current)) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    previousMessagesLengthRef.current = messages.length;
+  }, [messages, user?.uid]);
+
+  // Reset auto-scroll when switching conversations
+  useEffect(() => {
+    shouldAutoScrollRef.current = true;
+    previousMessagesLengthRef.current = 0;
+  }, [selectedConversation]);
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !selectedConversation || !newMessage.trim() || sending) return;
+
+    setSending(true);
+    shouldAutoScrollRef.current = true;
+
+    try {
+      await sendMessage(selectedConversation, user.uid, newMessage.trim());
+      setNewMessage('');
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
+    setSending(false);
+  };
+
+  const formatTimestamp = (timestamp: Timestamp | null): string => {
+    if (!timestamp) return '';
+    const date = timestamp.toDate();
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  };
+
+  const getOtherParticipant = (conversation: Conversation) => {
+    const otherId = conversation.participants.find(id => id !== user?.uid) || '';
+    return {
+      id: otherId,
+      name: conversation.participantNames?.[otherId] || 'User',
+      avatar: conversation.participantAvatars?.[otherId] || `https://api.dicebear.com/7.x/initials/svg?seed=User`
+    };
+  };
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const selectedConv = conversations.find(c => c.id === selectedConversation);
+
+  return (
+    <div className="flex-1 flex h-[calc(100vh-8rem)] max-h-[800px]">
+      {/* Conversation List - Collapsible */}
+      <div className={cn(
+        "border-r border-border flex flex-col bg-card rounded-l-xl transition-all duration-300",
+        selectedConversation && "hidden md:flex",
+        sidebarCollapsed ? "w-16" : "w-80"
+      )}>
+        {/* Header with collapse button */}
+        <div className="p-4 border-b border-border flex items-center justify-between">
+          {!sidebarCollapsed && (
+            <h2 className="text-xl font-display font-bold text-foreground flex items-center gap-2">
+              <MessageCircle className="w-5 h-5 text-primary" />
+              Messages
+            </h2>
+          )}
+          <button
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="p-2 hover:bg-secondary rounded-lg transition-colors ml-auto"
+            title={sidebarCollapsed ? "Expand" : "Collapse"}
+          >
+            {sidebarCollapsed ? (
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            ) : (
+              <ChevronLeft className="w-5 h-5 text-muted-foreground" />
+            )}
+          </button>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+          {conversations.length === 0 ? (
+            !sidebarCollapsed && (
+              <div className="p-4 text-center text-muted-foreground">
+                <MessageCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>No conversations yet</p>
+                <p className="text-sm mt-1">Start a conversation from someone's profile</p>
+              </div>
+            )
+          ) : (
+            conversations.map((conv) => {
+              const other = getOtherParticipant(conv);
+              const isSelected = selectedConversation === conv.id;
+              
+              return (
+                <button
+                  key={conv.id}
+                  onClick={() => {
+                    setSelectedConversation(conv.id);
+                    setSidebarCollapsed(true);
+                  }}
+                  className={cn(
+                    "w-full p-4 flex items-center gap-3 hover:bg-secondary/50 transition-colors text-left border-b border-border/50",
+                    isSelected && "bg-secondary",
+                    sidebarCollapsed && "justify-center px-2"
+                  )}
+                  title={sidebarCollapsed ? other.name : undefined}
+                >
+                  <img
+                    src={other.avatar}
+                    alt={other.name}
+                    className={cn(
+                      "rounded-full object-cover flex-shrink-0",
+                      sidebarCollapsed ? "w-10 h-10" : "w-12 h-12"
+                    )}
+                  />
+                  {!sidebarCollapsed && (
+                    <>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-foreground truncate">{other.name}</h3>
+                        {conv.lastMessage && (
+                          <p className="text-sm text-muted-foreground truncate">
+                            {conv.lastMessage.senderId === user?.uid ? 'You: ' : ''}
+                            {conv.lastMessage.text}
+                          </p>
+                        )}
+                      </div>
+                      {conv.lastMessage?.sentAt && (
+                        <span className="text-xs text-muted-foreground flex-shrink-0">
+                          {formatTimestamp(conv.lastMessage.sentAt)}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </button>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      {/* Chat View */}
+      <div className={cn(
+        "flex-1 flex flex-col bg-card rounded-r-xl",
+        !selectedConversation && "hidden md:flex"
+      )}>
+        {selectedConversation && selectedConv ? (
+          <>
+            {/* Chat Header */}
+            <div className="p-4 border-b border-border flex items-center gap-3">
+              <button
+                onClick={() => setSelectedConversation(null)}
+                className="md:hidden p-2 hover:bg-secondary rounded-lg transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              
+              {/* Desktop: Show expand button */}
+              {sidebarCollapsed && (
+                <button
+                  onClick={() => setSidebarCollapsed(false)}
+                  className="hidden md:block p-2 hover:bg-secondary rounded-lg transition-colors"
+                  title="Show conversations"
+                >
+                  <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                </button>
+              )}
+              
+              <img
+                src={getOtherParticipant(selectedConv).avatar}
+                alt={getOtherParticipant(selectedConv).name}
+                className="w-10 h-10 rounded-full object-cover"
+              />
+              <h3 className="font-medium text-foreground">
+                {getOtherParticipant(selectedConv).name}
+              </h3>
+            </div>
+
+            {/* Messages */}
+            <div 
+              ref={messagesContainerRef}
+              onScroll={handleScroll}
+              className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
+            >
+              {messages.length === 0 ? (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  <p>No messages yet. Start the conversation!</p>
+                </div>
+              ) : (
+                messages.map((msg) => {
+                  const isOwn = msg.senderId === user?.uid;
+                  
+                  return (
+                    <div
+                      key={msg.id}
+                      className={cn(
+                        "flex",
+                        isOwn ? "justify-end" : "justify-start"
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "max-w-[70%] rounded-2xl px-4 py-2",
+                          isOwn
+                            ? "bg-primary text-primary-foreground rounded-br-md"
+                            : "bg-secondary text-foreground rounded-bl-md"
+                        )}
+                      >
+                        <p className="break-words">{msg.text}</p>
+                        <p className={cn(
+                          "text-xs mt-1",
+                          isOwn ? "text-primary-foreground/70" : "text-muted-foreground"
+                        )}>
+                          {formatTimestamp(msg.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Message Input */}
+            <form onSubmit={handleSendMessage} className="p-4 border-t border-border">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="Type a message..."
+                  className="flex-1 px-4 py-2 rounded-full border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <button
+                  type="submit"
+                  disabled={!newMessage.trim() || sending}
+                  className="p-3 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {sending ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Send className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
+            </form>
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-muted-foreground">
+            <div className="text-center">
+              <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-50" />
+              <p className="text-lg">Select a conversation</p>
+              <p className="text-sm mt-1">Choose from your existing conversations or start a new one</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Messages;
+
+Notifications.tsx:
+import { useState, useEffect } from 'react';
+import { Bell, Check, X, Clock, Send, Loader2, Eye, CheckCheck } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { 
+  subscribeToInvitations,
+  subscribeToNotifications,
+  respondToInvitation,
+  getProfile,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  Invitation,
+  Notification as NotificationType
+} from '@/services/firestore';
+import { isFirebaseConfigured } from '@/lib/firebase';
+import { Timestamp } from 'firebase/firestore';
+import { toast } from 'sonner';
+
+interface NotificationsProps {
+  onNavigateToMessages?: (conversationId: any) => void;
+}
+
+const Notifications: React.FC<NotificationsProps> = ({ onNavigateToMessages }) => {
+  const { user } = useAuth();
+  const [incoming, setIncoming] = useState<Invitation[]>([]);
+  const [outgoing, setOutgoing] = useState<Invitation[]>([]);
+  const [notifications, setNotifications] = useState<NotificationType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [processingId, setProcessingId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'invitations' | 'all'>('invitations');
+
+  useEffect(() => {
+    if (!isFirebaseConfigured() || !user) {
+      setLoading(false);
+      return;
+    }
+
+    const unsubInvitations = subscribeToInvitations(user.uid, (inc, out) => {
+      setIncoming(inc);
+      setOutgoing(out);
+      setLoading(false);
+    });
+
+    const unsubNotifications = subscribeToNotifications(user.uid, (notifs) => {
+      setNotifications(notifs);
+    });
+
+    return () => {
+      unsubInvitations();
+      unsubNotifications();
+    };
+  }, [user]);
+
+  const handleRespond = async (invitation: Invitation, accept: boolean) => {
+    if (!user) return;
+    setProcessingId(invitation.id);
+
+    try {
+      if (accept) {
+        const profile = await getProfile(user.uid);
+        if (profile?.teamId) {
+          toast.error('You are already in a team. Leave your current team before joining another.');
+          setProcessingId(null);
+          return;
+        }
+      }
+
+      await respondToInvitation(
+        invitation.id,
+        accept ? 'accepted' : 'rejected',
+        accept ? invitation.teamId : undefined,
+        accept ? user.uid : undefined,
+        accept ? 'Member' : undefined
+      );
+
+      toast.success(accept ? `Joined ${invitation.teamName}!` : 'Invitation declined');
+    } catch (error: any) {
+      console.error('Error responding to invitation:', error);
+      toast.error(error.message || 'Failed to respond to invitation');
+    }
+
+    setProcessingId(null);
+  };
+
+  const handleMarkAsRead = async (notificationId: string) => {
+    await markNotificationAsRead(notificationId);
+  };
+
+  const handleMarkAllAsRead = async () => {
+    if (!user) return;
+    await markAllNotificationsAsRead(user.uid);
+    toast.success('All notifications marked as read');
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending': return 'bg-accent/10 text-accent';
+      case 'accepted': return 'bg-skill-mobile/10 text-skill-mobile';
+      case 'rejected': return 'bg-destructive/10 text-destructive';
+      default: return 'bg-muted text-muted-foreground';
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'pending': return 'Pending';
+      case 'accepted': return 'Accepted';
+      case 'rejected': return 'Rejected';
+      default: return status;
+    }
+  };
+
+  const formatTimestamp = (timestamp: Timestamp | null): string => {
+    if (!timestamp) return 'Just now';
+    const date = timestamp.toDate();
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
+  };
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center p-4">
+        <Loader2 className="animate-spin h-6 w-6 text-gray-500" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 space-y-4">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          <Bell className="h-6 w-6" />
+          <h2 className="text-lg font-semibold">Notifications</h2>
+          {unreadCount > 0 && (
+            <span className="ml-2 px-2 py-1 bg-red-500 text-white text-xs rounded-full">
+              {unreadCount}
+            </span>
+          )}
+        </div>
+        {unreadCount > 0 && (
+          <button
+            className="text-sm text-primary hover:underline"
+            onClick={handleMarkAllAsRead}
+          >
+            Mark all read
+          </button>
+        )}
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setActiveTab('invitations')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            activeTab === 'invitations'
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-secondary text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Incoming ({incoming.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('all')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            activeTab === 'all'
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-secondary text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Sent ({outgoing.length})
+        </button>
+      </div>
+
+      {/* Invitations Tab */}
+      {activeTab === 'invitations' && (
+        <div className="space-y-3">
+          {incoming.length === 0 ? (
+            <p>No pending invitations</p>
+          ) : (
+            incoming.map((inv) => (
+              <div key={inv.id} className="p-3 border rounded-lg flex flex-col gap-2">
+                <p>
+                  <strong>{inv.fromUserName}</strong> invited you to join <strong>{inv.teamName}</strong>
+                </p>
+                {inv.message && <p className="italic">"{inv.message}"</p>}
+                <p className="text-xs text-muted-foreground">{formatTimestamp(inv.createdAt)}</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleRespond(inv, true)}
+                    disabled={processingId === inv.id}
+                    className="btn-primary text-sm flex items-center gap-1.5"
+                  >
+                    {processingId === inv.id ? <Loader2 className="animate-spin h-4 w-4" /> : <Check />}
+                    Accept
+                  </button>
+                  <button
+                    onClick={() => handleRespond(inv, false)}
+                    disabled={processingId === inv.id}
+                    className="btn-secondary text-sm flex items-center gap-1.5"
+                  >
+                    <X />
+                    Reject
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* Sent Invitations Tab */}
+      {activeTab === 'all' && (
+        <div className="space-y-3">
+          {outgoing.length === 0 ? (
+            <p>No sent invitations</p>
+          ) : (
+            outgoing.map((inv) => (
+              <div key={inv.id} className="p-3 border rounded-lg flex flex-col gap-2">
+                <p>
+                  Invited <strong>{inv.toUserName}</strong> to join <strong>{inv.teamName}</strong>
+                </p>
+                {inv.message && <p className="italic">"{inv.message}"</p>}
+                <p className="text-xs text-muted-foreground">{formatTimestamp(inv.createdAt)}</p>
+                <span className={`px-2 py-1 rounded ${getStatusBadge(inv.status)} text-xs`}>
+                  {getStatusLabel(inv.status)}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Notifications;
+
+AuthContext.tsx:
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { 
+  User,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  AuthError
+} from 'firebase/auth';
+import { auth, isFirebaseConfigured } from '@/lib/firebase';
+import { createProfile, getProfile } from '@/services/firestore';
+
+interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  isConfigured: boolean;
+  login: (email: string, password: string) => Promise<{ error?: string }>;
+  register: (email: string, password: string, name: string) => Promise<{ error?: string }>;
+  logout: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within AuthProvider');
+  }
+  return context;
+};
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const isConfigured = isFirebaseConfigured();
+
+  useEffect(() => {
+    if (!isConfigured) {
+      setLoading(false);
+      return;
+    }
+
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, [isConfigured]);
+
+  const login = async (email: string, password: string) => {
+    if (!isConfigured) return { error: 'Firebase not configured' };
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      return {};
+    } catch (err) {
+      const error = err as AuthError;
+      return { error: getAuthErrorMessage(error.code) };
+    }
+  };
+
+  const register = async (email: string, password: string, name: string) => {
+    if (!isConfigured) return { error: 'Firebase not configured' };
+    try {
+      const credential = await createUserWithEmailAndPassword(auth, email, password);
+      
+      // Check if profile already exists (edge case)
+      const existingProfile = await getProfile(credential.user.uid);
+      if (!existingProfile) {
+        // Create initial profile document in Firestore with just the name
+        // User will complete full profile after this
+        await createProfile(credential.user.uid, {
+          email: email,
+          fullName: name,
+          avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}`
+        });
+      }
+      
+      return {};
+    } catch (err) {
+      const error = err as AuthError;
+      return { error: getAuthErrorMessage(error.code) };
+    }
+  };
+
+  const logout = async () => {
+    if (isConfigured) {
+      await signOut(auth);
+    }
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, loading, isConfigured, login, register, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+function getAuthErrorMessage(code: string): string {
+  switch (code) {
+    case 'auth/email-already-in-use':
+      return 'This email is already registered';
+    case 'auth/invalid-email':
+      return 'Invalid email address';
+    case 'auth/weak-password':
+      return 'Password should be at least 6 characters';
+    case 'auth/user-not-found':
+      return 'No account found with this email';
+    case 'auth/wrong-password':
+      return 'Incorrect password';
+    case 'auth/invalid-credential':
+      return 'Invalid email or password';
+    case 'auth/too-many-requests':
+      return 'Too many attempts. Please try again later';
+    default:
+      return 'An error occurred. Please try again';
+  }
+}
+
+
+firestore.ts:
+import { 
+  collection, 
+  doc, 
+  getDoc, 
+  getDocs, 
+  setDoc, 
+  updateDoc, 
+  deleteDoc,
+  query, 
+  where, 
+  orderBy,
+  addDoc,
+  serverTimestamp,
+  onSnapshot,
+  Unsubscribe,
+  limit
+} from 'firebase/firestore';
+import { db, isFirebaseConfigured } from '@/lib/firebase';
+import type { 
+  UserProfile, 
+  Team, 
+  TeamMember, 
+  Invitation, 
+  WorkspaceLog,
+  Notification,
+  FeedPost,
+  TeamTask,
+  Message,
+  Conversation,
+  SkillVerification
+} from '@/types/firestore.types';
+
+// Re-export types for convenience
+export type { UserProfile, Team, TeamMember, Invitation, WorkspaceLog, Notification, FeedPost, TeamTask, Message, Conversation, SkillVerification };
+
+// ========================
+// PROFILE FUNCTIONS
+// ========================
+
+export const getProfile = async (userId: string): Promise<UserProfile | null> => {
+  if (!isFirebaseConfigured()) return null;
+  const docRef = doc(db, 'profiles', userId);
+  const docSnap = await getDoc(docRef);
+  return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } as UserProfile : null;
+};
+
+export const createProfile = async (userId: string, data: Partial<UserProfile>): Promise<void> => {
+  if (!isFirebaseConfigured()) return;
+  await setDoc(doc(db, 'profiles', userId), {
+    ...data,
+    teamId: null,
+    isTeamLeader: false,
+    createdAt: serverTimestamp()
+  });
+};
+
+export const updateProfile = async (userId: string, data: Partial<UserProfile>): Promise<void> => {
+  if (!isFirebaseConfigured()) return;
+  await updateDoc(doc(db, 'profiles', userId), data);
+};
+
+// ========================
+// SKILL VERIFICATION FUNCTIONS
+// ========================
+
+export const getSkillVerification = async (userId: string): Promise<SkillVerification | null> => {
+  if (!isFirebaseConfigured()) return null;
+  
+  const q = query(
+    collection(db, 'skillVerifications'),
+    where('userId', '==', userId),
+    where('status', '==', 'verified'),
+    orderBy('verifiedAt', 'desc'),
+    limit(1)
+  );
+  
+  const snapshot = await getDocs(q);
+  if (snapshot.empty) return null;
+  
+  return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as SkillVerification;
+};
+
+export const createSkillVerification = async (
+  userId: string,
+  data: Omit<SkillVerification, 'id' | 'userId' | 'verifiedAt'>
+): Promise<string> => {
+  if (!isFirebaseConfigured()) return '';
+  
+  // Invalidate any existing verifications
+  const existing = await getSkillVerification(userId);
+  if (existing) {
+    await updateDoc(doc(db, 'skillVerifications', existing.id), {
+      status: 'invalidated',
+      invalidatedAt: serverTimestamp(),
+      invalidationReason: 'manual'
+    });
+  }
+  
+  const docRef = await addDoc(collection(db, 'skillVerifications'), {
+    ...data,
+    userId,
+    verifiedAt: serverTimestamp()
+  });
+  
+  return docRef.id;
+};
+
+export const invalidateSkillVerification = async (
+  userId: string,
+  reason: 'profile_edited' | 'manual' | 'expired'
+): Promise<void> => {
+  if (!isFirebaseConfigured()) return;
+  
+  const verification = await getSkillVerification(userId);
+  if (!verification) return;
+  
+  await updateDoc(doc(db, 'skillVerifications', verification.id), {
+    status: 'invalidated',
+    invalidatedAt: serverTimestamp(),
+    invalidationReason: reason
+  });
+};
+
+export const subscribeToSkillVerification = (
+  userId: string,
+  onUpdate: (verification: SkillVerification | null) => void
+): Unsubscribe => {
+  if (!isFirebaseConfigured()) return () => {};
+  
+  const q = query(
+    collection(db, 'skillVerifications'),
+    where('userId', '==', userId),
+    where('status', '==', 'verified'),
+    orderBy('verifiedAt', 'desc'),
+    limit(1)
+  );
+  
+  return onSnapshot(q, (snapshot) => {
+    if (snapshot.empty) {
+      onUpdate(null);
+      return;
+    }
+    onUpdate({ id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as SkillVerification);
+  });
+};
+
+// ========================
+// DISCOVER PEOPLE FUNCTIONS
+// ========================
+
+// Get ALL users (except current user) - for Discover People page
+export const getAllUsers = async (excludeUserId?: string): Promise<UserProfile[]> => {
+  if (!isFirebaseConfigured()) return [];
+  const q = query(collection(db, 'profiles'), orderBy('createdAt', 'desc'));
+  const snapshot = await getDocs(q);
+  return snapshot.docs
+    .map(doc => ({ id: doc.id, ...doc.data() } as UserProfile))
+    .filter(user => user.id !== excludeUserId);
+};
+
+// Subscribe to all users in real-time
+export const subscribeToAllUsers = (
+  excludeUserId: string,
+  onUpdate: (users: UserProfile[]) => void
+): Unsubscribe => {
+  if (!isFirebaseConfigured()) return () => {};
+  
+  const q = query(collection(db, 'profiles'), orderBy('createdAt', 'desc'));
+  
+  return onSnapshot(q, (snapshot) => {
+    const users = snapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() } as UserProfile))
+      .filter(user => user.id !== excludeUserId);
+    onUpdate(users);
+  });
+};
+
+// Get available users only (for backward compatibility)
+export const getAvailableUsers = async (excludeUserId?: string): Promise<UserProfile[]> => {
+  if (!isFirebaseConfigured()) return [];
+  const q = query(collection(db, 'profiles'), where('teamId', '==', null));
+  const snapshot = await getDocs(q);
+  return snapshot.docs
+    .map(doc => ({ id: doc.id, ...doc.data() } as UserProfile))
+    .filter(user => user.id !== excludeUserId);
+};
+
+export const getAvailableUsersByRole = async (role: string, excludeUserId?: string): Promise<UserProfile[]> => {
+  if (!isFirebaseConfigured()) return [];
+  const q = query(
+    collection(db, 'profiles'), 
+    where('teamId', '==', null),
+    where('primaryRole', '==', role)
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs
+    .map(doc => ({ id: doc.id, ...doc.data() } as UserProfile))
+    .filter(user => user.id !== excludeUserId);
+};
+
+export const getAvailableRoles = async (): Promise<string[]> => {
+  if (!isFirebaseConfigured()) return [];
+  const snapshot = await getDocs(collection(db, 'profiles'));
+  const roles = new Set<string>();
+  snapshot.docs.forEach(doc => {
+    const data = doc.data();
+    if (data.primaryRole) roles.add(data.primaryRole);
+  });
+  return Array.from(roles);
+};
+
+// ========================
+// TEAM FUNCTIONS
+// ========================
+
+export const createTeam = async (data: Omit<Team, 'id' | 'createdAt' | 'members'>): Promise<string> => {
+  if (!isFirebaseConfigured()) return '';
+  
+  const leaderProfile = await getProfile(data.leaderId);
+  const leaderName = leaderProfile?.fullName || 'User';
+  
+  const docRef = await addDoc(collection(db, 'teams'), {
+    ...data,
+    leaderName,
+    members: [{ userId: data.leaderId, role: 'Team Leader', userName: leaderName }],
+    createdAt: serverTimestamp()
+  });
+  
+  // Update user's teamId and isTeamLeader
+  await updateProfile(data.leaderId, { teamId: docRef.id, isTeamLeader: true });
+  
+  // Create feed post for team creation
+  await createFeedPost({
+    authorId: data.leaderId,
+    authorName: leaderName,
+    authorAvatar: leaderProfile?.avatar,
+    authorRole: leaderProfile?.primaryRole,
+    type: 'team_created',
+    title: `🚀 Created team: ${data.name}`,
+    description: data.description,
+    teamId: docRef.id,
+    teamName: data.name,
+    rolesNeeded: data.rolesNeeded
+  });
+  
+  return docRef.id;
+};
+
+export const getTeam = async (teamId: string): Promise<Team | null> => {
+  if (!isFirebaseConfigured()) return null;
+  const docSnap = await getDoc(doc(db, 'teams', teamId));
+  return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } as Team : null;
+};
+
+export const getUserTeams = async (userId: string): Promise<Team[]> => {
+  if (!isFirebaseConfigured()) return [];
+  
+  // Get user's profile to check teamId
+  const profile = await getProfile(userId);
+  if (!profile?.teamId) return [];
+  
+  const team = await getTeam(profile.teamId);
+  return team ? [team] : [];
+};
+
+// Subscribe to user's teams in real-time
+export const subscribeToUserTeams = (
+  userId: string,
+  onUpdate: (teams: Team[]) => void
+): Unsubscribe => {
+  if (!isFirebaseConfigured()) return () => {};
+  
+  // First get user's teamId, then subscribe to that team
+  const profileRef = doc(db, 'profiles', userId);
+  
+  return onSnapshot(profileRef, async (profileSnap) => {
+    const profile = profileSnap.exists() ? profileSnap.data() as UserProfile : null;
+    if (!profile?.teamId) {
+      onUpdate([]);
+      return;
+    }
+    
+    const team = await getTeam(profile.teamId);
+    onUpdate(team ? [team] : []);
+  });
+};
+
+export const updateTeam = async (teamId: string, data: Partial<Team>): Promise<void> => {
+  if (!isFirebaseConfigured()) return;
+  await updateDoc(doc(db, 'teams', teamId), data);
+};
+
+// ========================
+// TEAM MEMBER FUNCTIONS
+// ========================
+
+export const addTeamMember = async (teamId: string, userId: string, role: string): Promise<void> => {
+  if (!isFirebaseConfigured()) return;
+  
+  // Check if user is already in a team
+  const profile = await getProfile(userId);
+  if (profile?.teamId) {
+    throw new Error('User is already in a team');
+  }
+  
+  // Get current team
+  const team = await getTeam(teamId);
+  if (!team) throw new Error('Team not found');
+  
+  // Check if team is full
+  if (team.members.length >= team.maxMembers) {
+    throw new Error('Team is full');
+  }
+  
+  const userName = profile?.fullName || 'User';
+  
+  // Add member to team's members array
+  const updatedMembers = [...(team.members || []), { userId, role, userName }];
+  await updateTeam(teamId, { members: updatedMembers });
+  
+  // Update user's teamId
+  await updateProfile(userId, { teamId, isTeamLeader: false });
+  
+  // Create feed post
+  await createFeedPost({
+    authorId: userId,
+    authorName: userName,
+    authorAvatar: profile?.avatar,
+    authorRole: profile?.primaryRole,
+    type: 'member_joined',
+    title: `🎉 Joined team: ${team.name}`,
+    description: `${userName} joined as ${role}`,
+    teamId,
+    teamName: team.name
+  });
+  
+  // Also add to teamMembers collection for backward compatibility
+  await addDoc(collection(db, 'teamMembers'), {
+    teamId,
+    userId,
+    role,
+    joinedAt: serverTimestamp()
+  });
+};
+
+export const getTeamMembers = async (teamId: string): Promise<(TeamMember & { profile: UserProfile | null })[]> => {
+  if (!isFirebaseConfigured()) return [];
+  
+  // Get team and its members array
+  const team = await getTeam(teamId);
+  if (!team) return [];
+  
+  // Fetch profiles for each member
+  const members = await Promise.all(
+    (team.members || []).map(async (member, index) => {
+      const profile = await getProfile(member.userId);
+      return {
+        id: `${teamId}-${member.userId}`,
+        teamId,
+        userId: member.userId,
+        role: member.role,
+        joinedAt: team.createdAt,
+        profile
+      } as TeamMember & { profile: UserProfile | null };
+    })
+  );
+  
+  return members;
+};
+
+// Subscribe to team members in real-time
+export const subscribeToTeamMembers = (
+  teamId: string,
+  onUpdate: (members: (TeamMember & { profile: UserProfile | null })[]) => void
+): Unsubscribe => {
+  if (!isFirebaseConfigured()) return () => {};
+  
+  const teamRef = doc(db, 'teams', teamId);
+  
+  return onSnapshot(teamRef, async (teamSnap) => {
+    if (!teamSnap.exists()) {
+      onUpdate([]);
+      return;
+    }
+    
+    const team = { id: teamSnap.id, ...teamSnap.data() } as Team;
+    
+    const members = await Promise.all(
+      (team.members || []).map(async (member) => {
+        const profile = await getProfile(member.userId);
+        return {
+          id: `${teamId}-${member.userId}`,
+          teamId,
+          userId: member.userId,
+          role: member.role,
+          joinedAt: team.createdAt,
+          profile
+        } as TeamMember & { profile: UserProfile | null };
+      })
+    );
+    
+    onUpdate(members);
+  });
+};
+
+export const removeTeamMember = async (teamId: string, userId: string): Promise<void> => {
+  if (!isFirebaseConfigured()) return;
+  
+  const team = await getTeam(teamId);
+  if (!team) return;
+  
+  const updatedMembers = (team.members || []).filter(m => m.userId !== userId);
+  await updateTeam(teamId, { members: updatedMembers });
+  await updateProfile(userId, { teamId: null, isTeamLeader: false });
+  
+  // Also remove from teamMembers collection
+  const q = query(
+    collection(db, 'teamMembers'),
+    where('teamId', '==', teamId),
+    where('userId', '==', userId)
+  );
+  const snapshot = await getDocs(q);
+  for (const doc of snapshot.docs) {
+    await deleteDoc(doc.ref);
+  }
+};
+
+// Terminate team (leader only)
+export const terminateTeam = async (teamId: string, leaderId: string): Promise<void> => {
+  if (!isFirebaseConfigured()) return;
+  
+  const team = await getTeam(teamId);
+  if (!team) throw new Error('Team not found');
+  if (team.leaderId !== leaderId) throw new Error('Only team leader can terminate the team');
+  
+  // Update all members' profiles to remove team association
+  for (const member of team.members) {
+    await updateProfile(member.userId, { teamId: null, isTeamLeader: false });
+  }
+  
+  // Delete team members from collection
+  const membersQuery = query(collection(db, 'teamMembers'), where('teamId', '==', teamId));
+  const membersSnapshot = await getDocs(membersQuery);
+  for (const doc of membersSnapshot.docs) {
+    await deleteDoc(doc.ref);
+  }
+  
+  // Delete related invitations
+  const invitationsQuery = query(collection(db, 'invitations'), where('teamId', '==', teamId));
+  const invitationsSnapshot = await getDocs(invitationsQuery);
+  for (const doc of invitationsSnapshot.docs) {
+    await deleteDoc(doc.ref);
+  }
+  
+  // Delete the team document
+  await deleteDoc(doc(db, 'teams', teamId));
+};
+
+// Subscribe to teams with open slots (for Discover Teams page)
+export const subscribeToAvailableTeams = (
+  onUpdate: (teams: Team[]) => void
+): Unsubscribe => {
+  if (!isFirebaseConfigured()) return () => {};
+  
+  const q = query(
+    collection(db, 'teams'),
+    where('status', '==', 'forming'),
+    orderBy('createdAt', 'desc')
+  );
+  
+  return onSnapshot(q, (snapshot) => {
+    const teams = snapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() } as Team))
+      .filter(team => team.members.length < team.maxMembers);
+    onUpdate(teams);
+  }, (error) => {
+    console.error('Available teams subscription error:', error);
+    onUpdate([]);
+  });
+};
+
+// ========================
+// INVITATION FUNCTIONS
+// ========================
+
+export const sendInvitation = async (data: Omit<Invitation, 'id' | 'status' | 'createdAt'>): Promise<void> => {
+  if (!isFirebaseConfigured()) return;
+  
+  const isJoinRequest = data.type === 'join_request';
+  
+  // For invites, check if target user is already in a team
+  if (!isJoinRequest) {
+    const targetProfile = await getProfile(data.toUserId);
+    if (targetProfile?.teamId) {
+      throw new Error('User is already in a team');
+    }
+  }
+  
+  // For join requests, check if sender is already in a team
+  if (isJoinRequest) {
+    const senderProfile = await getProfile(data.fromUserId);
+    if (senderProfile?.teamId) {
+      throw new Error('You are already in a team');
+    }
+  }
+  
+  // Check for existing pending invitation/request
+  const existingQuery = query(
+    collection(db, 'invitations'),
+    where('fromUserId', '==', data.fromUserId),
+    where('teamId', '==', data.teamId),
+    where('status', '==', 'pending')
+  );
+  const existingSnap = await getDocs(existingQuery);
+  if (!existingSnap.empty) {
+    throw new Error(isJoinRequest ? 'Join request already sent' : 'Invitation already sent');
+  }
+  
+  // Create invitation/join request
+  await addDoc(collection(db, 'invitations'), {
+    ...data,
+    status: 'pending',
+    createdAt: serverTimestamp()
+  });
+  
+  // Create notification
+  const notifyUserId = isJoinRequest ? data.toUserId : data.toUserId;
+  await createNotification({
+    toUserId: notifyUserId,
+    fromUserId: data.fromUserId,
+    fromUserName: data.fromUserName,
+    type: isJoinRequest ? 'JOIN_REQUEST' : 'INVITE',
+    teamId: data.teamId,
+    teamName: data.teamName,
+    message: data.message
+  });
+};
+
+export const getIncomingInvitations = async (userId: string): Promise<Invitation[]> => {
+  if (!isFirebaseConfigured()) return [];
+  const q = query(
+    collection(db, 'invitations'),
+    where('toUserId', '==', userId),
+    where('status', '==', 'pending')
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Invitation));
+};
+
+export const getOutgoingInvitations = async (userId: string): Promise<Invitation[]> => {
+  if (!isFirebaseConfigured()) return [];
+  const q = query(
+    collection(db, 'invitations'),
+    where('fromUserId', '==', userId)
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Invitation));
+};
+
+export const respondToInvitation = async (
+  invitationId: string, 
+  status: 'accepted' | 'rejected',
+  teamId?: string,
+  userId?: string,
+  role?: string
+): Promise<void> => {
+  if (!isFirebaseConfigured()) return;
+  
+  // Get invitation details
+  const invRef = doc(db, 'invitations', invitationId);
+  const invSnap = await getDoc(invRef);
+  const invitation = invSnap.exists() ? { id: invSnap.id, ...invSnap.data() } as Invitation : null;
+  
+  if (!invitation) {
+    throw new Error('Invitation not found');
+  }
+  
+  const isJoinRequest = invitation.type === 'join_request';
+  
+  // Determine who is joining
+  const joiningUserId = isJoinRequest ? invitation.fromUserId : invitation.toUserId;
+  const joiningUserName = isJoinRequest ? invitation.fromUserName : invitation.toUserName;
+  
+  // If accepting, verify the joining user is not already in a team
+  if (status === 'accepted') {
+    const profile = await getProfile(joiningUserId);
+    if (profile?.teamId) {
+      throw new Error('User is already in a team');
+    }
+    
+    // Check if team still has room
+    const team = await getTeam(invitation.teamId);
+    if (!team) {
+      throw new Error('Team no longer exists');
+    }
+    if (team.members.length >= team.maxMembers) {
+      throw new Error('Team is full');
+    }
+  }
+  
+  await updateDoc(invRef, { status });
+  
+  if (status === 'accepted') {
+    const joiningProfile = await getProfile(joiningUserId);
+    const joiningRole = joiningProfile?.primaryRole || role || 'Member';
+    
+    await addTeamMember(invitation.teamId, joiningUserId, joiningRole);
+    
+    // Notify the appropriate party
+    const notifyUserId = isJoinRequest ? invitation.fromUserId : invitation.fromUserId;
+    const responderProfile = await getProfile(isJoinRequest ? invitation.toUserId : invitation.toUserId);
+    
+    await createNotification({
+      toUserId: notifyUserId,
+      fromUserId: isJoinRequest ? invitation.toUserId : invitation.toUserId,
+      fromUserName: responderProfile?.fullName || 'User',
+      type: 'ACCEPTED',
+      teamId: invitation.teamId,
+      teamName: invitation.teamName,
+      message: isJoinRequest 
+        ? `Your request to join ${invitation.teamName} was accepted!`
+        : `${joiningUserName} accepted your invitation to join ${invitation.teamName}`
+    });
+  } else if (status === 'rejected') {
+    const notifyUserId = isJoinRequest ? invitation.fromUserId : invitation.fromUserId;
+    const responderProfile = await getProfile(isJoinRequest ? invitation.toUserId : invitation.toUserId);
+    
+    await createNotification({
+      toUserId: notifyUserId,
+      fromUserId: isJoinRequest ? invitation.toUserId : invitation.toUserId,
+      fromUserName: responderProfile?.fullName || 'User',
+      type: 'REJECTED',
+      teamId: invitation.teamId,
+      teamName: invitation.teamName,
+      message: isJoinRequest 
+        ? `Your request to join ${invitation.teamName} was declined`
+        : `${invitation.toUserName} declined your invitation to join ${invitation.teamName}`
+    });
+  }
+};
+
+// Subscribe to join requests for a team leader
+export const subscribeToJoinRequests = (
+  teamId: string,
+  onUpdate: (requests: Invitation[]) => void
+): Unsubscribe => {
+  if (!isFirebaseConfigured()) return () => {};
+  
+  const q = query(
+    collection(db, 'invitations'),
+    where('teamId', '==', teamId),
+    where('type', '==', 'join_request'),
+    where('status', '==', 'pending')
+  );
+  
+  return onSnapshot(q, (snapshot) => {
+    const requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Invitation));
+    onUpdate(requests);
+  }, (error) => {
+    console.error('Join requests subscription error:', error);
+    onUpdate([]);
+  });
+};
+
+// Subscribe to invitations in real-time
+export const subscribeToInvitations = (
+  userId: string,
+  onUpdate: (incoming: Invitation[], outgoing: Invitation[]) => void
+): Unsubscribe => {
+  if (!isFirebaseConfigured()) return () => {};
+  
+  const incomingQuery = query(
+    collection(db, 'invitations'),
+    where('toUserId', '==', userId),
+    where('status', '==', 'pending')
+  );
+  
+  const outgoingQuery = query(
+    collection(db, 'invitations'),
+    where('fromUserId', '==', userId)
+  );
+  
+  let incoming: Invitation[] = [];
+  let outgoing: Invitation[] = [];
+  
+  const unsubIncoming = onSnapshot(incomingQuery, (snapshot) => {
+    incoming = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Invitation));
+    onUpdate(incoming, outgoing);
+  });
+  
+  const unsubOutgoing = onSnapshot(outgoingQuery, (snapshot) => {
+    outgoing = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Invitation));
+    onUpdate(incoming, outgoing);
+  });
+  
+  return () => {
+    unsubIncoming();
+    unsubOutgoing();
+  };
+};
+
+// ========================
+// NOTIFICATION FUNCTIONS
+// ========================
+
+export const createNotification = async (data: Omit<Notification, 'id' | 'read' | 'createdAt'>): Promise<void> => {
+  if (!isFirebaseConfigured()) return;
+  await addDoc(collection(db, 'notifications'), {
+    ...data,
+    read: false,
+    createdAt: serverTimestamp()
+  });
+};
+
+export const getNotifications = async (userId: string): Promise<Notification[]> => {
+  if (!isFirebaseConfigured()) return [];
+  const q = query(
+    collection(db, 'notifications'),
+    where('toUserId', '==', userId),
+    orderBy('createdAt', 'desc'),
+    limit(50)
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
+};
+
+export const subscribeToNotifications = (
+  userId: string,
+  onUpdate: (notifications: Notification[]) => void
+): Unsubscribe => {
+  if (!isFirebaseConfigured()) return () => {};
+  
+  const q = query(
+    collection(db, 'notifications'),
+    where('toUserId', '==', userId),
+    orderBy('createdAt', 'desc'),
+    limit(50)
+  );
+  
+  return onSnapshot(q, (snapshot) => {
+    const notifications = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
+    onUpdate(notifications);
+  });
+};
+
+export const markNotificationAsRead = async (notificationId: string): Promise<void> => {
+  if (!isFirebaseConfigured()) return;
+  await updateDoc(doc(db, 'notifications', notificationId), { read: true });
+};
+
+export const markAllNotificationsAsRead = async (userId: string): Promise<void> => {
+  if (!isFirebaseConfigured()) return;
+  const q = query(
+    collection(db, 'notifications'),
+    where('toUserId', '==', userId),
+    where('read', '==', false)
+  );
+  const snapshot = await getDocs(q);
+  await Promise.all(snapshot.docs.map(d => updateDoc(d.ref, { read: true })));
+};
+
+export const getUnreadNotificationCount = async (userId: string): Promise<number> => {
+  if (!isFirebaseConfigured()) return 0;
+  const q = query(
+    collection(db, 'notifications'),
+    where('toUserId', '==', userId),
+    where('read', '==', false)
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.size;
+};
+
+// ========================
+// FEED POST FUNCTIONS
+// ========================
+
+export const createFeedPost = async (data: Omit<FeedPost, 'id' | 'createdAt'>): Promise<string> => {
+  if (!isFirebaseConfigured()) return '';
+  const docRef = await addDoc(collection(db, 'posts'), {
+    ...data,
+    createdAt: serverTimestamp()
+  });
+  return docRef.id;
+};
+
+export const createUserPost = async (
+  userId: string,
+  data: { title: string; description: string; tags?: string[] }
+): Promise<string> => {
+  if (!isFirebaseConfigured()) return '';
+  
+  const profile = await getProfile(userId);
+  
+  const docRef = await addDoc(collection(db, 'posts'), {
+    authorId: userId,
+    authorName: profile?.fullName || 'User',
+    authorAvatar: profile?.avatar,
+    authorRole: profile?.primaryRole,
+    type: 'user_post',
+    title: data.title,
+    description: data.description,
+    tags: data.tags || [],
+    createdAt: serverTimestamp()
+  });
+  
+  return docRef.id;
+};
+
+export const updatePost = async (
+  postId: string,
+  data: { title: string; description: string; tags?: string[] }
+): Promise<void> => {
+  if (!isFirebaseConfigured()) return;
+  await updateDoc(doc(db, 'posts', postId), {
+    title: data.title,
+    description: data.description,
+    tags: data.tags || []
+  });
+};
+
+export const deletePost = async (postId: string): Promise<void> => {
+  if (!isFirebaseConfigured()) return;
+  await deleteDoc(doc(db, 'posts', postId));
+};
+
+export const getUserPosts = async (userId: string): Promise<FeedPost[]> => {
+  if (!isFirebaseConfigured()) return [];
+  const q = query(
+    collection(db, 'posts'),
+    where('authorId', '==', userId),
+    orderBy('createdAt', 'desc')
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FeedPost));
+};
+
+export const subscribeToUserPosts = (
+  userId: string,
+  onUpdate: (posts: FeedPost[]) => void
+): Unsubscribe => {
+  if (!isFirebaseConfigured()) return () => {};
+  
+  const q = query(
+    collection(db, 'posts'),
+    where('authorId', '==', userId),
+    orderBy('createdAt', 'desc')
+  );
+  
+  return onSnapshot(q, (snapshot) => {
+    const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FeedPost));
+    onUpdate(posts);
+  });
+};
+
+export const getFeedPosts = async (): Promise<FeedPost[]> => {
+  if (!isFirebaseConfigured()) return [];
+  const q = query(
+    collection(db, 'posts'),
+    orderBy('createdAt', 'desc'),
+    limit(50)
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FeedPost));
+};
+
+export const subscribeToFeedPosts = (
+  onUpdate: (posts: FeedPost[]) => void
+): Unsubscribe => {
+  if (!isFirebaseConfigured()) return () => {};
+  
+  const q = query(
+    collection(db, 'posts'),
+    orderBy('createdAt', 'desc'),
+    limit(50)
+  );
+  
+  return onSnapshot(q, (snapshot) => {
+    const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FeedPost));
+    onUpdate(posts);
+  }, (error) => {
+    console.error('Feed subscription error:', error);
+    onUpdate([]);
+  });
+};
+
+// ========================
+// WORKSPACE LOG FUNCTIONS
+// ========================
+
+export const addWorkspaceLog = async (teamId: string, userId: string, userName: string, message: string): Promise<void> => {
+  if (!isFirebaseConfigured()) return;
+  await addDoc(collection(db, 'workspaceLogs'), {
+    teamId,
+    userId,
+    userName,
+    message,
+    createdAt: serverTimestamp()
+  });
+};
+
+export const getWorkspaceLogs = async (teamId: string): Promise<WorkspaceLog[]> => {
+  if (!isFirebaseConfigured()) return [];
+  const q = query(
+    collection(db, 'workspaceLogs'),
+    where('teamId', '==', teamId),
+    orderBy('createdAt', 'desc')
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WorkspaceLog));
+};
+
+export const subscribeToWorkspaceLogs = (
+  teamId: string,
+  onUpdate: (logs: WorkspaceLog[]) => void
+): Unsubscribe => {
+  if (!isFirebaseConfigured()) return () => {};
+  
+  const q = query(
+    collection(db, 'workspaceLogs'),
+    where('teamId', '==', teamId),
+    orderBy('createdAt', 'desc')
+  );
+  
+  return onSnapshot(q, (snapshot) => {
+    const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WorkspaceLog));
+    onUpdate(logs);
+  });
+};
+
+// ========================
+// TEAM TASK FUNCTIONS
+// ========================
+
+export const createTeamTask = async (
+  teamId: string, 
+  data: { title: string; assignedTo: string[]; completed: boolean }
+): Promise<string> => {
+  if (!isFirebaseConfigured()) return '';
+  const docRef = await addDoc(collection(db, 'teamTasks'), {
+    teamId,
+    ...data,
+    createdAt: serverTimestamp()
+  });
+  return docRef.id;
+};
+
+export const getTeamTasks = async (teamId: string): Promise<TeamTask[]> => {
+  if (!isFirebaseConfigured()) return [];
+  const q = query(
+    collection(db, 'teamTasks'),
+    where('teamId', '==', teamId),
+    orderBy('createdAt', 'desc')
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TeamTask));
+};
+
+export const updateTeamTask = async (
+  taskId: string,
+  data: Partial<Pick<TeamTask, 'title' | 'assignedTo'>>
+): Promise<void> => {
+  if (!isFirebaseConfigured()) return;
+  await updateDoc(doc(db, 'teamTasks', taskId), data);
+};
+
+
+export const subscribeToTeamTasks = (
+  teamId: string,
+  onUpdate: (tasks: TeamTask[]) => void
+) => {
+  const q = query(
+    collection(db, 'teamTasks'),
+    where('teamId', '==', teamId)
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    const tasks = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...(doc.data() as TeamTask),
+    }));
+    onUpdate(tasks);
+  }, (error) => {
+    console.error('Team tasks subscription error:', error);
+    onUpdate([]);
+  });
+};
+
+
+export const updateTaskCompletion = async (
+  taskId: string, 
+  completed: boolean, 
+  completedBy: string
+): Promise<void> => {
+  if (!isFirebaseConfigured()) return;
+  await updateDoc(doc(db, 'teamTasks', taskId), { 
+    completed, 
+    completedBy: completed ? completedBy : null,
+    completedAt: completed ? serverTimestamp() : null
+  });
+};
+
+export const deleteTeamTask = async (taskId: string): Promise<void> => {
+  if (!isFirebaseConfigured()) return;
+  await deleteDoc(doc(db, 'teamTasks', taskId));
+};
+
+// ========================
+// STATS FUNCTIONS
+// ========================
+
+export const getAvailableUsersCount = async (): Promise<number> => {
+  if (!isFirebaseConfigured()) return 0;
+  const q = query(collection(db, 'profiles'), where('teamId', '==', null));
+  const snapshot = await getDocs(q);
+  return snapshot.size;
+};
+
+export const getAvailableTeamsCount = async (): Promise<number> => {
+  if (!isFirebaseConfigured()) return 0;
+  const q = query(collection(db, 'teams'), where('status', '==', 'forming'));
+  const snapshot = await getDocs(q);
+  return snapshot.size;
+};
+
+// ========================
+// MESSAGING FUNCTIONS
+// ========================
+
+// Get or create a conversation between two users
+export const getOrCreateConversation = async (
+  user1Id: string,
+  user2Id: string
+): Promise<string> => {
+  if (!isFirebaseConfigured()) return '';
+  
+  // Check if conversation already exists
+  const q = query(
+    collection(db, 'conversations'),
+    where('participants', 'array-contains', user1Id)
+  );
+  
+  const snapshot = await getDocs(q);
+  const existing = snapshot.docs.find(doc => {
+    const data = doc.data();
+    return data.participants.includes(user2Id);
+  });
+  
+  if (existing) {
+    return existing.id;
+  }
+  
+  // Get both user profiles
+  const [profile1, profile2] = await Promise.all([
+    getProfile(user1Id),
+    getProfile(user2Id)
+  ]);
+  
+  // Create new conversation
+  const docRef = await addDoc(collection(db, 'conversations'), {
+    participants: [user1Id, user2Id],
+    participantNames: {
+      [user1Id]: profile1?.fullName || 'User',
+      [user2Id]: profile2?.fullName || 'User'
+    },
+    participantAvatars: {
+      [user1Id]: profile1?.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${profile1?.fullName || 'User'}`,
+      [user2Id]: profile2?.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${profile2?.fullName || 'User'}`
+    },
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
+  
+  return docRef.id;
+};
+
+// Send a message
+export const sendMessage = async (
+  conversationId: string,
+  senderId: string,
+  text: string
+): Promise<string> => {
+  if (!isFirebaseConfigured()) return '';
+
+  const senderProfile = await getProfile(senderId);
+  const convSnap = await getDoc(doc(db, 'conversations', conversationId));
+
+  if (!convSnap.exists()) {
+    throw new Error('Conversation not found');
+  }
+
+  const { participants } = convSnap.data();
+
+  const messageRef = await addDoc(collection(db, 'messages'), {
+    conversationId,
+    participants, // ✅ ADD THIS
+    senderId,
+    senderName: senderProfile?.fullName || 'User',
+    text,
+    read: false,
+    createdAt: serverTimestamp()
+  });
+
+  await updateDoc(doc(db, 'conversations', conversationId), {
+    lastMessage: {
+      text,
+      senderId,
+      sentAt: serverTimestamp()
+    },
+    updatedAt: serverTimestamp()
+  });
+
+  return messageRef.id;
+};
+
+
+// Subscribe to user's conversations
+export const subscribeToConversations = (
+  userId: string,
+  onUpdate: (conversations: Conversation[]) => void
+): Unsubscribe => {
+  if (!isFirebaseConfigured()) return () => {};
+  
+  const q = query(
+    collection(db, 'conversations'),
+    where('participants', 'array-contains', userId),
+    orderBy('updatedAt', 'desc')
+  );
+  
+  return onSnapshot(q, (snapshot) => {
+    const conversations = snapshot.docs.map(doc => ({ 
+      id: doc.id, 
+      ...doc.data() 
+    } as Conversation));
+    onUpdate(conversations);
+  }, (error) => {
+    console.error('Conversations subscription error:', error);
+    onUpdate([]);
+  });
+};
+
+// Subscribe to messages in a conversation
+export const subscribeToMessages = (
+  conversationId: string,
+  onUpdate: (messages: Message[]) => void
+): Unsubscribe => {
+  if (!isFirebaseConfigured()) return () => {};
+  
+  const q = query(
+    collection(db, 'messages'),
+    where('conversationId', '==', conversationId),
+    orderBy('createdAt', 'asc')
+  );
+  
+  return onSnapshot(q, (snapshot) => {
+    const messages = snapshot.docs.map(doc => ({ 
+      id: doc.id, 
+      ...doc.data() 
+    } as Message));
+    onUpdate(messages);
+  }, (error) => {
+    console.error('Messages subscription error:', error);
+    onUpdate([]);
+  });
+};
+
+// Mark messages as read
+export const markMessagesAsRead = async (
+  conversationId: string,
+  userId: string
+): Promise<void> => {
+  if (!isFirebaseConfigured()) return;
+  
+  const q = query(
+    collection(db, 'messages'),
+    where('conversationId', '==', conversationId),
+    where('read', '==', false)
+  );
+  
+  const snapshot = await getDocs(q);
+  const updates = snapshot.docs
+    .filter(d => d.data().senderId !== userId)
+    .map(d => updateDoc(d.ref, { read: true }));
+  
+  await Promise.all(updates);
+};
+
+// Get unread message count for a user
+export const getUnreadMessageCount = async (userId: string): Promise<number> => {
+  if (!isFirebaseConfigured()) return 0;
+  
+  // Get all conversations the user is part of
+  const convQuery = query(
+    collection(db, 'conversations'),
+    where('participants', 'array-contains', userId)
+  );
+  const convSnapshot = await getDocs(convQuery);
+  const conversationIds = convSnapshot.docs.map(d => d.id);
+  
+  if (conversationIds.length === 0) return 0;
+  
+  let totalUnread = 0;
+  
+  // For each conversation, count unread messages not sent by user
+  for (const convId of conversationIds) {
+    const msgQuery = query(
+      collection(db, 'messages'),
+      where('conversationId', '==', convId),
+      where('read', '==', false)
+    );
+    const msgSnapshot = await getDocs(msgQuery);
+    totalUnread += msgSnapshot.docs.filter(d => d.data().senderId !== userId).length;
+  }
+  
+  return totalUnread;
+};
+
+
+firestore.types.ts:
+import { Timestamp } from 'firebase/firestore';
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  fullName: string;
+  college?: string;
+  yearOfStudy?: 'First Year' | 'Second Year' | 'Third Year' | 'Fourth Year';
+  primaryRole: 'Frontend Developer' | 'Backend Developer' | 'UI/UX Designer' | 'Tester' | 'Full Stack Developer' | 'ML Engineer' | 'Mobile Developer' | 'DevOps Engineer' | 'Product Manager';
+  skills: { name: string; proficiency: 'Beginner' | 'Intermediate' | 'Pro' }[];
+  bio?: string;
+  avatar?: string;
+  teamId: string | null;
+  isTeamLeader?: boolean;
+  // DEPRECATED: Keep for backward compatibility but use skillVerifications collection instead
+  skillVerification?: {
+    verified: boolean;
+    githubVerified?: boolean;
+    certificatesVerified?: number;
+    verifiedAt?: Timestamp;
+  };
+  createdAt: Timestamp;
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  description: string;
+  hackathon?: string;
+  leaderId: string;
+  leaderName?: string;
+  members: { userId: string; role: string; userName?: string }[];
+  maxMembers: number;
+  status: 'forming' | 'active' | 'complete';
+  rolesNeeded?: string[];
+  createdAt: Timestamp;
+}
+
+export interface TeamMember {
+  id: string;
+  teamId: string;
+  userId: string;
+  role: string;
+  joinedAt: Timestamp;
+}
+
+export interface Invitation {
+  id: string;
+  teamId: string;
+  teamName: string;
+  fromUserId: string;
+  fromUserName: string;
+  toUserId: string;
+  toUserName: string;
+  message?: string;
+  type: 'invite' | 'join_request';
+  status: 'pending' | 'accepted' | 'rejected';
+  createdAt: Timestamp;
+}
+
+export interface Notification {
+  id: string;
+  toUserId: string;
+  fromUserId: string;
+  fromUserName?: string;
+  type: 'INVITE' | 'ACCEPTED' | 'REJECTED' | 'TEAM_UPDATE' | 'JOIN_REQUEST';
+  teamId?: string;
+  teamName?: string;
+  message?: string;
+  read: boolean;
+  createdAt: Timestamp;
+}
+
+export interface FeedPost {
+  id: string;
+  authorId: string;
+  authorName: string;
+  authorAvatar?: string;
+  authorRole?: string;
+  type: 'team_created' | 'member_joined' | 'looking_for_team' | 'open_to_join' | 'user_post';
+  title: string;
+  description: string;
+  teamId?: string;
+  teamName?: string;
+  rolesNeeded?: string[];
+  skills?: string[];
+  tags?: string[];
+  createdAt: Timestamp;
+}
+
+export interface WorkspaceLog {
+  id: string;
+  teamId: string;
+  userId: string;
+  userName: string;
+  message: string;
+  createdAt: Timestamp;
+}
+
+export interface TeamTask {
+  id: string;
+  teamId: string;
+  title: string;
+  assignedTo: string[];
+  completed: boolean;
+  completedBy?: string;
+  completedAt?: Timestamp;
+  createdAt: Timestamp;
+}
+
+// NEW: Comprehensive skill verification structure
+export interface SkillVerification {
+  id: string;
+  userId: string;
+  status: 'pending' | 'verified' | 'invalidated';
+  verifiedSkills: string[]; // Skills that were successfully verified
+  
+  sources: {
+    github?: {
+      username: string;
+      profileUrl: string;
+      oauthVerified: boolean; // TODO: Set to true only after OAuth
+      inferredSkills: string[]; // Skills inferred from repos
+      analyzedAt: Timestamp;
+    };
+    certificates?: Array<{
+      fileName: string;
+      extractedName: string;
+      nameMatch: boolean;
+      courseTopics: string[]; // Topics extracted from certificate
+      inferredSkills: string[]; // Skills inferred from topics
+      verifiedAt: Timestamp;
+    }>;
+    linkedin?: {
+      profileUrl: string;
+      oauthVerified: boolean; // TODO: Set to true only after OAuth
+      inferredSkills: string[]; // Skills from profile/posts
+      analyzedAt: Timestamp;
+    };
+  };
+  
+  // Profile snapshot at time of verification
+  profileSkillsAtVerification: string[];
+  
+  verifiedAt: Timestamp;
+  invalidatedAt?: Timestamp;
+  invalidationReason?: 'profile_edited' | 'manual' | 'expired';
+}
+// ========================
+// MESSAGING TYPES
+// ========================
+
+export interface Conversation {
+  id: string;
+  participants: string[]; // Array of 2 user IDs
+  participantNames: Record<string, string>; // userId -> displayName
+  participantAvatars: Record<string, string>; // userId -> avatar URL
+  lastMessage?: {
+    text: string;
+    senderId: string;
+    sentAt: Timestamp;
+  };
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export interface Message {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  senderName: string;
+  text: string;
+  read: boolean;
+  createdAt: Timestamp;
+}
+
+firebase rules:
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isAuthed() {
+      return request.auth != null;
+    }
+    
+    function isTeamLeader(teamId) {
+      return isAuthed()
+        && get(/databases/$(database)/documents/teams/$(teamId)).data.leaderId == request.auth.uid;
+    }
+    
+    function isTeamMember(teamId) {
+      let userProfile = get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data;
+      return userProfile.teamId == teamId;
+    }
+
+   // ========================
+// CONVERSATIONS
+// ========================
+match /conversations/{conversationId} {
+
+  // ✅ Correct: per-document auth
+  allow read: if isAuthed()
+    && request.auth.uid in resource.data.participants;
+
+  allow create: if isAuthed()
+    && request.auth.uid in request.resource.data.participants;
+
+  allow update: if isAuthed()
+    && request.auth.uid in resource.data.participants;
+}
+
+// ========================
+// MESSAGES (FIXED)
+// ========================
+match /messages/{messageId} {
+  allow read: if isAuthed()
+    && request.auth.uid in get(
+      /databases/$(database)/documents/conversations/$(resource.data.conversationId)
+    ).data.participants;
+
+  allow create: if isAuthed()
+    && request.resource.data.senderId == request.auth.uid
+    && request.auth.uid in get(
+      /databases/$(database)/documents/conversations/$(request.resource.data.conversationId)
+    ).data.participants;
+
+  allow update: if false;
+  allow delete: if false;
+}
+
+
+    
+    // ========================
+    // TEAM TASKS - FIXED RULES
+    // ========================
+    match /teamTasks/{taskId} {
+      allow read: if isAuthed() 
+        && isTeamMember(resource.data.teamId);
+      
+      allow create: if isAuthed() 
+        && request.resource.data.teamId is string
+        && isTeamLeader(request.resource.data.teamId);
+      
+      allow update: if isAuthed() 
+        && isTeamMember(resource.data.teamId);
+        
+      allow delete: if isAuthed() 
+        && isTeamLeader(resource.data.teamId);
+    }
+    
+    // ========================
+// SKILL VERIFICATIONS (FIXED)
+// ========================
+match /skillVerifications/{verificationId} {
+
+  // Owner can read
+  allow read: if isAuthed()
+    && (
+      resource.data.userId == request.auth.uid
+      || resource.data.status == 'verified'   // 👈 allow public verified badge
+    );
+
+  allow create: if isAuthed()
+    && request.resource.data.userId == request.auth.uid;
+
+  allow update: if isAuthed()
+    && resource.data.userId == request.auth.uid;
+
+  allow delete: if isAuthed()
+    && resource.data.userId == request.auth.uid;
+}
+
+    
+    // ========================
+    // PROFILES
+    // ========================
+    match /profiles/{userId} {
+      allow read: if isAuthed();
+      allow create, update, delete: if isAuthed() && request.auth.uid == userId;
+      allow update: if isAuthed()
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['teamId', 'isTeamLeader'])
+        && (
+          (request.resource.data.teamId is string && isTeamLeader(request.resource.data.teamId))
+          ||
+          (request.resource.data.teamId == null
+            && resource.data.teamId is string
+            && isTeamLeader(resource.data.teamId))
+        );
+    }
+    
+    // ========================
+    // TEAMS
+    // ========================
+    match /teams/{teamId} {
+      allow read: if isAuthed();
+      allow create: if isAuthed();
+      allow update: if isAuthed() && (
+        resource.data.leaderId == request.auth.uid
+        ||
+        (
+          request.resource.data.diff(resource.data).changedKeys().hasOnly(['members']) &&
+          request.resource.data.members.size() == resource.data.members.size() + 1 &&
+          request.resource.data.members.hasAll(resource.data.members) &&
+          request.resource.data.members[request.resource.data.members.size() - 1].userId == request.auth.uid
+        )
+        ||
+        (
+          request.resource.data.diff(resource.data).changedKeys().hasOnly(['members']) &&
+          request.resource.data.members.size() < resource.data.members.size()
+        )
+      );
+      allow delete: if isAuthed() && resource.data.leaderId == request.auth.uid;
+    }
+    
+    match /teamMembers/{memberId} {
+      allow read: if isAuthed();
+      allow create: if isAuthed() && (
+        request.resource.data.userId == request.auth.uid ||
+        isTeamLeader(request.resource.data.teamId)
+      );
+      allow update, delete: if isAuthed() && (
+        resource.data.userId == request.auth.uid ||
+        isTeamLeader(resource.data.teamId)
+      );
+    }
+    
+    match /invitations/{invId} {
+      allow create: if request.auth != null &&
+                    request.resource.data.fromUserId == request.auth.uid;
+      allow read, update, delete: if request.auth != null && (
+        request.auth.uid == resource.data.toUserId ||
+        request.auth.uid == resource.data.fromUserId ||
+        (resource.data.type == 'join_request' &&
+         get(/databases/$(database)/documents/teams/$(resource.data.teamId)).data.leaderId == request.auth.uid)
+      );
+    }
+    
+    match /notifications/{notifId} {
+      allow create: if request.auth != null;
+      allow read, update: if request.auth != null &&
+                           request.auth.uid == resource.data.toUserId;
+    }
+    
+    match /posts/{postId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth.uid == resource.data.authorId;
+    }
+    
+    match /workspaceLogs/{logId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+    }
+  }
+}
