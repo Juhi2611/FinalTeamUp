@@ -634,6 +634,7 @@ const SkillVerificationModal = ({ userId, userName, userSkills, onClose, onCompl
               <p className="text-sm text-foreground font-medium mb-2">How Certificate Verification Works:</p>
               <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
                 <li>We extract your name and course topics from the certificate</li>
+                <li>The Certificate identity/proof must be in ".jpg" or ".png" format</li>
                 <li>Your name must match your profile name</li>
                 <li>Only skills matching your profile will be verified</li>
               </ul>
@@ -773,5 +774,6 @@ const SkillVerificationModal = ({ userId, userName, userSkills, onClose, onCompl
     </div>
   );
 };
+
 
 export default SkillVerificationModal;
