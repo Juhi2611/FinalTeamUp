@@ -26,7 +26,7 @@ export default async function handler(req: IncomingMessage & { body?: any }, res
   }
 
   const { imageBase64, profileName } = parsedBody;
-  const GEMINI_API_KEY = process.env.VITE_GEMINI_API_KEY;
+  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
   if (!GEMINI_API_KEY) {
     res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -80,3 +80,4 @@ Return ONLY valid JSON in this exact format:
     res.end(JSON.stringify({ error: 'Gemini API request failed' }));
   }
 }
+
