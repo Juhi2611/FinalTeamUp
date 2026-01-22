@@ -42,7 +42,7 @@ export default async function handler(
   }
 
   // ⚠️ KEEPING YOUR EXISTING ENV VAR
-  const GEMINI_API_KEY = process.env.VITE_GEMINI_API_KEY;
+  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
   if (!GEMINI_API_KEY) {
     res.statusCode = 500;
@@ -106,5 +106,6 @@ Return ONLY valid JSON in this exact format:
     res.end(JSON.stringify({ error: 'Gemini API request failed' }));
   }
 }
+
 
 
