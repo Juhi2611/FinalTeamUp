@@ -52,7 +52,7 @@ export default async function handler(
 
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -106,3 +106,4 @@ Return ONLY valid JSON in this exact format:
     res.end(JSON.stringify({ error: 'Gemini API request failed' }));
   }
 }
+
