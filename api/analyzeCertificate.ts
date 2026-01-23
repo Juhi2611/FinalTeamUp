@@ -1,124 +1,82 @@
-// api/analyzeCertificate.ts
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import Tesseract from 'tesseract.js';
+// D:\TeamUp-main\functions\analyzeCertificate.ts
+// Server-side proxy for Gemini certificate analysis
 
-/* ======================================================
-   TEXT NORMALIZATION
-====================================================== */
-function normalize(str = '') {
-  return str
-    .toLowerCase()
-    .replace(/[^a-z\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
+import type { IncomingMessage, ServerResponse } from 'http';
 
-/* ======================================================
-   NAME MATCHING (DO NOT TOUCH)
-====================================================== */
-function normalizeWords(str: string) {
-  return normalize(str).split(' ').filter(Boolean);
-}
-
-function isNameMatch(ocrText: string, profileName: string) {
-  const ocrWords = new Set(normalizeWords(ocrText));
-  const profileWords = normalizeWords(profileName);
-  return profileWords.every(word => ocrWords.has(word));
-}
-
-function extractMatchingName(ocrText: string, profileName: string) {
-  const profileWords = normalizeWords(profileName);
-  const ocrWords = normalizeWords(ocrText);
-  return profileWords.filter(w => ocrWords.includes(w)).join(' ') || 'Unknown';
-}
-
-/* ======================================================
-   USER-SKILL MATCHING (ONLY SOURCE OF TRUTH)
-====================================================== */
-function inferSkillsFromUserProfile(text: string, profileSkills: string[] = []) {
-  const cleanText = normalize(text);
-  const matchedSkills = new Set<string>();
-
-  for (const skill of profileSkills) {
-    const normalizedSkill = normalize(skill);
-    // Ignore junk / ultra-short skills
-    if (normalizedSkill.length < 3) continue;
-    if (cleanText.includes(normalizedSkill)) {
-      matchedSkills.add(skill);
-    }
-  }
-
-  return Array.from(matchedSkills);
-}
-
-/* ======================================================
-   VERCEL SERVERLESS FUNCTION
-====================================================== */
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Enable CORS
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-  );
-
-  // Handle OPTIONS request
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
+export default async function handler(req: IncomingMessage & { body?: any }, res: ServerResponse) {
+  // Only accept POST
+  if (req.method !== 'POST') {
+    res.writeHead(405, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Method not allowed' }));
     return;
   }
 
-  // Only accept POST
-  if (req.method !== 'POST') {
-    console.error('Invalid method:', req.method);
-    return res.status(405).json({ error: 'Method not allowed' });
+  // Read body
+  let body = '';
+  req.on('data', chunk => (body += chunk));
+  await new Promise<void>(resolve => req.on('end', resolve));
+
+  let parsedBody: { imageBase64: string; profileName: string };
+  try {
+    parsedBody = JSON.parse(body);
+  } catch {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Invalid JSON body' }));
+    return;
+  }
+
+  const { imageBase64, profileName } = parsedBody;
+  const GEMINI_API_KEY = process.env.VITE_GEMINI_API_KEY;
+
+  if (!GEMINI_API_KEY) {
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Gemini API key not configured' }));
+    return;
   }
 
   try {
-    console.log('Starting certificate analysis...');
-    const { imageBase64, profileName, profileSkills = [] } = req.body;
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: `
+Analyze the certificate image and extract:
+1. Person's full name
+2. Course or certification topics
 
-    if (!imageBase64 || !profileName) {
-      console.error('Missing data - imageBase64:', !!imageBase64, 'profileName:', !!profileName);
-      return res.status(400).json({ error: 'Missing data' });
-    }
+Compare extracted name with: "${profileName}"
+Names should match even if order differs.
 
-    console.log('Processing OCR...');
-    const {
-      data: { text },
-    } = await Tesseract.recognize(
-      Buffer.from(imageBase64, 'base64'),
-      'eng'
+Return ONLY valid JSON in this exact format:
+{
+  "extractedName": "Full Name",
+  "courseTopics": ["Topic 1", "Topic 2"],
+  "nameMatch": true,
+  "reason": "Short explanation"
+}`
+                },
+                { inline_data: { mime_type: 'image/jpeg', data: imageBase64 } },
+              ],
+            },
+          ],
+          generationConfig: { temperature: 0.3, maxOutputTokens: 1024 },
+        }),
+      }
     );
 
-    console.log('OCR completed, text length:', text.length);
+    const data = await response.json();
 
-    const nameMatch = isNameMatch(text, profileName);
-    const extractedName = extractMatchingName(text, profileName);
-
-    // 🔥 ONLY LOGIC: certificate text vs user's own skills
-    const inferredSkills = inferSkillsFromUserProfile(text, profileSkills);
-
-    console.log('Analysis complete - nameMatch:', nameMatch, 'inferredSkills:', inferredSkills.length);
-
-    return res.status(200).json({
-      extractedName,
-      inferredSkills,
-      courseTopics: [], // kept for type safety / future use
-      nameMatch,
-      reason: nameMatch
-        ? inferredSkills.length > 0
-          ? 'Certificate matches profile skills'
-          : 'Name verified, but no profile skills matched'
-        : 'Name does not match profile, verify manually',
-    });
+    res.writeHead(response.ok ? 200 : 500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(data));
   } catch (err) {
-    console.error('Certificate analysis error:', err);
-    return res.status(500).json({ 
-      error: 'Certificate analysis failed',
-      details: err instanceof Error ? err.message : String(err)
-    });
+    console.error('Gemini server error:', err);
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Gemini API request failed' }));
   }
 }
