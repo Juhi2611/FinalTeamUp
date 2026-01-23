@@ -7,14 +7,19 @@ export interface CertificateAnalysisResult {
 }
 
 /**
- * Calls server.js certificate analysis endpoint
+ * Calls certificate analysis endpoint (local server in dev, Vercel function in production)
  */
 export const analyzeCertificate = async (
   imageBase64: string,
   profileName: string,
   profileSkills: string[]
 ): Promise<CertificateAnalysisResult> => {
-  const res = await fetch('http://localhost:3001/api/analyzeCertificate', {
+  // Use Vercel function in production, local server in development
+  const apiUrl = import.meta.env.PROD 
+    ? '/api/analyzeCertificate'  // Vercel serverless function
+    : 'http://localhost:3001/api/analyzeCertificate';  // Local Express server
+
+  const res = await fetch(apiUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -31,7 +36,6 @@ export const analyzeCertificate = async (
   }
 
   const data = await res.json();
-
   return {
     ...data,
     courseTopics: data.courseTopics ?? [],
