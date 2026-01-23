@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'http';
+import { VertexAI } from '@google-cloud/vertexai';
 
 export default async function handler(
   req: IncomingMessage & { body?: any },
@@ -41,27 +42,36 @@ export default async function handler(
     return;
   }
 
-  // ⚠️ KEEPING YOUR EXISTING ENV VAR
-  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-
-  if (!GEMINI_API_KEY) {
+  // ✅ REPLACEMENT: service account auth (NO API KEY)
+  if (!process.env.GCP_SERVICE_ACCOUNT) {
     res.statusCode = 500;
-    res.end(JSON.stringify({ error: 'Gemini API key not configured' }));
+    res.end(JSON.stringify({ error: 'GCP service account not configured' }));
     return;
   }
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [
+    const credentials = JSON.parse(process.env.GCP_SERVICE_ACCOUNT);
+
+    process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON =
+    process.env.GCP_SERVICE_ACCOUNT;
+
+    const vertex = new VertexAI({
+      project: credentials.project_id,
+      location: 'us-central1',
+    });
+
+
+    const model = vertex.getGenerativeModel({
+      model: 'gemini-1.5-flash',
+    });
+
+    const result = await model.generateContent({
+      contents: [
+        {
+          role: 'user',
+          parts: [
             {
-              parts: [
-                {
-                  text: `
+              text: `
 Analyze the certificate image and extract:
 1. Person's full name
 2. Course or certification topics
@@ -76,34 +86,32 @@ Return ONLY valid JSON in this exact format:
   "nameMatch": true,
   "reason": "Short explanation"
 }
-                  `.trim(),
-                },
-                {
-                  inline_data: {
-                    mime_type: 'image/jpeg',
-                    data: imageBase64,
-                  },
-                },
-              ],
+              `.trim(),
+            },
+            {
+              inlineData: {
+                mimeType: 'image/jpeg',
+                data: imageBase64,
+              },
             },
           ],
-          generationConfig: {
-            temperature: 0.3,
-            maxOutputTokens: 1024,
-          },
-        }),
-      }
-    );
+        },
+      ],
+      generationConfig: {
+        temperature: 0.3,
+        maxOutputTokens: 1024,
+      },
+    });
 
-    const data = await response.json();
+    const text =
+      result.response.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 
-    res.statusCode = response.ok ? 200 : 500;
+    res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify(data));
+    res.end(JSON.stringify({ raw: text }));
   } catch (err) {
     console.error('Gemini server error:', err);
     res.statusCode = 500;
     res.end(JSON.stringify({ error: 'Gemini API request failed' }));
   }
 }
-
