@@ -9,14 +9,12 @@ export interface CertificateAnalysisResult {
 /**
  * Calls server.js certificate analysis endpoint
  */
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-
 export const analyzeCertificate = async (
   imageBase64: string,
   profileName: string,
   profileSkills: string[]
 ): Promise<CertificateAnalysisResult> => {
-  const res = await fetch(`${API_URL}/api/analyzeCertificate`, {
+  const res = await fetch('http://localhost:3001/api/analyzeCertificate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
