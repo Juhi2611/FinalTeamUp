@@ -55,18 +55,37 @@ function inferSkillsFromUserProfile(text: string, profileSkills: string[] = []) 
    VERCEL SERVERLESS FUNCTION
 ====================================================== */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Enable CORS
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+  );
+
+  // Handle OPTIONS request
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
   // Only accept POST
   if (req.method !== 'POST') {
+    console.error('Invalid method:', req.method);
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
+    console.log('Starting certificate analysis...');
     const { imageBase64, profileName, profileSkills = [] } = req.body;
 
     if (!imageBase64 || !profileName) {
+      console.error('Missing data - imageBase64:', !!imageBase64, 'profileName:', !!profileName);
       return res.status(400).json({ error: 'Missing data' });
     }
 
+    console.log('Processing OCR...');
     const {
       data: { text },
     } = await Tesseract.recognize(
@@ -74,13 +93,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       'eng'
     );
 
+    console.log('OCR completed, text length:', text.length);
+
     const nameMatch = isNameMatch(text, profileName);
     const extractedName = extractMatchingName(text, profileName);
 
     // 🔥 ONLY LOGIC: certificate text vs user's own skills
     const inferredSkills = inferSkillsFromUserProfile(text, profileSkills);
 
-    return res.json({
+    console.log('Analysis complete - nameMatch:', nameMatch, 'inferredSkills:', inferredSkills.length);
+
+    return res.status(200).json({
       extractedName,
       inferredSkills,
       courseTopics: [], // kept for type safety / future use
@@ -92,7 +115,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         : 'Name does not match profile, verify manually',
     });
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: 'Certificate analysis failed' });
+    console.error('Certificate analysis error:', err);
+    return res.status(500).json({ 
+      error: 'Certificate analysis failed',
+      details: err instanceof Error ? err.message : String(err)
+    });
   }
 }
