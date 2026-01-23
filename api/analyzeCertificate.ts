@@ -1,77 +1,51 @@
-import type { IncomingMessage, ServerResponse } from 'http';
-import { VertexAI } from '@google-cloud/vertexai';
+// D:\TeamUp-main\functions\analyzeCertificate.ts
+// Server-side proxy for Gemini certificate analysis
 
-export default async function handler(
-  req: IncomingMessage & { body?: any },
-  res: ServerResponse
-) {
-  // Only allow POST
+import type { IncomingMessage, ServerResponse } from 'http';
+
+export default async function handler(req: IncomingMessage & { body?: any }, res: ServerResponse) {
+  // Only accept POST
   if (req.method !== 'POST') {
-    res.statusCode = 405;
-    res.setHeader('Content-Type', 'application/json');
+    res.writeHead(405, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Method not allowed' }));
     return;
   }
 
-  // Read raw body (Vercel-compatible)
+  // Read body
   let body = '';
-  req.on('data', chunk => {
-    body += chunk;
-  });
-
+  req.on('data', chunk => (body += chunk));
   await new Promise<void>(resolve => req.on('end', resolve));
 
-  let parsedBody: {
-    imageBase64?: string;
-    profileName?: string;
-  };
-
+  let parsedBody: { imageBase64: string; profileName: string };
   try {
     parsedBody = JSON.parse(body);
   } catch {
-    res.statusCode = 400;
+    res.writeHead(400, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Invalid JSON body' }));
     return;
   }
 
   const { imageBase64, profileName } = parsedBody;
+  const GEMINI_API_KEY = process.env.VITE_GEMINI_API_KEY;
 
-  if (!imageBase64 || !profileName) {
-    res.statusCode = 400;
-    res.end(JSON.stringify({ error: 'Missing image or profile name' }));
-    return;
-  }
-
-  // ✅ REPLACEMENT: service account auth (NO API KEY)
-  if (!process.env.GCP_SERVICE_ACCOUNT) {
-    res.statusCode = 500;
-    res.end(JSON.stringify({ error: 'GCP service account not configured' }));
+  if (!GEMINI_API_KEY) {
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Gemini API key not configured' }));
     return;
   }
 
   try {
-    const credentials = JSON.parse(process.env.GCP_SERVICE_ACCOUNT);
-
-    process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON =
-    process.env.GCP_SERVICE_ACCOUNT;
-
-    const vertex = new VertexAI({
-      project: credentials.project_id,
-      location: 'us-central1',
-    });
-
-
-    const model = vertex.getGenerativeModel({
-      model: 'gemini-1.5-flash',
-    });
-
-    const result = await model.generateContent({
-      contents: [
-        {
-          role: 'user',
-          parts: [
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
             {
-              text: `
+              parts: [
+                {
+                  text: `
 Analyze the certificate image and extract:
 1. Person's full name
 2. Course or certification topics
@@ -85,33 +59,24 @@ Return ONLY valid JSON in this exact format:
   "courseTopics": ["Topic 1", "Topic 2"],
   "nameMatch": true,
   "reason": "Short explanation"
-}
-              `.trim(),
-            },
-            {
-              inlineData: {
-                mimeType: 'image/jpeg',
-                data: imageBase64,
-              },
+}`
+                },
+                { inline_data: { mime_type: 'image/jpeg', data: imageBase64 } },
+              ],
             },
           ],
-        },
-      ],
-      generationConfig: {
-        temperature: 0.3,
-        maxOutputTokens: 1024,
-      },
-    });
+          generationConfig: { temperature: 0.3, maxOutputTokens: 1024 },
+        }),
+      }
+    );
 
-    const text =
-      result.response.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+    const data = await response.json();
 
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ raw: text }));
+    res.writeHead(response.ok ? 200 : 500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(data));
   } catch (err) {
     console.error('Gemini server error:', err);
-    res.statusCode = 500;
+    res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Gemini API request failed' }));
   }
 }
