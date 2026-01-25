@@ -120,12 +120,12 @@ const Auth = ({ onAuthSuccess }: AuthProps) => {
 
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Email
+              Email or Username
             </label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <input
-                type="email"
+                type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
