@@ -8,6 +8,8 @@ import { analyzeCertificate } from '@/services/certificateService';
 import { Timestamp, serverTimestamp } from 'firebase/firestore';
 import { GithubAuthProvider, linkWithPopup, reauthenticateWithPopup } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import Tesseract from 'tesseract.js';
+
 
 interface SkillVerificationModalProps {
   userId: string;
@@ -312,7 +314,16 @@ const SkillVerificationModal = ({ userId, userName, userSkills, onClose, onCompl
         reader.readAsDataURL(cert.file);
       });
 
-      const result = await analyzeCertificate(base64, userName, userSkills);
+      // Run OCR on client
+    const {
+      data: { text }
+    } = await Tesseract.recognize(cert.file, 'eng', {
+      logger: () => {}
+    });
+
+    // Send extracted text to API
+    const result = await analyzeCertificate(text, userName, userSkills);
+
 
       setCertificates(prev => prev.map((c, i) => i === index ? {
         ...c,
@@ -777,3 +788,4 @@ const SkillVerificationModal = ({ userId, userName, userSkills, onClose, onCompl
 
 
 export default SkillVerificationModal;
+
