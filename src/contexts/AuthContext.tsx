@@ -48,40 +48,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return unsubscribe;
   }, [isConfigured]);
 
-  const login = async (email: string, password: string) => {
-    if (!isConfigured) return { error: 'Firebase not configured' };
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      return {};
-    } catch (err) {
-      const error = err as AuthError;
-      return { error: getAuthErrorMessage(error.code) };
+  const login = async (emailOrUsername: string, password: string) => {
+  if (!isConfigured) return { error: 'Firebase not configured' };
+  try {
+    let email = emailOrUsername;
+    
+    // Check if input is username (not an email format)
+    if (!emailOrUsername.includes('@') || emailOrUsername.startsWith('@')) {
+      // It's a username - look up the email
+      const { getUserEmailByUsername } = await import('@/services/firestore');
+      const foundEmail = await getUserEmailByUsername(emailOrUsername);
+      
+      if (!foundEmail) {
+        return { error: 'No account found with this username' };
+      }
+      email = foundEmail;
     }
-  };
+    
+    await signInWithEmailAndPassword(auth, email, password);
+    return {};
+  } catch (err) {
+    const error = err as AuthError;
+    return { error: getAuthErrorMessage(error.code) };
+  }
+};
+
 
   const register = async (email: string, password: string, name: string) => {
-    if (!isConfigured) return { error: 'Firebase not configured' };
-    try {
-      const credential = await createUserWithEmailAndPassword(auth, email, password);
+  if (!isConfigured) return { error: 'Firebase not configured' };
+  try {
+    const credential = await createUserWithEmailAndPassword(auth, email, password);
+    
+    // Check if profile already exists (edge case)
+    const existingProfile = await getProfile(credential.user.uid);
+    if (!existingProfile) {
+      // Generate unique username
+      const { generateUniqueUsername } = await import('@/services/firestore');
+      const username = await generateUniqueUsername(name);
       
-      // Check if profile already exists (edge case)
-      const existingProfile = await getProfile(credential.user.uid);
-      if (!existingProfile) {
-        // Create initial profile document in Firestore with just the name
-        // User will complete full profile after this
-        await createProfile(credential.user.uid, {
-          email: email,
-          fullName: name,
-          avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}`
-        });
-      }
-      
-      return {};
-    } catch (err) {
-      const error = err as AuthError;
-      return { error: getAuthErrorMessage(error.code) };
+      // Create initial profile document in Firestore with username
+      await createProfile(credential.user.uid, {
+        email: email,
+        fullName: name,
+        username, // ADD THIS
+        avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}`
+      });
     }
-  };
+    
+    return {};
+  } catch (err) {
+    const error = err as AuthError;
+    return { error: getAuthErrorMessage(error.code) };
+  }
+};
+
 
   const logout = async () => {
     if (isConfigured) {
