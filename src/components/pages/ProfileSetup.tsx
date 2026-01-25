@@ -4,6 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { createProfile, updateProfile, UserProfile, invalidateSkillVerification, getSkillVerification } from '@/services/firestore';
 import { isFirebaseConfigured } from '@/lib/firebase';
 import { toast } from 'sonner';
+import { isValidUsername, getUsernameError } from '@/utils/username';
+import { isUsernameAvailable, updateUsername, generateUniqueUsername } from '@/services/firestore';
 
 interface ProfileSetupProps {
   existingProfile?: UserProfile | null;
@@ -32,6 +34,7 @@ const ProfileSetup = ({ existingProfile, onComplete, onOpenVerification }: Profi
   
   const [formData, setFormData] = useState({
     fullName: existingProfile?.fullName || '',
+    username: existingProfile?.username || '',
     college: existingProfile?.college || '',
     yearOfStudy: existingProfile?.yearOfStudy || 'First Year',
     primaryRole: existingProfile?.primaryRole || 'Frontend Developer',
@@ -39,12 +42,49 @@ const ProfileSetup = ({ existingProfile, onComplete, onOpenVerification }: Profi
     skills: existingProfile?.skills || [{ name: '', proficiency: 'Beginner' as const }]
   });
 
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+const [checkingUsername, setCheckingUsername] = useState(false);
+
   const addSkill = () => {
     setFormData(prev => ({
       ...prev,
       skills: [...prev.skills, { name: '', proficiency: 'Beginner' as const }]
     }));
   };
+
+    const validateUsername = async (username: string) => {
+  setCheckingUsername(true);
+  
+  const formatError = getUsernameError(username);
+  if (formatError) {
+    setUsernameError(formatError);
+    setCheckingUsername(false);
+    return false;
+  }
+  
+  const available = await isUsernameAvailable(username, user?.uid);
+  if (!available) {
+    setUsernameError('Username is already taken');
+    setCheckingUsername(false);
+    return false;
+  }
+  
+  setUsernameError(null);
+  setCheckingUsername(false);
+  return true;
+};
+
+// Auto-generate username if empty on mount
+useEffect(() => {
+  const generateIfNeeded = async () => {
+    if (!existingProfile && formData.fullName && !formData.username) {
+      const generated = await generateUniqueUsername(formData.fullName);
+      setFormData(prev => ({ ...prev, username: generated }));
+    }
+  };
+  generateIfNeeded();
+}, [formData.fullName]);
+
 
   const updateSkill = (index: number, field: 'name' | 'proficiency', value: string) => {
     setFormData(prev => ({
@@ -92,23 +132,34 @@ const ProfileSetup = ({ existingProfile, onComplete, onOpenVerification }: Profi
       return;
     }
 
+    if (!formData.username.trim()) {
+    setError('Username is required');
+    return;
+  }
+
+  const usernameValid = await validateUsername(formData.username);
+  if (!usernameValid) {
+    setError('Please fix username errors');
+    return;
+  }
+
     const validSkills = formData.skills.filter(s => s.name.trim());
     
     setLoading(true);
     
     if (isFirebaseConfigured() && user) {
-      try {
-        const profileData = {
-          email: user.email || '',
-          fullName: formData.fullName,
-          college: formData.college,
-          yearOfStudy: formData.yearOfStudy as UserProfile['yearOfStudy'],
-          primaryRole: formData.primaryRole as UserProfile['primaryRole'],
-          bio: formData.bio,
-          skills: validSkills as UserProfile['skills'],
-          avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(formData.fullName)}`
-        };
-
+    try {
+      const profileData = {
+        email: user.email || '',
+        fullName: formData.fullName,
+        username: formData.username.toLowerCase(), // ADD THIS
+        college: formData.college,
+        yearOfStudy: formData.yearOfStudy as UserProfile['yearOfStudy'],
+        primaryRole: formData.primaryRole as UserProfile['primaryRole'],
+        bio: formData.bio,
+        skills: validSkills as UserProfile['skills'],
+        avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(formData.fullName)}`
+      };
         // CRITICAL: Check if skills changed and invalidate verification if needed
         if (existingProfile) {
           const skillsChanged = haveSkillsChanged();
@@ -215,6 +266,38 @@ const ProfileSetup = ({ existingProfile, onComplete, onOpenVerification }: Profi
                   required
                 />
               </div>
+
+              <div>
+  <label className="block text-sm font-medium text-foreground mb-1.5">
+    Username *
+  </label>
+  <div className="relative">
+    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">@</span>
+    <input
+      type="text"
+      value={formData.username}
+      onChange={(e) => {
+        const value = e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, '');
+        setFormData(prev => ({ ...prev, username: value }));
+        setUsernameError(null);
+      }}
+      onBlur={() => formData.username && validateUsername(formData.username)}
+      placeholder="johndoe123"
+      className={`input-field pl-8 ${usernameError ? 'border-destructive' : ''}`}
+      required
+    />
+    {checkingUsername && (
+      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
+    )}
+  </div>
+  {usernameError && (
+    <p className="text-xs text-destructive mt-1">{usernameError}</p>
+  )}
+  <p className="text-xs text-muted-foreground mt-1">
+    Letters, numbers, dots (not at start/end), underscores, and hyphens only
+  </p>
+</div>
+
 
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">
