@@ -12,7 +12,7 @@ export interface CertificateAnalysisResult {
  * Calls certificate analysis API (works on both localhost and Vercel)
  */
 export const analyzeCertificate = async (
-  imageBase64: string,
+  ocrText: string,
   profileName: string,
   profileSkills: string[]
 ): Promise<CertificateAnalysisResult> => {
@@ -23,7 +23,7 @@ export const analyzeCertificate = async (
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      imageBase64,
+      ocrText,
       profileName,
       profileSkills,
     }),
@@ -42,3 +42,4 @@ export const analyzeCertificate = async (
     courseTopics: data.courseTopics ?? [],
   };
 };
+
