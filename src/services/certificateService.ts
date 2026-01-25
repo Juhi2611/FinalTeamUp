@@ -1,3 +1,5 @@
+// src/services/certificateService.ts
+
 export interface CertificateAnalysisResult {
   extractedName: string;
   inferredSkills: string[];
@@ -7,14 +9,17 @@ export interface CertificateAnalysisResult {
 }
 
 /**
- * Calls server.js certificate analysis endpoint
+ * Calls certificate analysis API (works on both localhost and Vercel)
  */
 export const analyzeCertificate = async (
   imageBase64: string,
   profileName: string,
   profileSkills: string[]
 ): Promise<CertificateAnalysisResult> => {
-  const res = await fetch('http://localhost:3001/api/analyzeCertificate', {
+  // Use relative URL - works on Vercel and local (with vercel dev)
+  const apiUrl = '/api/analyzeCertificate';
+
+  const res = await fetch(apiUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
