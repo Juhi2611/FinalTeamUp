@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import { User, GraduationCap, Briefcase, Code, Save, Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { createProfile, updateProfile, UserProfile, invalidateSkillVerification, getSkillVerification } from '@/services/firestore';
+import { createProfile, updateProfile, UserProfile, invalidateSkillVerification, getSkillVerification, isUsernameAvailable, updateUsername, generateUniqueUsername } from '@/services/firestore';
 import { isFirebaseConfigured } from '@/lib/firebase';
 import { toast } from 'sonner';
 import { isValidUsername, getUsernameError } from '@/utils/username';
-import { isUsernameAvailable, updateUsername, generateUniqueUsername } from '@/services/firestore';
 
 interface ProfileSetupProps {
   existingProfile?: UserProfile | null;
