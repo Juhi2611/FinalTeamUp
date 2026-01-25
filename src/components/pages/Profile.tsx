@@ -182,6 +182,10 @@ const hasVerifiedSkills =
               <div className="mb-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="font-display font-bold text-2xl text-foreground">{profile.fullName}</h1>
+{profile.username && (
+  <span className="text-sm text-muted-foreground">@{profile.username}</span>
+)}
+
                   
                   {(hasVerifiedSkills || profile.teamId) && (
     <div className="flex items-center gap-2">
