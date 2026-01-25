@@ -49,15 +49,23 @@ const Index = () => {
   }, [user]);
 
   const checkProfile = async () => {
-    if (!user) return;
-    const userProfile = await getProfile(user.uid);
-    if (!userProfile || !userProfile.primaryRole) {
-      setNeedsProfileSetup(true);
-    } else {
-      setProfile(userProfile);
-      setNeedsProfileSetup(false);
-    }
-  };
+  if (!user) return;
+  
+  // Import username function
+  const { ensureUserHasUsername } = await import('@/services/firestore');
+  
+  // Ensure user has a username (for existing users)
+  await ensureUserHasUsername(user.uid);
+  
+  const userProfile = await getProfile(user.uid);
+  if (!userProfile || !userProfile.primaryRole) {
+    setNeedsProfileSetup(true);
+  } else {
+    setProfile(userProfile);
+    setNeedsProfileSetup(false);
+  }
+};
+
 
   const handleNavigate = (page: string) => {
     setCurrentPage(page);
