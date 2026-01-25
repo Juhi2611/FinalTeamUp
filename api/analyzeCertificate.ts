@@ -66,7 +66,7 @@ if (!ocrText || !profileName) {
 
 const text = ocrText;
 
-  }
+  
      
 
     const nameMatch = isNameMatch(text, profileName);
@@ -89,3 +89,4 @@ const text = ocrText;
     return res.status(500).json({ error: err.message || 'Certificate analysis failed' });
   }
 }
+
