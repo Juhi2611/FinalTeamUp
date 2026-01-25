@@ -15,6 +15,7 @@ import {
   Unsubscribe,
   limit
 } from 'firebase/firestore';
+import { generateUsernameFromName, isValidUsername } from '@/utils/username';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
 import type { 
   UserProfile, 
@@ -48,6 +49,7 @@ export const createProfile = async (userId: string, data: Partial<UserProfile>):
   if (!isFirebaseConfigured()) return;
   await setDoc(doc(db, 'profiles', userId), {
     ...data,
+    username: data.username || null,
     teamId: null,
     isTeamLeader: false,
     createdAt: serverTimestamp()
@@ -57,6 +59,15 @@ export const createProfile = async (userId: string, data: Partial<UserProfile>):
 export const updateProfile = async (userId: string, data: Partial<UserProfile>): Promise<void> => {
   if (!isFirebaseConfigured()) return;
   if (!userId) throw new Error('User ID is required for profile update');
+
+  const updateData = {
+    ...data,
+    updatedAt: serverTimestamp()
+  };
+  if (data.username !== undefined) {
+    updateData.username = data.username.toLowerCase();
+  }
+  await updateDoc(doc(db, 'profiles', userId), updateData);
   
   await updateDoc(doc(db, 'profiles', userId), {
     ...data,
@@ -1276,4 +1287,146 @@ export const fetchGitHubStats = async (
     followers: data.followers ?? 0,
     following: data.following ?? 0,
   };
+};
+
+// ========================
+// USERNAME FUNCTIONS
+// ========================
+
+// Check if username is available
+export const isUsernameAvailable = async (username: string, excludeUserId?: string): Promise<boolean> => {
+  if (!isFirebaseConfigured()) return true;
+  if (!username) return false;
+  
+  const normalizedUsername = username.toLowerCase();
+  
+  const q = query(
+    collection(db, 'profiles'),
+    where('username', '==', normalizedUsername)
+  );
+  
+  const snapshot = await getDocs(q);
+  
+  if (snapshot.empty) return true;
+  
+  // If we're updating, check if the only match is the current user
+  if (excludeUserId) {
+    return snapshot.docs.every(doc => doc.id === excludeUserId);
+  }
+  
+  return false;
+};
+
+// Add this function - Get user email by username (for login)
+export const getUserEmailByUsername = async (username: string): Promise<string | null> => {
+  if (!isFirebaseConfigured()) return null;
+  
+  const normalizedUsername = username.toLowerCase().replace('@', '');
+  
+  const q = query(
+    collection(db, 'profiles'),
+    where('username', '==', normalizedUsername),
+    limit(1)
+  );
+  
+  const snapshot = await getDocs(q);
+  
+  if (snapshot.empty) return null;
+  
+  const profile = snapshot.docs[0].data();
+  return profile.email || null;
+};
+
+
+// Generate a unique username for a user
+export const generateUniqueUsername = async (fullName: string): Promise<string> => {
+  if (!isFirebaseConfigured()) return '';
+  
+  let attempts = 0;
+  const maxAttempts = 10;
+  
+  while (attempts < maxAttempts) {
+    const username = generateUsernameFromName(fullName);
+    const normalizedUsername = username.toLowerCase();
+    
+    const isAvailable = await isUsernameAvailable(normalizedUsername);
+    
+    if (isAvailable && isValidUsername(normalizedUsername)) {
+      return normalizedUsername;
+    }
+    
+    attempts++;
+  }
+  
+  // Fallback: use timestamp
+  const fallback = `user${Date.now().toString(36)}`;
+  return fallback;
+};
+
+// Update username for a user
+export const updateUsername = async (userId: string, newUsername: string): Promise<{ success: boolean; error?: string }> => {
+  if (!isFirebaseConfigured()) return { success: false, error: 'Firebase not configured' };
+  
+  const normalizedUsername = newUsername.toLowerCase();
+  
+  // Validate format
+  if (!isValidUsername(normalizedUsername)) {
+    return { success: false, error: 'Invalid username format' };
+  }
+  
+  // Check availability
+  const isAvailable = await isUsernameAvailable(normalizedUsername, userId);
+  if (!isAvailable) {
+    return { success: false, error: 'Username is already taken' };
+  }
+  
+  // Update profile
+  await updateDoc(doc(db, 'profiles', userId), {
+    username: normalizedUsername,
+    updatedAt: serverTimestamp()
+  });
+  
+  return { success: true };
+};
+
+// Ensure user has a username (for existing users)
+export const ensureUserHasUsername = async (userId: string): Promise<string | null> => {
+  if (!isFirebaseConfigured()) return null;
+  
+  const profile = await getProfile(userId);
+  if (!profile) return null;
+  
+  // Already has username
+  if (profile.username) {
+    return profile.username;
+  }
+  
+  // Generate and assign username
+  const username = await generateUniqueUsername(profile.fullName || 'User');
+  
+  await updateDoc(doc(db, 'profiles', userId), {
+    username,
+    updatedAt: serverTimestamp()
+  });
+  
+  return username;
+};
+
+// Get profile by username
+export const getProfileByUsername = async (username: string): Promise<UserProfile | null> => {
+  if (!isFirebaseConfigured()) return null;
+  
+  const normalizedUsername = username.toLowerCase();
+  
+  const q = query(
+    collection(db, 'profiles'),
+    where('username', '==', normalizedUsername),
+    limit(1)
+  );
+  
+  const snapshot = await getDocs(q);
+  
+  if (snapshot.empty) return null;
+  
+  return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as UserProfile;
 };
