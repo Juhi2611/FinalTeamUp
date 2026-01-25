@@ -58,22 +58,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { imageBase64, profileName, profileSkills = [] } = req.body;
+   const { ocrText, profileName, profileSkills = [] } = req.body;
 
-    if (!imageBase64 || !profileName) {
-      return res.status(400).json({ error: 'Missing required data (imageBase64 or profileName)' });
-    }
+if (!ocrText || !profileName) {
+  return res.status(400).json({ error: 'Missing ocrText or profileName' });
+}
 
-    // Dynamic import of Tesseract.js for serverless
-    const Tesseract = await import('tesseract.js');
+const text = ocrText;
 
-    // Convert base64 to buffer
-    const imageBuffer = Buffer.from(imageBase64, 'base64');
-
-    // Run OCR
-    const { data: { text } } = await Tesseract.recognize(imageBuffer, 'eng', {
-      logger: () => {} // Suppress logs
-    });
+  }
+     
 
     const nameMatch = isNameMatch(text, profileName);
     const extractedName = extractMatchingName(text, profileName);
