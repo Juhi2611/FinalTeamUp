@@ -26,6 +26,10 @@ const EditTeam = ({ teamId, onNavigate, onBack, onTeamUpdated }: EditTeamProps) 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  // ✅ Custom role state
+  const [customRole, setCustomRole] = useState('');
+  const [showAddRole, setShowAddRole] = useState(false);
+
   const availableRoles = [
     'Frontend Developer',
     'Backend Developer',
@@ -39,44 +43,43 @@ const EditTeam = ({ teamId, onNavigate, onBack, onTeamUpdated }: EditTeamProps) 
   ];
 
   useEffect(() => {
-  if (!isFirebaseConfigured() || !user) return;
-  
-  setLoading(true);
-
-  // Subscribe to real-time team updates
-  const unsubscribe = onSnapshot(doc(db, 'teams', teamId), (snapshot) => {
-    if (!snapshot.exists()) {
-      toast.error('Team not found');
-      onBack();
-      return;
-    }
-
-    const teamData = { id: snapshot.id, ...snapshot.data() } as Team;
-
-    if (teamData.leaderId !== user.uid) {
-      toast.error('Only team leader can edit the team');
-      onBack();
-      return;
-    }
-
-    // Update state with latest data
-    setTeam(teamData);
-    setTeamName(teamData.name);
-    setDescription(teamData.description);
-    setHackathon(teamData.hackathon || '');
-    setCity(teamData.city ?? '');
-    setRolesNeeded(teamData.rolesNeeded || []);
-    setMaxMembers(teamData.maxMembers);
+    if (!isFirebaseConfigured() || !user) return;
     
-    setLoading(false);
-  }, (error) => {
-    console.error('Error loading team:', error);
-    toast.error('Failed to load team');
-    setLoading(false);
-  });
+    setLoading(true);
+    // Subscribe to real-time team updates
+    const unsubscribe = onSnapshot(doc(db, 'teams', teamId), (snapshot) => {
+      if (!snapshot.exists()) {
+        toast.error('Team not found');
+        onBack();
+        return;
+      }
 
-  return () => unsubscribe();
-}, [teamId, user, onBack]);
+      const teamData = { id: snapshot.id, ...snapshot.data() } as Team;
+
+      if (teamData.leaderId !== user.uid) {
+        toast.error('Only team leader can edit the team');
+        onBack();
+        return;
+      }
+
+      // Update state with latest data
+      setTeam(teamData);
+      setTeamName(teamData.name);
+      setDescription(teamData.description);
+      setHackathon(teamData.hackathon || '');
+      setCity(teamData.city ?? '');
+      setRolesNeeded(teamData.rolesNeeded || []);
+      setMaxMembers(teamData.maxMembers);
+      
+      setLoading(false);
+    }, (error) => {
+      console.error('Error loading team:', error);
+      toast.error('Failed to load team');
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [teamId, user, onBack]);
 
   const toggleRole = (role: string) => {
     setRolesNeeded(prev => 
@@ -86,8 +89,29 @@ const EditTeam = ({ teamId, onNavigate, onBack, onTeamUpdated }: EditTeamProps) 
     );
   };
 
+  // ✅ Add custom role handler
+  const addCustomRole = () => {
+    const role = customRole.trim();
+    if (!role) return;
+
+    // Add to rolesNeeded if not already there
+    if (!rolesNeeded.includes(role)) {
+      setRolesNeeded(prev => [...prev, role]);
+    }
+
+    setCustomRole('');
+    setShowAddRole(false);
+  };
+
+  // ✅ Get all roles to display (predefined + custom selected)
+  const displayRoles = [
+    ...availableRoles,
+    ...rolesNeeded.filter(role => !availableRoles.includes(role))
+  ];
+
   const handleSave = async () => {
     if (!user || !isFirebaseConfigured() || !team) return;
+    
     if (!city.trim()) {
       toast.error('Please enter a city');
       return;
@@ -102,6 +126,7 @@ const EditTeam = ({ teamId, onNavigate, onBack, onTeamUpdated }: EditTeamProps) 
       toast.error('Please enter a description');
       return;
     }
+
     setSaving(true);
     
     const updatedData = {
@@ -239,13 +264,13 @@ const EditTeam = ({ teamId, onNavigate, onBack, onTeamUpdated }: EditTeamProps) 
           </p>
         </div>
 
-        {/* Roles Needed */}
+        {/* Roles Needed - ✅ UPDATED WITH CUSTOM ROLE SUPPORT */}
         <div>
           <label className="block text-sm font-medium text-foreground mb-3">
             Roles You're Looking For
           </label>
           <div className="flex flex-wrap gap-2">
-            {availableRoles.map((role) => (
+            {displayRoles.map((role) => (
               <button
                 key={role}
                 onClick={() => toggleRole(role)}
@@ -263,7 +288,58 @@ const EditTeam = ({ teamId, onNavigate, onBack, onTeamUpdated }: EditTeamProps) 
                 {role}
               </button>
             ))}
+
+            {/* ✅ Add Custom Role Button */}
+            <button
+              type="button"
+              onClick={() => setShowAddRole(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border border-dashed border-border hover:bg-secondary transition-all"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add role
+            </button>
           </div>
+
+          {/* ✅ Custom Role Input */}
+          {showAddRole && (
+            <div className="mt-3 flex gap-2">
+              <input
+                type="text"
+                value={customRole}
+                onChange={(e) => setCustomRole(e.target.value)}
+                placeholder="Enter custom role"
+                className="flex-1 input-field"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addCustomRole();
+                  }
+                  if (e.key === 'Escape') {
+                    setShowAddRole(false);
+                    setCustomRole('');
+                  }
+                }}
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={addCustomRole}
+                className="btn-primary"
+              >
+                Add
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddRole(false);
+                  setCustomRole('');
+                }}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
         </div>
 
         {/* AI Suggestion */}
