@@ -111,6 +111,7 @@ const LeftSidebar = ({ currentPage, onNavigate, userProfile, collapsed = false, 
           ))}
         </nav>
 
+        {/* Quote */}
         {!collapsed && (
           <div className="card-base p-4">
             <p className="text-sm text-muted-foreground italic leading-relaxed">
