@@ -51,21 +51,30 @@ const Index = () => {
   const { leftCollapsed, rightCollapsed, toggleLeft, toggleRight } = useSidebarState();
 
   useEffect(() => {
-  const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-    // Show warning only if user is logged in
-    if (user) {
-      e.preventDefault();
-      e.returnValue = ''; // Required for Chrome
-      return ''; // Required for some browsers
-    }
+  let hasInteracted = false;
+
+  const markInteracted = () => {
+    hasInteracted = true;
   };
 
-  window.addEventListener('beforeunload', handleBeforeUnload);
+  window.addEventListener("click", markInteracted);
+  window.addEventListener("keydown", markInteracted);
+
+  const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+    if (!hasInteracted) return;
+
+    event.preventDefault();
+    event.returnValue = "";
+  };
+
+  window.addEventListener("beforeunload", handleBeforeUnload);
 
   return () => {
-    window.removeEventListener('beforeunload', handleBeforeUnload);
+    window.removeEventListener("beforeunload", handleBeforeUnload);
+    window.removeEventListener("click", markInteracted);
+    window.removeEventListener("keydown", markInteracted);
   };
-}, [user]);
+}, []);
 
 useEffect(() => {
   // Scroll to top instantly whenever page changes
