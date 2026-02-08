@@ -191,7 +191,7 @@ const ProfileSetup = ({ existingProfile, onComplete, onOpenVerification }: Profi
           primaryRole: formData.primaryRole as UserProfile['primaryRole'],
           bio: formData.bio,
           skills: validSkills as UserProfile['skills'],
-          avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(formData.fullName)}`
+          avatar: existingProfile?.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(formData.fullName)}`
         };
 
         // CRITICAL: Check if skills changed and invalidate verification if needed
