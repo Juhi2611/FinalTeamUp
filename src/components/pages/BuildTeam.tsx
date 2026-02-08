@@ -17,6 +17,7 @@ const BuildTeam = ({ onNavigate }: BuildTeamProps) => {
   const [rolesNeeded, setRolesNeeded] = useState<string[]>([]);
   const [maxMembers, setMaxMembers] = useState(4);
   const [loading, setLoading] = useState(false);
+  const [city, setCity] = useState('');
 
   const availableRoles = [
     'Frontend Developer',
@@ -40,6 +41,11 @@ const BuildTeam = ({ onNavigate }: BuildTeamProps) => {
 
   const handlePost = async () => {
     if (!user || !isFirebaseConfigured()) return;
+
+    if (!city.trim()) {
+  toast.error('Please enter a city');
+  return;
+}
     
     if (!teamName.trim()) {
       toast.error('Please enter a team name');
@@ -54,24 +60,19 @@ const BuildTeam = ({ onNavigate }: BuildTeamProps) => {
     setLoading(true);
     
     try {
-      // Check if user is already in a team
-      const profile = await getProfile(user.uid);
-      if (profile?.teamId) {
-        toast.error('You are already in a team. Leave your current team first.');
-        setLoading(false);
-        return;
-      }
 
       // Create the team
       await createTeam({
-        name: teamName,
-        description,
-        hackathon: hackathon || undefined,
-        leaderId: user.uid,
-        status: 'forming',
-        rolesNeeded,
-        maxMembers
-      });
+  name: teamName,
+  description,
+  city: city.trim(),
+  hackathon: hackathon.trim() || null,
+  leaderId: user.uid,
+  status: 'forming',
+  rolesNeeded,
+  maxMembers
+});
+
 
       toast.success('Team created successfully!');
       onNavigate('teams');
@@ -137,6 +138,20 @@ const BuildTeam = ({ onNavigate }: BuildTeamProps) => {
             value={hackathon}
             onChange={(e) => setHackathon(e.target.value)}
             placeholder="e.g., HackMIT 2024"
+            className="input-field"
+          />
+        </div>
+
+        {/* City */}
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">
+            City *
+          </label>
+          <input
+            type="text"
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            placeholder="e.g., Mumbai, Bangalore, Delhi"
             className="input-field"
           />
         </div>
@@ -208,7 +223,7 @@ const BuildTeam = ({ onNavigate }: BuildTeamProps) => {
           </button>
           <button 
             onClick={handlePost} 
-            disabled={loading || !teamName.trim() || !description.trim()}
+            disabled={loading || !teamName.trim() || !description.trim() || !city.trim()}
             className="btn-primary flex items-center gap-2"
           >
             {loading ? (
