@@ -42,7 +42,6 @@
     deleteObject,
   } from 'firebase/storage';
   import { storage } from '@/lib/firebase';
-  // Re-export types for convenience
   export type { UserProfile, Team, TeamMember, Invitation, WorkspaceLog, Notification, FeedPost, TeamTask, Message, Conversation, SkillVerification };
   // ========================
   // PROFILE FUNCTIONS
