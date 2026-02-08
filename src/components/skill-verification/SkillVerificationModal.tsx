@@ -10,7 +10,7 @@ import {
 } from '@/services/githubService';
 import { analyzeCertificate } from '@/services/certificateService';
 import { Timestamp, serverTimestamp } from 'firebase/firestore';
-import { GithubAuthProvider, signInWithPopup } from 'firebase/auth';
+import { GithubAuthProvider, linkWithPopup, signInWithPopup } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { AdvancedGitHubStats } from '@/types/skillVerification.types';
 import {
@@ -18,6 +18,12 @@ import {
   calculateLanguageUsage
 } from '@/services/githubLanguageService';
 import Tesseract from 'tesseract.js';
+import {
+  fetchSignInMethodsForEmail,
+  linkWithCredential,
+  signInWithEmailAndPassword
+} from "firebase/auth";
+
 
 interface SkillVerificationModalProps {
   open: boolean;
@@ -87,43 +93,21 @@ export function SkillVerificationModal({
   // ========================
   // SNEHI'S GITHUB VERIFICATION (COMPLETELY UNTOUCHED)
   // ========================
-  const handleGitHubConnect = async () => {
-    if (!user) return;
 
-    setGithubLoading(true);
-    setGithubError('');
-    setGithubStep('authenticating');
-
+  const continueGitHubVerification = async (token: string) => {
     try {
-      const username = extractGitHubUsernameFromUrl(githubUrl);
-      if (!username) throw new Error('Invalid GitHub profile URL');
+      setGithubStep("fetching");
 
-      const provider = new GithubAuthProvider();
-      provider.addScope('read:user');
-      provider.addScope('repo');
-
-      const result = await signInWithPopup(auth, provider);
-      const credential = GithubAuthProvider.credentialFromResult(result);
-
-      if (!credential?.accessToken) {
-        throw new Error('GitHub access token not found');
-      }
-
-      const githubAccessToken = credential.accessToken;
-
-      setGithubStep('fetching');
-
-      const reposRes = await fetch(
-        'https://api.github.com/user/repos?per_page=100',
+      const res = await fetch(
+        "https://api.github.com/user/repos?per_page=100",
         {
-          headers: {
-            Authorization: `Bearer ${githubAccessToken}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         }
       );
 
-      const repos = await reposRes.json();
-      const languageBytes = await fetchRepoLanguages(repos, githubAccessToken);
+      const repos = await res.json();
+
+      const languageBytes = await fetchRepoLanguages(repos, token);
       const languageUsage = await calculateLanguageUsage(languageBytes);
 
       const repoLanguages = languageUsage.map(l =>
@@ -131,40 +115,153 @@ export function SkillVerificationModal({
       );
 
       const verifiedSkills = userSkills
-        .map(skill =>
-          skill.toLowerCase().replace(/\(.*?\)/g, '').trim()
-        )
+        .map(skill => skill.toLowerCase().replace(/\(.*?\)/g, '').trim())
         .filter(skill => repoLanguages.includes(skill));
 
-      await createSkillVerification(user.uid, {
+      await createSkillVerification(user!.uid, {
         status: 'verified',
         verifiedSkills,
         sources: {
           github: {
-            username,
-            profileUrl: `https://github.com/${username}`,
+            username: extractGitHubUsernameFromUrl(githubUrl)!,
+            profileUrl: `https://github.com/${extractGitHubUsernameFromUrl(githubUrl)}`,
             oauthVerified: true,
             inferredSkills: verifiedSkills,
             analyzedAt: Timestamp.now(),
           },
         },
-        stats: {
-          languageUsage,
-        },
+        stats: { languageUsage },
         profileSkillsAtVerification: userSkills,
       });
 
-      setGithubStep('success');
-      toast.success('GitHub verification successful');
+      setGithubStep("success");
+      toast.success("GitHub verification successful");
       onVerificationComplete(verifiedSkills);
       onOpenChange(false);
-    } catch (err: any) {
+
+    } catch (err:any) {
       console.error(err);
-      setGithubError(err.message || 'GitHub verification failed');
-    } finally {
-      setGithubLoading(false);
+      toast.error("GitHub verification failed");
     }
   };
+
+  const getGitHubPrimaryEmail = async (token: string) => {
+    const res = await fetch("https://api.github.com/user/emails", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const emails = await res.json();
+    const primary = emails.find((e: any) => e.primary && e.verified);
+
+    return primary?.email || null;
+  };
+
+  const handleGitHubConnect = async () => {
+    if (!user || !auth.currentUser) return;
+
+    const provider = new GithubAuthProvider();
+    provider.addScope("read:user");
+    provider.addScope("repo");
+
+    try {
+      // 🔗 Try linking GitHub (first-time users)
+      const result = await linkWithPopup(auth.currentUser, provider);
+
+      const credential = GithubAuthProvider.credentialFromResult(result);
+      if (!credential?.accessToken) {
+        throw new Error("GitHub access token missing");
+      }
+
+      console.log("GitHub linked successfully");
+
+      // 👉 Continue verification using credential.accessToken
+      await continueGitHubVerification(credential.accessToken);
+
+    } catch (error: any) {
+
+      /* ===============================
+        GitHub already linked to THIS user
+      =============================== */
+      if (error.code === "auth/provider-already-linked") {
+
+        console.log("GitHub already linked — signing in to get token");
+
+        const result = await signInWithPopup(auth, provider);
+        const credential = GithubAuthProvider.credentialFromResult(result);
+
+        if (!credential?.accessToken) {
+          throw new Error("GitHub token missing");
+        }
+
+        await continueGitHubVerification(credential.accessToken);
+        return;
+      }
+
+
+      /* ===============================
+        Account exists with other provider (merge case)
+      =============================== */
+      if (error.code === "auth/account-exists-with-different-credential") {
+
+        const pendingCred = GithubAuthProvider.credentialFromError(error);
+        const email = error.customData?.email;
+
+        if (!email || !pendingCred) throw error;
+
+        const methods = await fetchSignInMethodsForEmail(auth, email);
+
+        if (methods.includes("password")) {
+
+          const password = prompt("Enter your password to link GitHub:");
+
+          if (!password) return;
+
+          const userCred = await signInWithEmailAndPassword(auth, email, password);
+
+          await linkWithCredential(userCred.user, pendingCred);
+
+          console.log("Accounts merged successfully");
+
+          const token = (pendingCred as any).accessToken;
+          await continueGitHubVerification(token);
+
+          return;
+        }
+      }
+
+
+      /* ===============================
+        GitHub linked to ANOTHER TeamUp user
+      =============================== */
+      if (error.code === "auth/credential-already-in-use") {
+
+        const result = await signInWithPopup(auth, provider);
+        const credential = GithubAuthProvider.credentialFromResult(result);
+
+        if (!credential?.accessToken) throw error;
+
+        const githubEmail = await getGitHubPrimaryEmail(credential.accessToken);
+        const teamupEmail = auth.currentUser?.email;
+
+        if (githubEmail && teamupEmail && githubEmail === teamupEmail) {
+
+          console.log("Same owner — allowing re-verification");
+
+          await continueGitHubVerification(credential.accessToken);
+          return;
+        }
+
+        toast.error("This GitHub account belongs to another user.");
+        return;
+      }
+
+      console.error(error);
+      toast.error(error.message || "GitHub connection failed");
+    }
+  };
+
 
   // ========================
   // YOUR CERTIFICATE VERIFICATION (YOUR WORKING CODE)
