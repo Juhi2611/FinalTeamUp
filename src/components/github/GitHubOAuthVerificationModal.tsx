@@ -23,6 +23,10 @@ import {
   GithubAuthProvider, 
   linkWithPopup,
   reauthenticateWithPopup,
+  linkWithCredential,
+  fetchSignInMethodsForEmail,
+  signInWithEmailAndPassword,
+  signInWithPopup,
   signOut,
   UserCredential,
 } from 'firebase/auth';
@@ -44,6 +48,8 @@ import {
   SkillVerification,
 } from '@/types/skillVerification.types';
 import { cn } from '@/lib/utils';
+
+
 // Progress messages for each step
 const STEP_MESSAGES: Record<VerificationStep, string> = {
   input: 'Enter your GitHub profile URL',
@@ -88,103 +94,100 @@ export function GitHubOAuthVerificationModal({
   
   // Handle GitHub OAuth and verification
   const handleVerify = useCallback(async () => {
-    // Validate URL first
     const validation = validateGitHubUrl(githubUrl);
     if (!validation.isValid) {
       setError(validation.error || 'Invalid URL');
       return;
     }
-    
+
     const urlUsername = extractGitHubUsername(githubUrl);
     if (!urlUsername) {
-      setError('Could not extract username from URL');
+      setError('Could not extract username');
       return;
     }
-    
-    // SECURITY: Lock the current user's UID
-    if (!user?.uid) {
-      setError('You must be logged in to verify skills');
+
+    if (!auth.currentUser) {
+      setError('You must be logged in');
       return;
     }
-    lockedUidRef.current = user.uid;
-    
-    setError(null);
+
+    lockedUidRef.current = auth.currentUser.uid;
     setStep('authenticating');
-    
+    setError(null);
+
+    const provider = new GithubAuthProvider();
+    provider.addScope('read:user');
+    provider.addScope('repo');
+
+    let credential: UserCredential;
+
     try {
-      // Initiate GitHub OAuth
-      const provider = new GithubAuthProvider();
-      provider.addScope('read:user');
-      provider.addScope('repo');
-      
-      let credential: UserCredential;
-      
-      try {
-        // Try to link GitHub to existing account
-        credential = await linkWithPopup(auth.currentUser!, provider);
-      } catch (linkError: any) {
-        // If already linked, reauthenticate instead
-        if (linkError.code === 'auth/provider-already-linked') {
-          credential = await reauthenticateWithPopup(auth.currentUser!, provider);
-        } else if (linkError.code === 'auth/credential-already-in-use') {
-          throw new Error('This GitHub account is already linked to another user');
-        } else {
-          throw linkError;
-        }
-      }
-      
-      // SECURITY: Verify UID hasn't changed (session hijacking prevention)
-      if (auth.currentUser?.uid !== lockedUidRef.current) {
-        console.error('SECURITY VIOLATION: UID changed during OAuth');
-        await signOut(auth);
-        throw new Error('Security violation detected. Please log in again.');
-      }
-      
-      // Extract OAuth username
-      const oauthCredential = GithubAuthProvider.credentialFromResult(credential);
-      const accessToken = oauthCredential?.accessToken;
-      
-      // Get the authenticated GitHub username from the credential
-      // The additionalUserInfo contains the GitHub profile
-      const githubProfile = (credential as any).additionalUserInfo?.profile;
-      const oauthUsername = githubProfile?.login;
-      
-      if (!oauthUsername) {
-        throw new Error('Could not retrieve GitHub username from authentication');
-      }
-      
-      // CRITICAL SECURITY CHECK: Compare OAuth username with URL username
-      if (oauthUsername.toLowerCase() !== urlUsername.toLowerCase()) {
-        throw new Error(
-          `Security check failed: You authenticated as "${oauthUsername}" but the URL is for "${urlUsername}". ` +
-          `You can only verify your own GitHub profile.`
-        );
-      }
-      
-      // OAuth verified - now fetch stats
-      setStep('fetching');
-      
-      // Fetch GitHub stats using the access token (higher rate limits)
-      const stats = await fetchAdvancedGitHubStats(oauthUsername, accessToken || undefined);
-      
-      setStep('analyzing');
-      
-      // Small delay to show analyzing step
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Match user's claimed skills against inferred skills
-      const matched = matchVerifiedSkills(userSkills, stats.inferredSkills);
-      
-      setGithubStats(stats);
-      setVerifiedSkills(matched);
-      setStep('success');
-      
+      // NORMAL LINK FLOW
+      credential = await linkWithPopup(auth.currentUser, provider);
+
     } catch (err: any) {
-      console.error('Verification error:', err);
-      setError(err.message || 'Verification failed. Please try again.');
-      setStep('error');
+
+      if (err.code !== 'auth/account-exists-with-different-credential') {
+        throw err;
+      }
+
+      const pendingCred = GithubAuthProvider.credentialFromError(err);
+      const email = err.customData.email;
+
+      const password = prompt(
+        `This GitHub email already exists.\nEnter your TeamUp password to link GitHub:`
+      );
+
+      if (!password) throw new Error("Password required");
+
+      const userCred = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+
+      await linkWithCredential(userCred.user, pendingCred!);
+
+      // ✅ SUCCESS — stop error forever
+      return handleVerify(); 
     }
-  }, [githubUrl, user, userSkills]);
+
+    // SECURITY CHECK
+    if (auth.currentUser?.uid !== lockedUidRef.current) {
+      await signOut(auth);
+      throw new Error('Session changed. Login again.');
+    }
+
+    const oauthCred = GithubAuthProvider.credentialFromResult(credential);
+    const accessToken = oauthCred?.accessToken;
+
+    const profile = (credential as any).additionalUserInfo?.profile;
+    const oauthUsername = profile?.login;
+
+    if (!oauthUsername) throw new Error('GitHub username missing');
+
+    if (oauthUsername.toLowerCase() !== urlUsername.toLowerCase()) {
+      throw new Error('GitHub account does not match profile URL');
+    }
+
+    setStep('fetching');
+
+    const stats = await fetchAdvancedGitHubStats(
+      oauthUsername,
+      accessToken || undefined
+    );
+
+    setStep('analyzing');
+
+    await new Promise(r => setTimeout(r, 400));
+
+    const matched = matchVerifiedSkills(userSkills, stats.inferredSkills);
+
+    setGithubStats(stats);
+    setVerifiedSkills(matched);
+    setStep('success');
+
+  }, [githubUrl, userSkills]);
   
   // Save verification to Firestore
   const handleSaveVerification = useCallback(async () => {
