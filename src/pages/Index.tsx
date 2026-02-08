@@ -32,6 +32,7 @@ import Newsletter from '@/components/landing/ContactUs';
 import Footer from '@/components/landing/Footer';
 
 const Index = () => {
+  const [isDirty, setIsDirty] = useState(false);
   const navigate = useNavigate();
   const { user, loading: authLoading, logout } = useAuth();
   const [currentPage, setCurrentPage] = useState('feed');
@@ -50,49 +51,28 @@ const Index = () => {
 
   const { leftCollapsed, rightCollapsed, toggleLeft, toggleRight } = useSidebarState();
 
-  useEffect(() => {
-  let hasInteracted = false;
+useEffect(() => {
+  const markDirty = () => setIsDirty(true);
 
-  const markInteracted = () => {
-    hasInteracted = true;
-  };
-
-  window.addEventListener("click", markInteracted);
-  window.addEventListener("keydown", markInteracted);
+  window.addEventListener("input", markDirty, true);
+  window.addEventListener("change", markDirty, true);
 
   const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-    if (!hasInteracted) return;
+    if (!isDirty) return;
 
     event.preventDefault();
-    event.returnValue = "";
+    event.returnValue = "Changes may not be saved";
   };
 
   window.addEventListener("beforeunload", handleBeforeUnload);
 
   return () => {
     window.removeEventListener("beforeunload", handleBeforeUnload);
-    window.removeEventListener("click", markInteracted);
-    window.removeEventListener("keydown", markInteracted);
+    window.removeEventListener("input", markDirty, true);
+    window.removeEventListener("change", markDirty, true);
   };
-}, []);
+}, [isDirty]);
 
-useEffect(() => {
-  // Scroll to top instantly whenever page changes
-  window.scrollTo(0, 0);
-}, [currentPage]);
-
-  useEffect(() => {
-    if (user && isFirebaseConfigured()) {
-      checkProfile();
-
-      // Subscribe to notifications for unread count
-      const unsubscribe = subscribeToNotifications(user.uid, (notifications) => {
-        const unread = notifications.filter(n => !n.read).length;
-        setUnreadCount(unread);
-      });
-      return () => unsubscribe();
-    }
-  }, [user]);
   useEffect(() => {
   const savedPage = localStorage.getItem('teamup:lastPage');
 
