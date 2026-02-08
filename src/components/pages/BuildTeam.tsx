@@ -18,6 +18,10 @@ const BuildTeam = ({ onNavigate }: BuildTeamProps) => {
   const [maxMembers, setMaxMembers] = useState(4);
   const [loading, setLoading] = useState(false);
   const [city, setCity] = useState('');
+  
+  // ✅ Custom role state
+  const [customRole, setCustomRole] = useState('');
+  const [showAddRole, setShowAddRole] = useState(false);
 
   const availableRoles = [
     'Frontend Developer',
@@ -39,13 +43,33 @@ const BuildTeam = ({ onNavigate }: BuildTeamProps) => {
     );
   };
 
+  // ✅ Add custom role handler
+  const addCustomRole = () => {
+    const role = customRole.trim();
+    if (!role) return;
+
+    // Add to rolesNeeded if not already there
+    if (!rolesNeeded.includes(role)) {
+      setRolesNeeded(prev => [...prev, role]);
+    }
+
+    setCustomRole('');
+    setShowAddRole(false);
+  };
+
+  // ✅ Get all roles to display (predefined + custom selected)
+  const displayRoles = [
+    ...availableRoles,
+    ...rolesNeeded.filter(role => !availableRoles.includes(role))
+  ];
+
   const handlePost = async () => {
     if (!user || !isFirebaseConfigured()) return;
-
+    
     if (!city.trim()) {
-  toast.error('Please enter a city');
-  return;
-}
+      toast.error('Please enter a city');
+      return;
+    }
     
     if (!teamName.trim()) {
       toast.error('Please enter a team name');
@@ -60,19 +84,17 @@ const BuildTeam = ({ onNavigate }: BuildTeamProps) => {
     setLoading(true);
     
     try {
-
       // Create the team
       await createTeam({
-  name: teamName,
-  description,
-  city: city.trim(),
-  hackathon: hackathon.trim() || null,
-  leaderId: user.uid,
-  status: 'forming',
-  rolesNeeded,
-  maxMembers
-});
-
+        name: teamName,
+        description,
+        city: city.trim(),
+        hackathon: hackathon.trim() || null,
+        leaderId: user.uid,
+        status: 'forming',
+        rolesNeeded,
+        maxMembers
+      });
 
       toast.success('Team created successfully!');
       onNavigate('teams');
@@ -175,13 +197,13 @@ const BuildTeam = ({ onNavigate }: BuildTeamProps) => {
           </p>
         </div>
 
-        {/* Roles Needed */}
+        {/* Roles Needed - ✅ UPDATED WITH CUSTOM ROLE SUPPORT */}
         <div>
           <label className="block text-sm font-medium text-foreground mb-3">
             Roles You're Looking For
           </label>
           <div className="flex flex-wrap gap-2">
-            {availableRoles.map((role) => (
+            {displayRoles.map((role) => (
               <button
                 key={role}
                 onClick={() => toggleRole(role)}
@@ -199,7 +221,58 @@ const BuildTeam = ({ onNavigate }: BuildTeamProps) => {
                 {role}
               </button>
             ))}
+
+            {/* ✅ Add Custom Role Button */}
+            <button
+              type="button"
+              onClick={() => setShowAddRole(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border border-dashed border-border hover:bg-secondary transition-all"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add role
+            </button>
           </div>
+
+          {/* ✅ Custom Role Input */}
+          {showAddRole && (
+            <div className="mt-3 flex gap-2">
+              <input
+                type="text"
+                value={customRole}
+                onChange={(e) => setCustomRole(e.target.value)}
+                placeholder="Enter custom role"
+                className="flex-1 input-field"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addCustomRole();
+                  }
+                  if (e.key === 'Escape') {
+                    setShowAddRole(false);
+                    setCustomRole('');
+                  }
+                }}
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={addCustomRole}
+                className="btn-primary"
+              >
+                Add
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddRole(false);
+                  setCustomRole('');
+                }}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
         </div>
 
         {/* AI Suggestion */}
