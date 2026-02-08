@@ -6,6 +6,5 @@
   },
   "rewrites": [
     { "source": "/(.*)", "destination": "/" }
-  ],
-  "packageManager": "npm"
+  ]
 }
