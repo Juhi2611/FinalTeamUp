@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Search, Users, Loader2, UserPlus } from 'lucide-react';
+import { Search, Users, Loader2, UserPlus, Filter, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
   subscribeToAvailableTeams,
   getProfile,
   sendInvitation,
+  getAvailableTeamCities,
   Team,
   UserProfile
 } from '@/services/firestore';
 import { isFirebaseConfigured } from '@/lib/firebase';
 import { toast } from 'sonner';
 import JoinTeamModal from '../JoinTeamModal';
+import { motion } from "framer-motion";
 
 interface DiscoverTeamsProps {
   onNavigate: (page: string) => void;
@@ -21,8 +23,20 @@ const DiscoverTeams = ({ onNavigate }: DiscoverTeamsProps) => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [cityFilter, setCityFilter] = useState('');
+  const [availableCities, setAvailableCities] = useState<string[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
+
+  // ✅ Load cities (ONCE)
+  useEffect(() => {
+    const loadCities = async () => {
+      const cities = await getAvailableTeamCities();
+      const sorted = cities.filter(Boolean).sort((a, b) => a.localeCompare(b));
+      setAvailableCities(sorted);
+    };
+    loadCities();
+  }, []);
 
   useEffect(() => {
     if (!isFirebaseConfigured() || !user) {
@@ -68,51 +82,26 @@ const DiscoverTeams = ({ onNavigate }: DiscoverTeamsProps) => {
   };
 
   // Filter teams by search
+  // Filter teams by search and city
   const filteredTeams = teams.filter((team) => {
     const term = searchTerm.toLowerCase();
-    return (
+    const matchesSearch = 
       team.name.toLowerCase().includes(term) ||
       team.description.toLowerCase().includes(term) ||
-      team.rolesNeeded?.some(role => role.toLowerCase().includes(term))
-    );
+      team.rolesNeeded?.some(role => role.toLowerCase().includes(term));
+    
+    const matchesCity = 
+      !cityFilter || 
+      team.city?.toLowerCase() === cityFilter.toLowerCase();
+    
+    return matchesSearch && matchesCity;
   });
 
-  // Check if current user is already in a team
-  const isInTeam = currentUserProfile?.teamId !== null && currentUserProfile?.teamId !== undefined;
 
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (isInTeam) {
-    return (
-      <div className="space-y-6">
-        <div className="card-base p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 rounded-xl bg-primary/10">
-              <Users className="w-6 h-6 text-primary" />
-            </div>
-            <div>
-              <h1 className="font-display font-bold text-2xl text-foreground">Discover Teams</h1>
-              <p className="text-muted-foreground">Find a team to join</p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="card-base p-12 text-center">
-          <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="font-display font-bold text-lg text-foreground mb-2">You're already in a team!</h3>
-          <p className="text-muted-foreground mb-4">
-            Leave your current team first to join another one.
-          </p>
-          <button onClick={() => onNavigate('teams')} className="btn-primary">
-            View My Team
-          </button>
-        </div>
       </div>
     );
   }
@@ -131,17 +120,46 @@ const DiscoverTeams = ({ onNavigate }: DiscoverTeamsProps) => {
           </div>
         </div>
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by team name, description, or roles needed..."
-            className="input-field pl-12"
-          />
-        </div>
+        {/* Search & Filters */}
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.18, ease: "easeOut" }}
+          className="mt-6 space-y-4"
+        >  
+          {/* Search Bar */}
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search by team name, description, or roles needed..."
+              className="input-field pl-12 w-full"
+            />
+          </div>
+          
+          {/* City Filter */}
+          <div className="w-full">
+            <div className="relative">
+              <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <select
+                value={cityFilter}
+                onChange={(e) => setCityFilter(e.target.value)}
+                className="input-field pl-11 pr-12 w-full appearance-none"
+              >
+                <option value="">All Cities</option>
+                {availableCities.map(city => (
+                  <option key={city} value={city}>
+                    {city}
+                  </option>
+                ))}
+              </select>
+              {/* Custom Arrow */}
+              <ChevronDown className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            </div>
+          </div>
+        </motion.div>
       </div>
 
       {/* Teams Grid */}
@@ -159,10 +177,18 @@ const DiscoverTeams = ({ onNavigate }: DiscoverTeamsProps) => {
             </div>
             
             <p className="text-muted-foreground text-sm mb-4 line-clamp-2">{team.description}</p>
-
-            {team.hackathon && (
-              <p className="text-sm text-primary mb-3">🎯 {team.hackathon}</p>
-            )}
+            
+            {/* Hackathon & City */}
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              {team.hackathon && (
+                <span className="text-sm text-primary">🎯 {team.hackathon}</span>
+              )}
+              {team.city && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary text-muted-foreground text-xs">
+                  📍 {team.city}
+                </span>
+              )}
+            </div>
 
             {/* Roles Needed */}
             {team.rolesNeeded && team.rolesNeeded.length > 0 && (
