@@ -1,10 +1,6 @@
-import { useState } from 'react';
-import { Github, Loader2, AlertCircle, CheckCircle, Link as LinkIcon, ShieldAlert } from 'lucide-react';
-import { GithubAuthProvider, linkWithPopup, reauthenticateWithPopup } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
-import { useAuth } from '@/contexts/AuthContext';
-import { updateProfile, fetchGitHubStats } from '@/services/firestore';
-import { serverTimestamp } from 'firebase/firestore';
+// GitHub OAuth Verification Modal
+// Implements secure skill verification with mandatory GitHub OAuth
+import React, { useState, useCallback, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -12,365 +8,386 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-
-interface GitHubVerificationModalProps {
-  open: boolean;
-  onClose: () => void;
-  onSuccess: () => void;
-}
-
-const GITHUB_URL_REGEX = /^https:\/\/github\.com\/([a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)\?tab=repositories$/;
-
-const GitHubVerificationModal = ({ open, onClose, onSuccess }: GitHubVerificationModalProps) => {
-  const { user } = useAuth();
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { 
+  Github, 
+  Loader2, 
+  CheckCircle, 
+  AlertCircle, 
+  ShieldCheck,
+  ExternalLink,
+} from 'lucide-react';
+import { 
+  GithubAuthProvider, 
+  linkWithPopup,
+  reauthenticateWithPopup,
+  signOut,
+  UserCredential,
+} from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import { useAuth } from '@/contexts/AuthContext';
+import { 
+  extractGitHubUsername, 
+  validateGitHubUrl, 
+  fetchAdvancedGitHubStats,
+  matchVerifiedSkills,
+} from '@/services/githubService';
+import { createSkillVerification } from '@/services/firestoreSkillVerification';
+import { SkillScoreCard } from '../../components/skill-verification/SkillScoreCard';
+import { VerifiedSkillsList, VerificationSummaryBadge } from '../../components/skill-verification/VerifiedSkillBadge';
+import { 
+  GitHubOAuthVerificationModalProps, 
+  VerificationStep, 
+  AdvancedGitHubStats,
+  SkillVerification,
+} from '@/types/skillVerification.types';
+import { cn } from '@/lib/utils';
+// Progress messages for each step
+const STEP_MESSAGES: Record<VerificationStep, string> = {
+  input: 'Enter your GitHub profile URL',
+  authenticating: 'Authenticating with GitHub...',
+  fetching: 'Fetching your GitHub profile...',
+  analyzing: 'Analyzing your repositories...',
+  success: 'Verification complete!',
+  error: 'Verification failed',
+};
+export function GitHubOAuthVerificationModal({
+  isOpen,
+  onClose,
+  userSkills,
+  userId,
+  onVerificationComplete,
+}: GitHubOAuthVerificationModalProps) {
+  // State
+  const [step, setStep] = useState<VerificationStep>('input');
   const [githubUrl, setGithubUrl] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState<'input' | 'authenticating' | 'fetching' | 'success'>('input');
-
-  const validateUrl = (url: string): string | null => {
-    if (!url.trim()) {
-      return 'Please enter your GitHub profile URL';
-    }
-    
-    if (!GITHUB_URL_REGEX.test(url)) {
-      return 'URL must be in format: https://github.com/username?tab=repositories';
-    }
-    
-    return null;
-  };
-
-  const extractUsername = (url: string): string | null => {
-    const match = url.match(GITHUB_URL_REGEX);
-    return match ? match[1] : null;
-  };
-
-  const handleConnect = async () => {
-    setError('');
-
-    // ---------- VALIDATION ----------
-    const validationError = validateUrl(githubUrl);
-    if (validationError) {
-      setError(validationError);
+  const [error, setError] = useState<string | null>(null);
+  const [githubStats, setGithubStats] = useState<AdvancedGitHubStats | null>(null);
+  const [verifiedSkills, setVerifiedSkills] = useState<string[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Auth context
+  const { user } = useAuth();
+  
+  // Security: Lock the UID at the start of verification
+  const lockedUidRef = useRef<string | null>(null);
+  
+  // Reset state when modal closes
+  const handleClose = useCallback(() => {
+    setStep('input');
+    setGithubUrl('');
+    setError(null);
+    setGithubStats(null);
+    setVerifiedSkills([]);
+    setIsSaving(false);
+    lockedUidRef.current = null;
+    onClose();
+  }, [onClose]);
+  
+  // Handle GitHub OAuth and verification
+  const handleVerify = useCallback(async () => {
+    // Validate URL first
+    const validation = validateGitHubUrl(githubUrl);
+    if (!validation.isValid) {
+      setError(validation.error || 'Invalid URL');
       return;
     }
-
-    const urlUsername = extractUsername(githubUrl);
+    
+    const urlUsername = extractGitHubUsername(githubUrl);
     if (!urlUsername) {
       setError('Could not extract username from URL');
       return;
     }
-
-    if (!user || !auth.currentUser) {
-      setError('You must be logged in to verify your GitHub');
+    
+    // SECURITY: Lock the current user's UID
+    if (!user?.uid) {
+      setError('You must be logged in to verify skills');
       return;
     }
-
-    // ---------- SECURITY: LOCK SESSION ----------
-    // Capture UID BEFORE any OAuth operation
-    const originalUid = user.uid;
-    const currentUser = auth.currentUser;
-
-    // Double-check session integrity
-    if (currentUser.uid !== originalUid) {
-      setError('Session mismatch detected. Please refresh and try again.');
-      return;
-    }
-
-    setLoading(true);
+    lockedUidRef.current = user.uid;
+    
+    setError(null);
     setStep('authenticating');
-
+    
     try {
-      // ---------- CONFIGURE GITHUB PROVIDER ----------
+      // Initiate GitHub OAuth
       const provider = new GithubAuthProvider();
       provider.addScope('read:user');
       provider.addScope('repo');
-
-      // 🔐 CRITICAL: Force GitHub to always show account picker
-      // This prevents automatic reuse of previously authenticated accounts
-      provider.setCustomParameters({
-        prompt: 'select_account',
-      });
-
-      // ---------- CHECK IF GITHUB IS ALREADY LINKED ----------
-      const hasGithubLinked = currentUser.providerData.some(
-        p => p.providerId === 'github.com'
-      );
-
-      let result;
-
-      if (hasGithubLinked) {
-        // ✅ SAFE: Re-authenticate the SAME user with GitHub
-        // This does NOT sign in a new user or change the session
-        console.log('[GitHub Verification] Re-authenticating existing GitHub link');
-        result = await reauthenticateWithPopup(currentUser, provider);
-      } else {
-        // ✅ SAFE: Link GitHub to the CURRENT Firebase user
-        // This adds GitHub as an auth provider to the existing account
-        // It does NOT create a new account or sign in a different user
-        console.log('[GitHub Verification] Linking GitHub to current user');
-        result = await linkWithPopup(currentUser, provider);
+      
+      let credential: UserCredential;
+      
+      try {
+        // Try to link GitHub to existing account
+        credential = await linkWithPopup(auth.currentUser!, provider);
+      } catch (linkError: any) {
+        // If already linked, reauthenticate instead
+        if (linkError.code === 'auth/provider-already-linked') {
+          credential = await reauthenticateWithPopup(auth.currentUser!, provider);
+        } else if (linkError.code === 'auth/credential-already-in-use') {
+          throw new Error('This GitHub account is already linked to another user');
+        } else {
+          throw linkError;
+        }
       }
-
-      // ---------- SECURITY: VERIFY SESSION DID NOT CHANGE ----------
-      // This is a critical security check - if UID changed, abort immediately
-      if (auth.currentUser?.uid !== originalUid) {
-        console.error('[SECURITY VIOLATION] User session changed during OAuth');
-        await auth.signOut();
-        throw new Error('SECURITY_VIOLATION: User session changed unexpectedly');
+      
+      // SECURITY: Verify UID hasn't changed (session hijacking prevention)
+      if (auth.currentUser?.uid !== lockedUidRef.current) {
+        console.error('SECURITY VIOLATION: UID changed during OAuth');
+        await signOut(auth);
+        throw new Error('Security violation detected. Please log in again.');
       }
-
-      // ---------- EXTRACT ACCESS TOKEN ----------
-      const credential = GithubAuthProvider.credentialFromResult(result);
-      if (!credential?.accessToken) {
-        throw new Error('Failed to get GitHub access token');
+      
+      // Extract OAuth username
+      const oauthCredential = GithubAuthProvider.credentialFromResult(credential);
+      const accessToken = oauthCredential?.accessToken;
+      
+      // Get the authenticated GitHub username from the credential
+      // The additionalUserInfo contains the GitHub profile
+      const githubProfile = (credential as any).additionalUserInfo?.profile;
+      const oauthUsername = githubProfile?.login;
+      
+      if (!oauthUsername) {
+        throw new Error('Could not retrieve GitHub username from authentication');
       }
-
-      const accessToken = credential.accessToken;
-
-      // ---------- FETCH AUTHENTICATED GITHUB USER ----------
-      const githubUserResponse = await fetch('https://api.github.com/user', {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      if (!githubUserResponse.ok) {
-        throw new Error('Failed to fetch GitHub user info');
-      }
-
-      const githubUserData = await githubUserResponse.json();
-      const authenticatedUsername = githubUserData.login;
-
-      // ---------- VERIFY USERNAME MATCH ----------
-      if (authenticatedUsername.toLowerCase() !== urlUsername.toLowerCase()) {
-        setError(
-          `GitHub account mismatch. You authenticated as "${authenticatedUsername}" but provided URL for "${urlUsername}". Please ensure you're authenticating with the correct GitHub account.`
+      
+      // CRITICAL SECURITY CHECK: Compare OAuth username with URL username
+      if (oauthUsername.toLowerCase() !== urlUsername.toLowerCase()) {
+        throw new Error(
+          `Security check failed: You authenticated as "${oauthUsername}" but the URL is for "${urlUsername}". ` +
+          `You can only verify your own GitHub profile.`
         );
-        setStep('input');
-        setLoading(false);
-        return;
       }
-
+      
+      // OAuth verified - now fetch stats
       setStep('fetching');
-
-      // ---------- FETCH GITHUB STATS ----------
-      const stats = await fetchGitHubStats(authenticatedUsername, accessToken);
-
-      // ---------- FINAL SECURITY CHECK BEFORE WRITE ----------
-      if (auth.currentUser?.uid !== originalUid) {
-        console.error('[SECURITY VIOLATION] UID changed before profile update');
-        await auth.signOut();
-        throw new Error('SECURITY_VIOLATION: Session integrity compromised');
-      }
-
-      // ---------- WRITE USING LOCKED UID ----------
-      // Always use originalUid, never auth.currentUser.uid
-      await updateProfile(originalUid, {
-        githubVerified: true,
-        githubUsername: authenticatedUsername,
-        githubProfileUrl: `https://github.com/${authenticatedUsername}`,
-        githubVerifiedAt: serverTimestamp() as any,
-        githubStats: stats,
-      });
-
+      
+      // Fetch GitHub stats using the access token (higher rate limits)
+      const stats = await fetchAdvancedGitHubStats(oauthUsername, accessToken || undefined);
+      
+      setStep('analyzing');
+      
+      // Small delay to show analyzing step
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Match user's claimed skills against inferred skills
+      const matched = matchVerifiedSkills(userSkills, stats.inferredSkills);
+      
+      setGithubStats(stats);
+      setVerifiedSkills(matched);
       setStep('success');
-      setTimeout(onSuccess, 1500);
-
+      
     } catch (err: any) {
-      console.error('[GitHub Verification] Error:', err);
-
-      // Handle security violations - force sign out
-      if (err.message?.includes('SECURITY_VIOLATION')) {
-        await auth.signOut();
-        setError('Security issue detected. You have been signed out for safety. Please sign in again.');
-        setStep('input');
-        setLoading(false);
-        return;
-      }
-
-      // Handle user cancelled popup
-      if (err.code === 'auth/popup-closed-by-user') {
-        setError('Authentication cancelled. Please try again.');
-        setStep('input');
-        setLoading(false);
-        return;
-      }
-
-      // 🔐 CRITICAL: Handle credential already in use
-      // This means the GitHub account is linked to ANOTHER Firebase user
-      // We must NOT attempt to unlink or switch users
-      if (err.code === 'auth/credential-already-in-use') {
-        setError(
-          'This GitHub account is already linked to another TeamUp user. Each GitHub account can only be verified by one TeamUp account. If you believe this is an error, please contact support.'
-        );
-        setStep('input');
-        setLoading(false);
-        return;
-      }
-
-      // 🔐 CRITICAL: Handle email already in use
-      // Firebase's "One account per email" setting blocks linking when:
-      // - The GitHub account's email matches ANY existing Firebase user's email
-      // - This happens even if GitHub was never used before
-      // - This is a Firebase security feature, not a bug
-      //
-      // IMPORTANT: This can occur in two scenarios:
-      // 1. GitHub email matches ANOTHER user's email → Cannot link (security)
-      // 2. GitHub email matches the CURRENT user's email but registered via email/password
-      //    → This should theoretically be allowed but Firebase blocks it by default
-      //
-      // To fix scenario 2, the Firebase project owner must:
-      // Go to Firebase Console → Authentication → Settings → User account linking
-      // And set "Link accounts that use the same email"
-      if (err.code === 'auth/email-already-in-use') {
-        const currentUserEmail = auth.currentUser?.email?.toLowerCase();
-        setError(
-          `This GitHub account's email is already registered in TeamUp. ` +
-          `If this is your email (${currentUserEmail || 'unknown'}), ask your admin to enable "Link accounts that use the same email" in Firebase Console. ` +
-          `Otherwise, use a different GitHub account.`
-        );
-        setStep('input');
-        setLoading(false);
-        return;
-      }
-
-      // Handle provider already linked (shouldn't happen with our logic, but safety first)
-      if (err.code === 'auth/provider-already-linked') {
-        // This is actually okay - just proceed with reauthentication
-        setError('GitHub is already linked. Please try again.');
-        setStep('input');
-        setLoading(false);
-        return;
-      }
-
-      // Handle account exists with different credential
-      if (err.code === 'auth/account-exists-with-different-credential') {
-        setError(
-          'An account already exists with the same email address but different sign-in credentials. Please use your original sign-in method.'
-        );
-        setStep('input');
-        setLoading(false);
-        return;
-      }
-
-      // Generic error
-      setError(err.message || 'GitHub verification failed. Please try again.');
-      setStep('input');
+      console.error('Verification error:', err);
+      setError(err.message || 'Verification failed. Please try again.');
+      setStep('error');
+    }
+  }, [githubUrl, user, userSkills]);
+  
+  // Save verification to Firestore
+  const handleSaveVerification = useCallback(async () => {
+    if (!githubStats || !lockedUidRef.current) return;
+    
+    // SECURITY: Use the locked UID, not current user
+    const targetUserId = lockedUidRef.current;
+    
+    // Verify current user still matches
+    if (auth.currentUser?.uid !== targetUserId) {
+      setError('Security error: User session changed. Please try again.');
+      return;
+    }
+    
+    setIsSaving(true);
+    
+    try {
+      const verification = await createSkillVerification(
+        targetUserId,
+        githubStats,
+        verifiedSkills,
+        userSkills
+      );
+      
+      onVerificationComplete?.(verification);
+      handleClose();
+    } catch (err: any) {
+      console.error('Failed to save verification:', err);
+      setError('Failed to save verification. Please try again.');
     } finally {
-      setLoading(false);
+      setIsSaving(false);
+    }
+  }, [githubStats, verifiedSkills, userSkills, onVerificationComplete, handleClose]);
+  
+  // Render based on current step
+  const renderContent = () => {
+    switch (step) {
+      case 'input':
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="github-url">GitHub Profile URL</Label>
+              <div className="relative">
+                <Github className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="github-url"
+                  type="url"
+                  placeholder="https://github.com/yourusername"
+                  value={githubUrl}
+                  onChange={(e) => {
+                    setGithubUrl(e.target.value);
+                    setError(null);
+                  }}
+                  className="pl-10"
+                />
+              </div>
+              {error && (
+                <p className="text-sm text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {error}
+                </p>
+              )}
+            </div>
+            
+            <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground">
+              <div className="flex gap-2">
+                <ShieldCheck className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+                <p>
+                  You'll be asked to authenticate with GitHub to verify ownership. 
+                  We only verify that you own the profile - your code stays private.
+                </p>
+              </div>
+            </div>
+            
+            <Button 
+              onClick={handleVerify} 
+              className="w-full"
+              disabled={!githubUrl.trim()}
+            >
+              <Github className="mr-2 h-4 w-4" />
+              Verify with GitHub
+            </Button>
+          </div>
+        );
+        
+      case 'authenticating':
+      case 'fetching':
+      case 'analyzing':
+        return (
+          <div className="flex flex-col items-center py-8 space-y-4">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="text-muted-foreground">{STEP_MESSAGES[step]}</p>
+          </div>
+        );
+        
+      case 'error':
+        return (
+          <div className="space-y-4">
+            <div className="flex flex-col items-center py-6 space-y-3">
+              <div className="h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center">
+                <AlertCircle className="h-6 w-6 text-destructive" />
+              </div>
+              <p className="text-center text-destructive">{error}</p>
+            </div>
+            
+            <Button 
+              onClick={() => {
+                setStep('input');
+                setError(null);
+              }} 
+              variant="outline"
+              className="w-full"
+            >
+              Try Again
+            </Button>
+          </div>
+        );
+        
+      case 'success':
+        return (
+          <div className="space-y-6">
+            {/* Success header */}
+            <div className="flex items-center justify-center gap-2 text-primary">
+              <CheckCircle className="h-5 w-5" />
+              <span className="font-medium">Verification Complete</span>
+            </div>
+            
+            {/* Score card */}
+            {githubStats && (
+              <SkillScoreCard 
+                overallScore={githubStats.overallScore}
+                metrics={githubStats.metrics}
+              />
+            )}
+            
+            {/* Verified skills */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium">Your Skills</h4>
+                <VerificationSummaryBadge 
+                  verifiedCount={verifiedSkills.length}
+                  totalCount={userSkills.length}
+                />
+              </div>
+              <VerifiedSkillsList 
+                skills={userSkills}
+                verifiedSkills={verifiedSkills}
+              />
+            </div>
+            
+            {/* GitHub profile link */}
+            {githubStats && (
+              <a 
+                href={githubStats.profileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Github className="h-3.5 w-3.5" />
+                {githubStats.username}
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+            
+            {/* Save button */}
+            <Button 
+              onClick={handleSaveVerification} 
+              className="w-full"
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="mr-2 h-4 w-4" />
+                  Save Verification
+                </>
+              )}
+            </Button>
+          </div>
+        );
     }
   };
-
-  const handleClose = () => {
-    if (!loading) {
-      setError('');
-      setStep('input');
-      setGithubUrl('');
-      onClose();
-    }
-  };
-
+  
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Github className="w-5 h-5" />
-            Verify Skills using GitHub
+            <ShieldCheck className="h-5 w-5 text-primary" />
+            Verify Your Skills
           </DialogTitle>
           <DialogDescription>
-            Connect your GitHub account to verify your programming skills and enhance your profile credibility.
+            {STEP_MESSAGES[step]}
           </DialogDescription>
         </DialogHeader>
-
-        <div className="space-y-4 py-4">
-          {step === 'success' ? (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-4">
-                <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
-              </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">Verification Successful!</h3>
-              <p className="text-sm text-muted-foreground">Your GitHub profile has been verified.</p>
-            </div>
-          ) : (
-            <>
-              {error && (
-                <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-                  <ShieldAlert className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <span>{error}</span>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">
-                  GitHub Profile Repository URL
-                </label>
-                <div className="relative">
-                  <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <input
-                    type="url"
-                    value={githubUrl}
-                    onChange={(e) => setGithubUrl(e.target.value)}
-                    placeholder="https://github.com/username?tab=repositories"
-                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                    disabled={loading}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  URL must be exactly: https://github.com/username?tab=repositories
-                </p>
-              </div>
-
-              {step === 'authenticating' && (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/10 text-primary text-sm">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Authenticating with GitHub...</span>
-                </div>
-              )}
-
-              {step === 'fetching' && (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/10 text-primary text-sm">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Fetching your GitHub statistics...</span>
-                </div>
-              )}
-
-              {/* Security notice */}
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-muted text-muted-foreground text-xs">
-                <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                <span>
-                  Each GitHub account can only be linked to one TeamUp user. Make sure to select the correct GitHub account when prompted.
-                </span>
-              </div>
-
-              <button
-                onClick={handleConnect}
-                disabled={loading || !githubUrl.trim()}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-foreground text-background font-medium hover:bg-foreground/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Connecting...
-                  </>
-                ) : (
-                  <>
-                    <Github className="w-4 h-4" />
-                    Connect to GitHub
-                  </>
-                )}
-              </button>
-
-              <p className="text-xs text-center text-muted-foreground">
-                You'll be asked to select and authenticate with your GitHub account.
-              </p>
-            </>
-          )}
-        </div>
+        
+        {renderContent()}
       </DialogContent>
     </Dialog>
   );
-};
-
-export default GitHubVerificationModal;
+}
+export default GitHubOAuthVerificationModal;
