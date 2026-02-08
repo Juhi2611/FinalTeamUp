@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { X, Github, Award, Upload, Loader2, CheckCircle, AlertTriangle, Trash2, ShieldCheck, AlertCircle, ArrowLeft, Link as LinkIcon, ShieldAlert } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { createSkillVerification, fetchGitHubStats, getProfile } from '@/services/firestore';
+import { createSkillVerification, fetchGitHubStats } from '@/services/firestore';
 import {
   extractGitHubUsername,
   fetchAdvancedGitHubStats,
@@ -17,6 +17,7 @@ import {
   fetchRepoLanguages,
   calculateLanguageUsage
 } from '@/services/githubLanguageService';
+import Tesseract from 'tesseract.js';
 
 interface SkillVerificationModalProps {
   open: boolean;
@@ -51,7 +52,6 @@ export function SkillVerificationModal({
   userSkills,
   onVerificationComplete,
 }: SkillVerificationModalProps) {
-
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -68,9 +68,9 @@ export function SkillVerificationModal({
   const [certificates, setCertificates] = useState<CertificateFile[]>([]);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
   const [githubStats, setGithubStats] = useState<AdvancedGitHubStats | null>(null);
   const [verifiedGithubUsername, setVerifiedGithubUsername] = useState<string | null>(null);
-
 
   // GitHub URL validation
   const validateGitHubUrl = (url: string): string | null => {
@@ -84,7 +84,9 @@ export function SkillVerificationModal({
     return match ? match[1] : null;
   };
 
-  // GitHub OAuth verification handler
+  // ========================
+  // SNEHI'S GITHUB VERIFICATION (COMPLETELY UNTOUCHED)
+  // ========================
   const handleGitHubConnect = async () => {
     if (!user) return;
 
@@ -108,6 +110,7 @@ export function SkillVerificationModal({
       }
 
       const githubAccessToken = credential.accessToken;
+
       setGithubStep('fetching');
 
       const reposRes = await fetch(
@@ -118,8 +121,8 @@ export function SkillVerificationModal({
           },
         }
       );
-      const repos = await reposRes.json();
 
+      const repos = await reposRes.json();
       const languageBytes = await fetchRepoLanguages(repos, githubAccessToken);
       const languageUsage = await calculateLanguageUsage(languageBytes);
 
@@ -133,7 +136,6 @@ export function SkillVerificationModal({
         )
         .filter(skill => repoLanguages.includes(skill));
 
-      // 🔥 SAVE HERE
       await createSkillVerification(user.uid, {
         status: 'verified',
         verifiedSkills,
@@ -147,7 +149,7 @@ export function SkillVerificationModal({
           },
         },
         stats: {
-          languageUsage, // REQUIRED
+          languageUsage,
         },
         profileSkillsAtVerification: userSkills,
       });
@@ -156,7 +158,6 @@ export function SkillVerificationModal({
       toast.success('GitHub verification successful');
       onVerificationComplete(verifiedSkills);
       onOpenChange(false);
-
     } catch (err: any) {
       console.error(err);
       setGithubError(err.message || 'GitHub verification failed');
@@ -165,7 +166,9 @@ export function SkillVerificationModal({
     }
   };
 
-  // Certificate handlers
+  // ========================
+  // YOUR CERTIFICATE VERIFICATION (YOUR WORKING CODE)
+  // ========================
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     const newCerts: CertificateFile[] = files.map(file => ({
@@ -191,27 +194,18 @@ export function SkillVerificationModal({
     setCertificates(prev => prev.map((c, i) => i === index ? { ...c, status: 'verifying' } : c));
 
     try {
-      const reader = new FileReader();
-      const base64 = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => {
-          const result = reader.result as string;
-          resolve(result.split(',')[1]);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(cert.file);
+      // Run OCR on client (YOUR WORKING CODE)
+      const {
+        data: { text }
+      } = await Tesseract.recognize(cert.file, 'eng', {
+        logger: () => {}
       });
 
-      const profile = await getProfile(user!.uid);
+      // Get user's name (compatible with both systems)
+      const userName = user?.displayName || user?.email?.split('@')[0] || 'User';
 
-      if (!profile?.fullName) {
-  throw new Error('User profile not found. Please complete your profile first.');
-}
-
-      const result = await analyzeCertificate(
-        base64,
-        profile.fullName,
-        userSkills
-      );
+      // Send extracted text to API
+      const result = await analyzeCertificate(text, userName, userSkills);
 
       setCertificates(prev => prev.map((c, i) => i === index ? {
         ...c,
@@ -257,7 +251,6 @@ export function SkillVerificationModal({
     if (!termsAccepted || !user) return;
 
     setSubmitting(true);
-
     try {
       await verifyAllCertificates();
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -288,26 +281,32 @@ export function SkillVerificationModal({
         return;
       }
 
-      if (!user?.uid) throw new Error('User not authenticated');
-
-      onVerificationComplete(verifiedSkills);
-      onOpenChange(false);
+      await createSkillVerification(user.uid, {
+        status: 'verified',
+        verifiedSkills,
+        sources: {
+          certificates: verifiedCerts.map(cert => ({
+            fileName: cert.file.name,
+            extractedName: cert.result!.extractedName,
+            nameMatch: cert.result!.nameMatch,
+            courseTopics: cert.result!.courseTopics,
+            inferredSkills: cert.result!.inferredSkills,
+            verifiedAt: Timestamp.now()
+          }))
+        },
+        profileSkillsAtVerification: userSkills
+      });
 
       toast.success(
         `Successfully verified ${verifiedSkills.length} skill(s): ${verifiedSkills.slice(0, 3).join(', ')}${verifiedSkills.length > 3 ? '...' : ''}`
       );
 
-      if (githubStats) {
-        onVerificationComplete(verifiedSkills);
-      }
-      onOpenChange(false);
-      onOpenChange(false);
+      onVerificationComplete(verifiedSkills);
       onOpenChange(false);
     } catch (error: any) {
       console.error('Verification submission error:', error);
       toast.error(error.message || 'Verification failed');
     }
-
     setSubmitting(false);
   };
 
@@ -420,7 +419,7 @@ export function SkillVerificationModal({
           </div>
         )}
 
-        {/* STEP 2A: GITHUB VERIFICATION */}
+        {/* STEP 2A: GITHUB VERIFICATION (SNEHI'S CODE - 100% UNTOUCHED) */}
         {currentStep === 'github' && (
           <div className="space-y-4">
             {githubStep === 'success' ? (
@@ -474,7 +473,6 @@ export function SkillVerificationModal({
                   </div>
                 )}
 
-                {/* Security notice */}
                 <div className="flex items-start gap-2 p-3 rounded-lg bg-muted text-muted-foreground text-xs">
                   <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                   <span>
@@ -508,10 +506,9 @@ export function SkillVerificationModal({
           </div>
         )}
 
-        {/* STEP 2B: CERTIFICATES VERIFICATION */}
+        {/* STEP 2B: CERTIFICATES VERIFICATION (YOUR WORKING CODE) */}
         {currentStep === 'certificates' && (
           <div className="space-y-6">
-            {/* Warning */}
             <div className="p-4 rounded-lg bg-destructive/10 border-2 border-destructive/30">
               <div className="flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
@@ -524,7 +521,6 @@ export function SkillVerificationModal({
               </div>
             </div>
 
-            {/* How it works */}
             <div className="p-4 rounded-lg bg-accent/10 border border-accent/20">
               <p className="text-sm text-foreground font-medium mb-2">How Certificate Verification Works:</p>
               <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
@@ -535,13 +531,11 @@ export function SkillVerificationModal({
               </ul>
             </div>
 
-            {/* File upload */}
             <div className="space-y-3">
               <label className="flex items-center gap-2 text-sm font-medium text-foreground">
                 <Award className="w-4 h-4" />
                 Course Certificates (Name & Topics Verified)
               </label>
-
               <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
                 <input
                   ref={fileInputRef}
@@ -567,7 +561,6 @@ export function SkillVerificationModal({
                       <img src={cert.preview} alt="Certificate" className="w-16 h-16 object-cover rounded flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">{cert.file.name}</p>
-
                         {cert.status === 'pending' && (
                           <button
                             onClick={() => verifyCertificate(index)}
@@ -576,14 +569,12 @@ export function SkillVerificationModal({
                             Click to verify
                           </button>
                         )}
-
                         {cert.status === 'verifying' && (
                           <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
                             <Loader2 className="w-3 h-3 animate-spin" />
                             Analyzing certificate...
                           </p>
                         )}
-
                         {cert.status === 'verified' && cert.result && (
                           <div className="mt-1 space-y-1">
                             <p className="text-xs text-green-600 flex items-center gap-1">
@@ -601,7 +592,6 @@ export function SkillVerificationModal({
                             )}
                           </div>
                         )}
-
                         {cert.status === 'failed' && (
                           <p className="text-xs text-destructive flex items-center gap-1 mt-1">
                             <AlertTriangle className="w-3 h-3" />
@@ -618,7 +608,6 @@ export function SkillVerificationModal({
               )}
             </div>
 
-            {/* Terms */}
             <div className="p-4 rounded-lg bg-secondary/30 border border-border">
               <label className="flex items-start gap-3 cursor-pointer">
                 <input
