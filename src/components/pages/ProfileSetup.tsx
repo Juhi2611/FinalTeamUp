@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, GraduationCap, Briefcase, Code, Save, Loader2, AlertCircle } from 'lucide-react';
+import { User, GraduationCap, Briefcase, Code, Save, Loader2, AlertCircle, MapPin } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { createProfile, updateProfile, UserProfile, invalidateSkillVerification, getSkillVerification } from '@/services/firestore';
 import { isFirebaseConfigured } from '@/lib/firebase';
@@ -32,30 +32,30 @@ const ProfileSetup = ({ existingProfile, onComplete, onOpenVerification }: Profi
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
- const [formData, setFormData] = useState<{
-  fullName: string;
-  username: string;
-  college: string;
-  yearOfStudy: string;
-  primaryRole: string; // 👈 THIS FIXES EVERYTHING
-  bio: string;
-  skills: { name: string; proficiency: 'Beginner' | 'Intermediate' | 'Pro' }[];
-}>({
-  fullName: existingProfile?.fullName || '',
-  username: existingProfile?.username || '',
-  college: existingProfile?.college || '',
-  yearOfStudy: existingProfile?.yearOfStudy || 'First Year',
-  primaryRole: existingProfile?.primaryRole || 'Frontend Developer',
-  bio: existingProfile?.bio || '',
-  skills: existingProfile?.skills || [{ name: '', proficiency: 'Beginner' }]
-});
-
+  const [formData, setFormData] = useState<{
+    fullName: string;
+    username: string;
+    college: string;
+    city: string; // ✅ ADDED
+    yearOfStudy: string;
+    primaryRole: string;
+    bio: string;
+    skills: { name: string; proficiency: 'Beginner' | 'Intermediate' | 'Pro' }[];
+  }>({
+    fullName: existingProfile?.fullName || '',
+    username: existingProfile?.username || '',
+    college: existingProfile?.college || '',
+    city: existingProfile?.city || '', // ✅ ADDED
+    yearOfStudy: existingProfile?.yearOfStudy || 'First Year',
+    primaryRole: existingProfile?.primaryRole || 'Frontend Developer',
+    bio: existingProfile?.bio || '',
+    skills: existingProfile?.skills || [{ name: '', proficiency: 'Beginner' }]
+  });
 
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [checkingUsername, setCheckingUsername] = useState(false);
   const [customRole, setCustomRole] = useState('');
   const [showAddRole, setShowAddRole] = useState(false);
-
 
   const validateUsername = async (username: string) => {
     setCheckingUsername(true);
@@ -113,17 +113,18 @@ const ProfileSetup = ({ existingProfile, onComplete, onOpenVerification }: Profi
   };
 
   const addCustomRole = () => {
-  const role = customRole.trim();
-  if (!role) return;
+    const role = customRole.trim();
+    if (!role) return;
 
-  setFormData(prev => ({
-    ...prev,
-    primaryRole: role
-  }));
+    setFormData(prev => ({
+      ...prev,
+      primaryRole: role
+    }));
 
-  setCustomRole('');
-  setShowAddRole(false);
-};
+    setCustomRole('');
+    setShowAddRole(false);
+  };
+
   const renderedRoles = [
     ...roleOptions,
     ...(formData.primaryRole && !roleOptions.includes(formData.primaryRole as (typeof roleOptions)[number])
@@ -162,7 +163,7 @@ const ProfileSetup = ({ existingProfile, onComplete, onOpenVerification }: Profi
       return;
     }
 
-    // 2️⃣ Username validation (ADD HERE 👇)
+    // 2️⃣ Username validation
     if (!formData.username.trim()) {
       setError('Username is required');
       return;
@@ -174,10 +175,16 @@ const ProfileSetup = ({ existingProfile, onComplete, onOpenVerification }: Profi
       return;
     }
 
-    // 3️⃣ Skills validation
+    // 3️⃣ City validation ✅ ADDED
+    if (!formData.city.trim()) {
+      setError('City is required');
+      return;
+    }
+
+    // 4️⃣ Skills validation
     const validSkills = formData.skills.filter(s => s.name.trim());
 
-    // 4️⃣ Only now start loading
+    // 5️⃣ Only now start loading
     setLoading(true);
     
     if (isFirebaseConfigured() && user) {
@@ -187,11 +194,12 @@ const ProfileSetup = ({ existingProfile, onComplete, onOpenVerification }: Profi
           fullName: formData.fullName,
           username: formData.username.toLowerCase(),
           college: formData.college,
+          city: formData.city, // ✅ ADDED
           yearOfStudy: formData.yearOfStudy as UserProfile['yearOfStudy'],
           primaryRole: formData.primaryRole as UserProfile['primaryRole'],
           bio: formData.bio,
           skills: validSkills as UserProfile['skills'],
-          avatar: existingProfile?.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(formData.fullName)}`
+          avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(formData.fullName)}`
         };
 
         // CRITICAL: Check if skills changed and invalidate verification if needed
@@ -220,7 +228,6 @@ const ProfileSetup = ({ existingProfile, onComplete, onOpenVerification }: Profi
           await createProfile(user.uid, profileData);
         }
       } catch (err) { 
-        
         setError('Failed to save profile. Please try again.');
         setLoading(false);
         return;
@@ -339,7 +346,6 @@ const ProfileSetup = ({ existingProfile, onComplete, onOpenVerification }: Profi
                 </p>
               </div>
 
-
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">
                   Short Bio
@@ -371,6 +377,25 @@ const ProfileSetup = ({ existingProfile, onComplete, onOpenVerification }: Profi
                   placeholder="Stanford University"
                   className="input-field"
                 />
+              </div>
+
+              {/* ✅ CITY FIELD ADDED HERE */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5 flex items-center gap-2">
+                  <MapPin className="w-4 h-4" />
+                  City *
+                </label>
+                <input
+                  type="text"
+                  value={formData.city}
+                  onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
+                  placeholder="San Francisco"
+                  className="input-field"
+                  required
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Your city helps you find local teams and teammates
+                </p>
               </div>
 
               <div>
@@ -423,28 +448,27 @@ const ProfileSetup = ({ existingProfile, onComplete, onOpenVerification }: Profi
                   + Add role
                 </button>
               </div>
-                {showAddRole && (
-                  <div className="mt-3 flex gap-2">
-                    <input
-                      type="text"
-                      value={customRole}
-                      onChange={(e) => setCustomRole(e.target.value)}
-                      placeholder="Enter custom role"
-                      className="flex-1 input-field"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') addCustomRole();
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={addCustomRole}
-                      className="btn-primary"
-                    >
-                      Add
-                    </button>
-                  </div>
-                )}
-
+              {showAddRole && (
+                <div className="mt-3 flex gap-2">
+                  <input
+                    type="text"
+                    value={customRole}
+                    onChange={(e) => setCustomRole(e.target.value)}
+                    placeholder="Enter custom role"
+                    className="flex-1 input-field"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') addCustomRole();
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={addCustomRole}
+                    className="btn-primary"
+                  >
+                    Add
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Skills */}
