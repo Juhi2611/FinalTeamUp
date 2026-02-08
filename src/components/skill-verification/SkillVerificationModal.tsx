@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { X, Github, Award, Upload, Loader2, CheckCircle, AlertTriangle, Trash2, ShieldCheck, AlertCircle, ArrowLeft, Link as LinkIcon, ShieldAlert } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { createSkillVerification, fetchGitHubStats } from '@/services/firestore';
+import { createSkillVerification, fetchGitHubStats, getProfile } from '@/services/firestore';
 import {
   extractGitHubUsername,
   fetchAdvancedGitHubStats,
@@ -201,13 +201,15 @@ export function SkillVerificationModal({
         reader.readAsDataURL(cert.file);
       });
 
-      if (!user?.displayName) {
-        throw new Error('User name not available');
-      }
+      const profile = await getProfile(user!.uid);
+
+      if (!profile?.fullName) {
+  throw new Error('User profile not found. Please complete your profile first.');
+}
 
       const result = await analyzeCertificate(
         base64,
-        user.displayName,
+        profile.fullName,
         userSkills
       );
 
