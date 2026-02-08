@@ -28,6 +28,8 @@ import { uploadProfilePicture } from '@/services/firestore';
 import { deleteUser } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { deleteUserCompletely } from '@/services/firestore';
+import { unlink } from 'firebase/auth';
+import { Github } from 'lucide-react';
 
 interface ProfileProps {
   userId?: string;
@@ -127,6 +129,7 @@ const Profile = ({ userId, isOwnProfile = true, userProfile: passedProfile, onEd
     }
     setDeletingPostId(null);
   };
+
 const handleDeleteProfile = async () => {
   const confirmText = prompt(
     "This will permanently delete your account.\nType DELETE to continue."
@@ -149,6 +152,22 @@ const handleDeleteProfile = async () => {
   } catch (err: any) {
     console.error(err);
     toast.error("Failed to delete account");
+  }
+};
+
+const isGitHubLinked = auth.currentUser?.providerData.some(
+  p => p.providerId === 'github.com'
+);
+
+const handleUnlinkGitHub = async () => {
+  if (!auth.currentUser) return;
+
+  try {
+    await unlink(auth.currentUser, 'github.com');
+    toast.success('GitHub disconnected successfully');
+  } catch (err: any) {
+    console.error(err);
+    toast.error(err.message || 'Failed to unlink GitHub');
   }
 };
 
@@ -216,6 +235,16 @@ const hasVerifiedSkills =
   totalProfileSkills > 0 &&
   verifiedSkillsCount === totalProfileSkills;
 
+  const languageUsage =
+    skillVerification?.stats?.languageUsage ?? [];
+
+  const getSkillLevel = (percent: number) => {
+    if (percent >= 80) return { label: 'Expert', color: 'text-emerald-600' };
+    if (percent >= 60) return { label: 'Advanced', color: 'text-teal-600' };
+    if (percent >= 40) return { label: 'Intermediate', color: 'text-amber-600' };
+    return { label: 'Beginner', color: 'text-orange-500' };
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Card */}
@@ -273,27 +302,27 @@ const hasVerifiedSkills =
 
                   
                   {(hasVerifiedSkills || profile.teamId) && (
-    <div className="flex items-center gap-2">
-      {hasVerifiedSkills && (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#1CB0A3]/70 border border-[#1CB0A3]/40 backdrop-blur-sm">
-          <ShieldCheck className="w-4 h-4 text-white" />
-          <span className="text-xs font-medium text-white">
-            Skills Verified
-          </span>
-        </span>
-      )}
+                  <div className="flex items-center gap-2">
+                    {hasVerifiedSkills && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#1CB0A3]/70 border border-[#1CB0A3]/40 backdrop-blur-sm">
+                        <ShieldCheck className="w-4 h-4 text-white" />
+                        <span className="text-xs font-medium text-white">
+                          Skills Verified
+                        </span>
+                      </span>
+                    )}
 
-      {profile.teamId && (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#1CB0A3]/70 border border-[#1CB0A3]/40 backdrop-blur-sm">
-          <Shield className="w-4 h-4 text-white" />
-          <span className="text-xs font-medium text-white">
-            In a Team
-          </span>
-        </span>
-      )}
-    </div>
-  )}
-</div>
+                    {profile.teamId && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#1CB0A3]/70 border border-[#1CB0A3]/40 backdrop-blur-sm">
+                        <Shield className="w-4 h-4 text-white" />
+                        <span className="text-xs font-medium text-white">
+                          In a Team
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
                 <p className="text-muted-foreground">{profile.primaryRole}</p>
                 {profile.college && (
                   <p className="text-sm text-muted-foreground">{profile.college} • {profile.yearOfStudy}</p>
@@ -345,7 +374,6 @@ const hasVerifiedSkills =
               <h2 className="section-title mb-3">About</h2>
               <p className="text-muted-foreground leading-relaxed">{profile.bio && (
                 <div className="card-base p-6">
-                  <h2 className="section-title mb-3">About</h2>
                   <p className="text-muted-foreground leading-relaxed">
                     <Linkify
                       options={{
@@ -377,8 +405,11 @@ const hasVerifiedSkills =
               </div>
               <div className="flex flex-wrap gap-2">
                 {profile.skills.map((skill, idx) => {
+                  const normalize = (s: string) =>
+                    s.toLowerCase().replace(/\(.*?\)/g, '').trim();
+
                   const isVerified = skillVerification?.verifiedSkills.some(
-                    vs => vs.toLowerCase() === skill.name.toLowerCase()
+                    vs => normalize(vs) === normalize(skill.name)
                   );
                   
                   return (
@@ -484,30 +515,25 @@ const hasVerifiedSkills =
           {/* Status */}
           <div className="card-base p-6">
             <h2 className="section-title mb-4">Status</h2>
+
             <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${
-              profile.teamId 
+              profile.teamId || profile.isTeamLeader
                 ? 'bg-muted text-muted-foreground'
                 : 'bg-skill-mobile/10 text-skill-mobile'
             }`}>
               <span className={`w-2 h-2 rounded-full ${
-                profile.teamId 
+                profile.teamId || profile.isTeamLeader
                   ? 'bg-muted-foreground'
                   : 'bg-skill-mobile'
               }`} />
-              {profile.teamId ? 'Currently in a team' : 'Available for teams'}
+
+              {profile.isTeamLeader
+                ? 'Team Leader'
+                : profile.teamId
+                ? 'In a Team'
+                : 'Available'}
             </div>
           </div>
-
-          {/* Education */}
-          {profile.college && (
-            <div className="card-base p-6">
-              <h2 className="section-title mb-4">Education</h2>
-              <div className="space-y-2">
-                <p className="font-medium text-foreground">{profile.college}</p>
-                <p className="text-sm text-muted-foreground">{profile.yearOfStudy}</p>
-              </div>
-            </div>
-          )}
 
           {/* Skill Verification */}
           <div className="card-base p-6">
@@ -543,6 +569,15 @@ const hasVerifiedSkills =
                     )}
                   </div>
                 </div>
+
+                {isOwnProfile && isGitHubLinked && (
+                  <button
+                    onClick={handleUnlinkGitHub}
+                    className="w-full mb-3 p-2 rounded-lg border border-destructive text-destructive hover:bg-destructive/10 transition text-sm"
+                  >
+                    Unlink GitHub Account
+                  </button>
+                )}
                 
                 {/* Verification Sources */}
                 <div className="text-xs text-muted-foreground space-y-1">
@@ -578,6 +613,57 @@ const hasVerifiedSkills =
               </div>
             )}
           </div>
+
+          {/* GitHub Stats */}
+          {skillVerification?.sources?.github &&
+            skillVerification?.stats?.languageUsage?.length > 0 && (
+            <div className="card-base p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Github className="w-4 h-4 text-primary" />
+                <h2 className="section-title text-sm">GitHub Stats</h2>
+              </div>
+
+              {/* Metrics */}
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Language Proficiency (based on GitHub usage)
+                </p>
+
+                {languageUsage.map(({ language, percent }) => {
+                  const level = getSkillLevel(percent);
+
+                  return (
+                    <div key={language}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="font-medium">{language}</span>
+                        <span className={`${level.color} font-semibold`}>
+                          {percent}% · {level.label}
+                        </span>
+                      </div>
+
+                      <div className="h-1.5 rounded-full bg-secondary">
+                        <div
+                          className="h-1.5 rounded-full bg-primary"
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* GitHub link */}
+              <a
+                href={skillVerification.sources.github.profileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+              >
+                @{skillVerification.sources.github.username}
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          )}
         </div>
       </div>
 
