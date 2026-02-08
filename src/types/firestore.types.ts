@@ -9,7 +9,7 @@ export interface UserProfile {
   fullName: string;
   college?: string;
   yearOfStudy?: 'First Year' | 'Second Year' | 'Third Year' | 'Fourth Year';
-  city?: string;
+  city: string; // ✅ NOW REQUIRED
   primaryRole?: 'Frontend Developer' | 'Backend Developer' | 'UI/UX Designer' | 'Tester' | 'Full Stack Developer' | 'ML Engineer' | 'Mobile Developer' | 'DevOps Engineer' | 'Product Manager';
   skills?: { name: string; proficiency: 'Beginner' | 'Intermediate' | 'Pro' }[];
   bio?: string;
