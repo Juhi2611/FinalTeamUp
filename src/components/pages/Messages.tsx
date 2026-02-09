@@ -161,7 +161,7 @@ const Messages = ({
   /* ====================== UI ====================== */
 
   return (
-    <div className="flex-1 grid grid-cols-[auto_1fr_320px] h-[calc(100vh-8rem)] max-h-[800px]">
+    <div className="flex-1 flex md:grid md:grid-cols-[auto_1fr_320px] h-[calc(100vh-8rem)] max-h-[800px]">
       {/* ---------------- CONVERSATIONS ---------------- */}
       <div
         className={cn(
