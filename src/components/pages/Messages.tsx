@@ -167,7 +167,7 @@ const Messages = ({
         className={cn(
           'border-r border-border flex flex-col bg-card',
           selectedConversation && 'hidden md:flex',
-          sidebarCollapsed ? 'w-16' : 'w-80'
+          'w-full md:w-80'
         )}
       >
         <div className="p-4 border-b border-border flex justify-between">
@@ -248,7 +248,7 @@ const Messages = ({
                   >
                     <div
                       className={cn(
-                        'px-4 py-2 rounded-2xl max-w-[70%]',
+                        'px-4 py-2 rounded-2xl max-w-[85%] md:max-w-[70%]',
                         isOwn
                           ? 'bg-primary text-white'
                           : 'bg-secondary'
