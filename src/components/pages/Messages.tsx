@@ -47,6 +47,7 @@ const Messages = ({
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const shouldAutoScrollRef = useRef(true);
   const previousMessagesLengthRef = useRef(0);
+  const [showFiles, setShowFiles] = useState(false);
 
   /* -------------------- SUBSCRIPTIONS -------------------- */
 
@@ -226,6 +227,12 @@ const Messages = ({
                   )
                 }
               />
+              <button
+                className="ml-auto md:hidden text-sm text-primary"
+                onClick={() => setShowFiles(!showFiles)}
+              >
+                Files
+              </button>
               <h3 className="font-medium">
                 {getOtherParticipant(selectedConv).name}
               </h3>
@@ -292,12 +299,29 @@ const Messages = ({
 
       {/* ---------------- PRIVATE FILES ---------------- */}
       {selectedConversation && user && (
-        <div className="hidden md:block">
-          <PrivateFilesPanel
-            conversationId={selectedConversation}
-            currentUserId={user.uid}
-          />
-        </div>
+        <>
+          {/* Desktop */}
+          <div className="hidden md:block">
+            <PrivateFilesPanel
+              conversationId={selectedConversation}
+              currentUserId={user.uid}
+            />
+          </div>
+      
+          {/* Mobile overlay */}
+          {showFiles && (
+            <div className="fixed inset-0 bg-background z-50 md:hidden">
+              <div className="p-4 border-b flex justify-between">
+                <h3 className="font-semibold">Private Files</h3>
+                <button onClick={() => setShowFiles(false)}>Close</button>
+              </div>
+              <PrivateFilesPanel
+                conversationId={selectedConversation}
+                currentUserId={user.uid}
+              />
+            </div>
+          )}
+        </>
       )}
     </div>
   );
