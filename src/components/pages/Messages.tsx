@@ -161,7 +161,7 @@ const Messages = ({
   /* ====================== UI ====================== */
 
   return (
-    <div className="flex-1 flex md:grid md:grid-cols-[auto_1fr_320px] h-[calc(100vh-8rem)] max-h-[800px]">
+    <div className="flex-1 flex md:grid md:grid-cols-[auto_1fr_320px] md:h-[calc(100vh-8rem)] md:max-h-[800px]">
       {/* ---------------- CONVERSATIONS ---------------- */}
       <div
         className={cn(
@@ -267,7 +267,7 @@ const Messages = ({
 
             <form
               onSubmit={handleSendMessage}
-              className="p-4 border-t border-border flex gap-2"
+              className="p-4 border-t border-border flex gap-2 sticky bottom-0 bg-card"
             >
               <input
                 value={newMessage}
@@ -292,10 +292,12 @@ const Messages = ({
 
       {/* ---------------- PRIVATE FILES ---------------- */}
       {selectedConversation && user && (
-        <PrivateFilesPanel
-          conversationId={selectedConversation}
-          currentUserId={user.uid}
-        />
+        <div className="hidden md:block">
+          <PrivateFilesPanel
+            conversationId={selectedConversation}
+            currentUserId={user.uid}
+          />
+        </div>
       )}
     </div>
   );
