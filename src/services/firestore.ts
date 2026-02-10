@@ -20,6 +20,7 @@
   import { supabase } from '@/lib/supabase';
   import { Timestamp } from 'firebase/firestore';
   import { generateUsernameFromName, isValidUsername } from '@/utils/username';
+  import { isBlocked } from './blockReportService';
   import { db, isFirebaseConfigured } from '@/lib/firebase';
   import { getHiddenUsers } from './blockReportService';
   import type { 
@@ -572,56 +573,63 @@
   // INVITATION FUNCTIONS
   // ========================
   export const sendInvitation = async (data: Omit<Invitation, 'id' | 'status' | 'createdAt'>): Promise<void> => {
-    if (!isFirebaseConfigured()) return;
-    
-    const isJoinRequest = data.type === 'join_request';
-    
-    // Check if team still has room
-    const team = await getTeam(data.teamId);
-    if (!team) {
-      throw new Error('Team not found');
-    }
-    if (team.members.length >= team.maxMembers) {
-      throw new Error('Team is full');
-    }
-    
-    // Check if user is already in this team
-    if (team.members.some(m => m.userId === (isJoinRequest ? data.fromUserId : data.toUserId))) {
-      throw new Error('User is already in this team');
-    }
-    
-    // Check for existing pending invitation/request
-    const existingQuery = query(
-      collection(db, 'invitations'),
-      where('fromUserId', '==', data.fromUserId),
-      where('teamId', '==', data.teamId),
-      where('status', '==', 'pending')
-    );
-    const existingSnap = await getDocs(existingQuery);
-    if (!existingSnap.empty) {
-      throw new Error(isJoinRequest ? 'Join request already sent' : 'Invitation already sent');
-    }
-    
-    // Create invitation/join request
-    await addDoc(collection(db, 'invitations'), {
-      ...data,
-      teamDescription: team.description,
-      status: 'pending',
-      createdAt: serverTimestamp()
-    });
-    
-    // Create notification
-    const notifyUserId = isJoinRequest ? data.toUserId : data.toUserId;
-    await createNotification({
-      toUserId: notifyUserId,
-      fromUserId: data.fromUserId,
-      fromUserName: data.fromUserName,
-      type: isJoinRequest ? 'JOIN_REQUEST' : 'INVITE',
-      teamId: data.teamId,
-      teamName: data.teamName,
-      message: data.message
-    });
-  };
+  if (!isFirebaseConfigured()) return;
+  
+  const isJoinRequest = data.type === 'join_request';
+  const targetUserId = isJoinRequest ? data.toUserId : data.toUserId;
+  
+  // ✅ CHECK IF BLOCKED
+  const blocked = await isBlocked(data.fromUserId, targetUserId);
+  if (blocked) {
+    throw new Error('Cannot send invitation to blocked user');
+  }
+  
+  // Check if team still has room
+  const team = await getTeam(data.teamId);
+  if (!team) {
+    throw new Error('Team not found');
+  }
+  if (team.members.length >= team.maxMembers) {
+    throw new Error('Team is full');
+  }
+  
+  // Check if user is already in this team
+  if (team.members.some(m => m.userId === (isJoinRequest ? data.fromUserId : data.toUserId))) {
+    throw new Error('User is already in this team');
+  }
+  
+  // Check for existing pending invitation/request
+  const existingQuery = query(
+    collection(db, 'invitations'),
+    where('fromUserId', '==', data.fromUserId),
+    where('teamId', '==', data.teamId),
+    where('status', '==', 'pending')
+  );
+  const existingSnap = await getDocs(existingQuery);
+  if (!existingSnap.empty) {
+    throw new Error(isJoinRequest ? 'Join request already sent' : 'Invitation already sent');
+  }
+  
+  // Create invitation/join request
+  await addDoc(collection(db, 'invitations'), {
+    ...data,
+    teamDescription: team.description,
+    status: 'pending',
+    createdAt: serverTimestamp()
+  });
+  
+  // Create notification
+  const notifyUserId = isJoinRequest ? data.toUserId : data.toUserId;
+  await createNotification({
+    toUserId: notifyUserId,
+    fromUserId: data.fromUserId,
+    fromUserName: data.fromUserName,
+    type: isJoinRequest ? 'JOIN_REQUEST' : 'INVITE',
+    teamId: data.teamId,
+    teamName: data.teamName,
+    message: data.message
+  });
+};
   export const getIncomingInvitations = async (userId: string): Promise<Invitation[]> => {
     if (!isFirebaseConfigured()) return [];
     const q = query(
@@ -1205,47 +1213,53 @@
   // MESSAGING FUNCTIONS
   // ========================
   export const getOrCreateConversation = async (
-    user1Id: string,
-    user2Id: string
-  ): Promise<string> => {
-    if (!isFirebaseConfigured()) return '';
-    
-    const q = query(
-      collection(db, 'conversations'),
-      where('participants', 'array-contains', user1Id)
-    );
-    
-    const snapshot = await getDocs(q);
-    const existing = snapshot.docs.find(doc => {
-      const data = doc.data();
-      return data.participants.includes(user2Id);
-    });
-    
-    if (existing) {
-      return existing.id;
-    }
-    
-    const [profile1, profile2] = await Promise.all([
-      getProfile(user1Id),
-      getProfile(user2Id)
-    ]);
-    
-    const docRef = await addDoc(collection(db, 'conversations'), {
-      participants: [user1Id, user2Id],
-      participantNames: {
-        [user1Id]: profile1?.fullName || 'User',
-        [user2Id]: profile2?.fullName || 'User'
-      },
-      participantAvatars: {
-        [user1Id]: profile1?.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${profile1?.fullName || 'User'}`,
-        [user2Id]: profile2?.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${profile2?.fullName || 'User'}`
-      },
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
-    
-    return docRef.id;
-  };
+  user1Id: string,
+  user2Id: string
+): Promise<string> => {
+  if (!isFirebaseConfigured()) return '';
+  
+  // ✅ CHECK IF BLOCKED
+  const blocked = await isBlocked(user1Id, user2Id);
+  if (blocked) {
+    throw new Error('Cannot message blocked user');
+  }
+  
+  const q = query(
+    collection(db, 'conversations'),
+    where('participants', 'array-contains', user1Id)
+  );
+  
+  const snapshot = await getDocs(q);
+  const existing = snapshot.docs.find(doc => {
+    const data = doc.data();
+    return data.participants.includes(user2Id);
+  });
+  
+  if (existing) {
+    return existing.id;
+  }
+  
+  const [profile1, profile2] = await Promise.all([
+    getProfile(user1Id),
+    getProfile(user2Id)
+  ]);
+  
+  const docRef = await addDoc(collection(db, 'conversations'), {
+    participants: [user1Id, user2Id],
+    participantNames: {
+      [user1Id]: profile1?.fullName || 'User',
+      [user2Id]: profile2?.fullName || 'User'
+    },
+    participantAvatars: {
+      [user1Id]: profile1?.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${profile1?.fullName || 'User'}`,
+      [user2Id]: profile2?.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${profile2?.fullName || 'User'}`
+    },
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
+  
+  return docRef.id;
+};
   export const sendMessage = async (
     conversationId: string,
     senderId: string,
