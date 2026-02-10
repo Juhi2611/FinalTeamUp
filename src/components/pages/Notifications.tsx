@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Bell, Check, X, Clock, Send, Loader2, Eye, CheckCheck, MessageCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useBlocks } from '@/contexts/BlockContext';
+import { Users } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
   subscribeToInvitations,
@@ -15,7 +17,6 @@ import {
 import { isFirebaseConfigured } from '@/lib/firebase';
 import { Timestamp } from 'firebase/firestore';
 import { toast } from 'sonner';
-import DemoLockModal from "@/components/DemoLockModal";
 
 interface NotificationsProps {
   onNavigateToMessages?: (conversationId: string) => void;
@@ -23,9 +24,8 @@ interface NotificationsProps {
 }
 
 const Notifications: React.FC<NotificationsProps> = ({ onNavigateToMessages, onViewProfile }) => {
-  const { isDemoUser } = useAuth();
-  const [showDemoLock, setShowDemoLock] = useState(false);
   const { user } = useAuth();
+  const { wasBlockedByThem } = useBlocks();
   const navigate = useNavigate();
   const [incoming, setIncoming] = useState<Invitation[]>([]);
   const [outgoing, setOutgoing] = useState<Invitation[]>([]);
@@ -228,11 +228,15 @@ const Notifications: React.FC<NotificationsProps> = ({ onNavigateToMessages, onV
   alt={inv.fromUserName}
   className="w-10 h-10 rounded-full object-cover cursor-pointer hover:opacity-80 transition"
   onClick={(e) => {
-    e.stopPropagation();
-    if (onViewProfile) {
-      onViewProfile(inv.fromUserId);
+  e.stopPropagation();
+  if (onViewProfile) {
+    if (wasBlockedByThem(inv.fromUserId)) {
+      toast.error('User not found');
+      return;
     }
-  }}
+    onViewProfile(inv.fromUserId);
+  }
+}}
 />
 
       <div className="flex-1 min-w-0">
@@ -316,11 +320,16 @@ const Notifications: React.FC<NotificationsProps> = ({ onNavigateToMessages, onV
     alt={notif.fromUserName}
     className="w-10 h-10 rounded-full object-cover cursor-pointer hover:opacity-80 transition flex-shrink-0"
     onClick={(e) => {
-      e.stopPropagation();
-      if (onViewProfile) {
-        onViewProfile(notif.fromUserId);
-      }
-    }}
+  e.stopPropagation();
+  if (onViewProfile) {
+    // Check if user is blocked before navigating
+    if (wasBlockedByThem(notif.fromUserId)) {
+      toast.error('User not found');
+      return;
+    }
+    onViewProfile(notif.fromUserId);
+  }
+}}
   />
                   <div className="flex-1 min-w-0">
                     {notif.type === 'MESSAGE' ? (
