@@ -34,6 +34,9 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   isConfigured: boolean;
+  isDemoUser: boolean;
+  enterDemo: () => void;
+  exitDemo: () => void;
   login: (email: string, password: string) => Promise<{ error?: string }>;
   register: (
     email: string,
@@ -69,6 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const isConfigured = isFirebaseConfigured();
+  const [isDemoUser, setIsDemoUser] = useState(false);
 
   useEffect(() => {
     if (!isConfigured) {
@@ -77,6 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (isDemoUser) return;
       setUser(currentUser);
       setLoading(false);
     });
@@ -178,6 +183,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         user,
         loading,
         isConfigured,
+        isDemoUser,
+        enterDemo,
+        exitDemo,
         login,
         register,
         resetPassword,
@@ -187,6 +195,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       {children}
     </AuthContext.Provider>
   );
+};
+
+const enterDemo = () => {
+  setIsDemoUser(true);
+  setUser({
+    uid: "demo-user",
+    email: "demo@teamup.app",
+  } as any);
+};
+
+const exitDemo = async () => {
+  setIsDemoUser(false);
+  if (isConfigured) await signOut(auth);
+  setUser(null);
 };
 
 /* =======================
