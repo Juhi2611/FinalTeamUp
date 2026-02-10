@@ -417,47 +417,47 @@ if (editingTeamId) {
                         View Files
                       </button>
                   
-                      {!isCompleted && (
-                        <>
-                          {/* Find Teammates */}
-                          <button
-                            onClick={() => {
-                              setOpenMenu(null);
-                              onNavigate('discover');
-                            }}
-                            className="menu-item"
-                          >
-                            <Users className="w-4 h-4" />
-                            Find Teammates
-                          </button>
-                  
-                          {/* Progress */}
-                          <button
-                            onClick={() => {
-                              setOpenMenu(null);
-                              setShowProgress(team.id);
-                            }}
-                            className="menu-item"
-                          >
-                            <BarChart3 className="w-4 h-4" />
-                            Progress
-                          </button>
-                  
-                          {/* AI Suggestions (Leader only) */}
-                          {isLeader && (
+                      {/* Progress — ALWAYS visible */}
+                        <button
+                          onClick={() => {
+                            setOpenMenu(null);
+                            setShowProgress(team.id);
+                          }}
+                          className="menu-item"
+                        >
+                          <BarChart3 className="w-4 h-4" />
+                          Progress
+                        </button>
+                        
+                        {!isCompleted && (
+                          <>
+                            {/* Find Teammates */}
                             <button
                               onClick={() => {
                                 setOpenMenu(null);
-                                loadRecommendations(team);
+                                onNavigate('discover');
                               }}
                               className="menu-item"
                             >
-                              <Sparkles className="w-4 h-4" />
-                              AI Suggestions
+                              <Users className="w-4 h-4" />
+                              Find Teammates
                             </button>
-                          )}
-                        </>
-                      )}
+                        
+                            {/* AI Suggestions */}
+                            {isLeader && (
+                              <button
+                                onClick={() => {
+                                  setOpenMenu(null);
+                                  loadRecommendations(team);
+                                }}
+                                className="menu-item"
+                              >
+                                <Sparkles className="w-4 h-4" />
+                                AI Suggestions
+                              </button>
+                            )}
+                          </>
+                        )}
                   
                       {/* Team Management */}
                       <button
@@ -590,124 +590,86 @@ if (editingTeamId) {
 
               {/* Team Actions */}
               <div className="pt-4 border-t border-border md:hidden">
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                  <p className="text-sm text-muted-foreground">
-                    {isLeader ? 'Manage your team' : 'Team options'}
-                  </p>
-                  <div className="grid grid-cols-2 sm:flex gap-2">
-                    {/* Progress — ALWAYS visible */}
-                      <button
-                        onClick={() => {
-                          setOpenMenu(null);
-                          setShowProgress(team.id);
-                        }}
-                        className="menu-item"
-                      >
-                        <BarChart3 className="w-4 h-4" />
-                        Progress
-                      </button>
-                      
-                      {!isCompleted && (
-                        <>
-                          {/* Find Teammates */}
-                          <button
-                            onClick={() => {
-                              setOpenMenu(null);
-                              onNavigate('discover');
-                            }}
-                            className="menu-item"
-                          >
-                            <Users className="w-4 h-4" />
-                            Find Teammates
-                          </button>
-                      
-                          {/* AI Suggestions */}
-                          {isLeader && (
-                            <button
-                              onClick={() => {
-                                setOpenMenu(null);
-                                loadRecommendations(team);
-                              }}
-                              className="menu-item"
-                            >
-                              <Sparkles className="w-4 h-4" />
-                              AI Suggestions
-                            </button>
-                          )}
-                        </>
-                      )}
-                    
-                    {/* Progress Button */}
+                <div className="flex flex-wrap gap-2">
+              
+                  {/* Progress — always visible */}
+                  <button 
+                    onClick={() => setShowProgress(team.id)}
+                    className="btn-secondary text-sm flex items-center gap-1.5"
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                    Progress
+                  </button>
+              
+                  {!isCompleted && (
+                    <button
+                      onClick={() => onNavigate('discover')}
+                      className="btn-outline text-sm flex items-center gap-1.5"
+                    >
+                      <Users className="w-4 h-4" />
+                      Find Teammates
+                    </button>
+                  )}
+              
+                  {!isCompleted && isLeader && (
                     <button 
-                      onClick={() => setShowProgress(team.id)}
+                      onClick={() => loadRecommendations(team)}
+                      disabled={loadingRecommendations}
+                      className="btn-primary text-sm flex items-center gap-1.5"
+                    >
+                      {loadingRecommendations ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-4 h-4" />
+                      )}
+                      AI Suggestions
+                    </button>
+                  )}
+              
+                  <button
+                    onClick={() => setShowTeamManagement(team.id)}
+                    className="btn-secondary text-sm"
+                  >
+                    Team Management
+                  </button>
+              
+                  {isLeader && (
+                    <button
+                      onClick={() => setEditingTeamId(team.id)}
                       className="btn-secondary text-sm flex items-center gap-1.5"
                     >
-                      <BarChart3 className="w-4 h-4" />
-                      Progress
+                      <Edit className="w-4 h-4" />
+                      Edit Team
                     </button>
-                    
-                    {isLeader && team.status === 'forming' && (
-                      <button 
-                        onClick={() => loadRecommendations(team)}
-                        disabled={loadingRecommendations}
-                        className="btn-primary text-sm flex items-center gap-1.5"
-                      >
-                        {loadingRecommendations ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Sparkles className="w-4 h-4" />
-                        )}
-                        AI Suggestions
-                      </button>
-                    )}
-
-                    {/* Leave Team (for non-leaders) */}
-                    {!isLeader && (
-                      <button 
-                        onClick={() => setShowLeaveConfirm(team.id)}
-                        className="btn-secondary text-sm flex items-center gap-1.5 text-destructive hover:bg-destructive/10"
-                      >
-                        <LogOut className="w-4 h-4" />
-                        Leave Team
-                      </button>
-                    )}
-                    {isLeader && team.status !== 'complete' && (
-                      <button
-                        onClick={() => handleDeclareComplete(team.id)}
-                        disabled={actionLoading}
-                        className="btn-primary text-sm flex items-center gap-1.5"
-                      >
-                        Declare Complete
-                      </button>
-                    )}
-
+                  )}
+              
+                  {isLeader && !isCompleted && (
                     <button
-                      onClick={() => setShowTeamManagement(team.id)}
-                      className="btn-secondary text-sm"
+                      onClick={() => handleDeclareComplete(team.id)}
+                      className="btn-primary text-sm"
                     >
-                      Team Management
+                      Declare Complete
                     </button>
-                      
-                      {isLeader && (
-                      <button
-                        onClick={() => setEditingTeamId(team.id)}
-                        className="btn-secondary text-sm flex items-center gap-1.5"
-                      >
-                        <Edit className="w-4 h-4" />
-                        Edit Team
-                      </button>
-                    )}
-                    {/* Terminate Team (for leaders) */}
-                    {isLeader && (
-                      <button 
-                        onClick={() => setShowTerminateConfirm(team.id)}
-                        className="btn-secondary text-sm flex items-center gap-1.5 text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Terminate Team
-                      </button>
-                    )}
-                  </div>
+                  )}
+              
+                  {!isLeader && (
+                    <button 
+                      onClick={() => setShowLeaveConfirm(team.id)}
+                      className="btn-secondary text-sm text-destructive"
+                    >
+                      Leave Team
+                    </button>
+                  )}
+              
+                  {isLeader && (
+                    <button 
+                      onClick={() => setShowTerminateConfirm(team.id)}
+                      className="btn-secondary text-sm text-destructive"
+                    >
+                      Terminate Team
+                    </button>
+                  )}
+              
                 </div>
               </div>
 
