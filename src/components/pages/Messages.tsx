@@ -4,6 +4,8 @@ import {
   Send,
   Loader2
 } from 'lucide-react';
+import { useBlocks } from '@/contexts/BlockContext';
+import { Ban, Users } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   subscribeToConversations,
@@ -17,7 +19,6 @@ import { isFirebaseConfigured } from '@/lib/firebase';
 import { Timestamp } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import PrivateFilesPanel from '@/components/PrivateFilesPanel';
-import DemoLockModal from "@/components/DemoLockModal";
 
 interface MessagesProps {
   initialConversationId?: string | null;
@@ -30,8 +31,7 @@ const Messages = ({
   onViewProfile,
 }: MessagesProps) => {
   const { user } = useAuth();
-  const { isDemoUser } = useAuth();
-  const [showDemoLock, setShowDemoLock] = useState(false);
+  const { isBlockedByMe, wasBlockedByThem } = useBlocks();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(
     initialConversationId || null
@@ -198,17 +198,65 @@ const Messages = ({
       </div>
 
       {/* ---------------- CHAT ---------------- */}
-      <div className="flex flex-col bg-card flex-1">
-        {!selectedConversation || !selectedConv ? (
-          <div className="hidden md:flex flex-1 items-center justify-center text-muted-foreground">
-            Select a conversation
+<div className="flex flex-col bg-card flex-1">
+  {!selectedConversation || !selectedConv ? (
+    <div className="hidden md:flex flex-1 items-center justify-center text-muted-foreground">
+      Select a conversation
+    </div>
+  ) : (() => {
+      const otherUserId = selectedConv.participants.find(id => id !== user?.uid);
+      
+      // ✅ CHECK: I blocked them
+      if (otherUserId && isBlockedByMe(otherUserId)) {
+        return (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+            <Ban className="w-16 h-16 text-destructive opacity-50 mb-4" />
+            <h3 className="font-bold text-xl mb-2">User Blocked</h3>
+            <p className="text-muted-foreground mb-6">
+              You have blocked this user. Unblock them to continue messaging.
+            </p>
+            <button
+              onClick={async () => {
+                if (!user || !otherUserId) return;
+                try {
+                  const { unblockUser } = await import('@/services/blockReportService');
+                  await unblockUser(user.uid, otherUserId);
+                  const { toast } = await import('sonner');
+                  toast.success('User unblocked');
+                  // Refresh will happen via BlockContext
+                } catch (error: any) {
+                  const { toast } = await import('sonner');
+                  toast.error(error.message || 'Failed to unblock');
+                }
+              }}
+              className="btn-secondary bg-destructive/10 hover:bg-destructive/20 text-destructive border-destructive/30"
+            >
+              Unblock User
+            </button>
           </div>
-        ) : showFiles ? (
+        );
+      }
+      
+      // ✅ CHECK: They blocked me
+      if (otherUserId && wasBlockedByThem(otherUserId)) {
+        return (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+            <Users className="w-16 h-16 text-muted-foreground opacity-50 mb-4" />
+            <h3 className="font-bold text-xl mb-2">User Not Found</h3>
+            <p className="text-muted-foreground">
+              This conversation is no longer available.
+            </p>
+          </div>
+        );
+      }
+      
+      // ✅ NORMAL CHAT UI (if not blocked)
+      if (showFiles) {
+        return (
           <>
             {/* Files Header */}
             <div className="p-4 border-b border-border flex justify-between items-center">
               <span className="font-medium">Private Files</span>
-      
               <button
                 onClick={() => setShowFiles(false)}
                 className="text-sm text-primary hover:underline"
@@ -216,89 +264,94 @@ const Messages = ({
                 Close
               </button>
             </div>
-      
             <PrivateFilesPanel
               conversationId={selectedConversation}
-              currentUserId={user.uid}
+              currentUserId={user!.uid}
             />
           </>
-        ) : (
-          <>
-            {/* Chat Header */}
-            <div className="p-4 border-b border-border flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <img
-                  src={getOtherParticipant(selectedConv).avatar}
-                  className="w-10 h-10 rounded-full"
-                />
-                <span className="font-medium">
-                  {getOtherParticipant(selectedConv).name}
-                </span>
-              </div>
+        );
+      }
       
-              <button
-                onClick={() => setShowFiles(true)}
-                className="text-sm font-medium text-primary hover:underline"
-              >
-                Files
-              </button>
+      return (
+        <>
+          {/* Chat Header */}
+          <div className="p-4 border-b border-border flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <img
+                src={getOtherParticipant(selectedConv).avatar}
+                className="w-10 h-10 rounded-full"
+                alt=""
+              />
+              <span className="font-medium">
+                {getOtherParticipant(selectedConv).name}
+              </span>
             </div>
-      
-            {/* Messages */}
-            <div
-              ref={messagesContainerRef}
-              onScroll={handleScroll}
-              className="flex-1 overflow-y-auto p-4 space-y-3"
+            <button
+              onClick={() => setShowFiles(true)}
+              className="text-sm font-medium text-primary hover:underline"
             >
-              {messages.map(msg => {
-                const isOwn = msg.senderId === user?.uid;
-                return (
+              Files
+            </button>
+          </div>
+
+          {/* Messages */}
+          <div
+            ref={messagesContainerRef}
+            onScroll={handleScroll}
+            className="flex-1 overflow-y-auto p-4 space-y-3"
+          >
+            {messages.map(msg => {
+              const isOwn = msg.senderId === user?.uid;
+              return (
+                <div
+                  key={msg.id}
+                  className={cn(
+                    'flex',
+                    isOwn ? 'justify-end' : 'justify-start'
+                  )}
+                >
                   <div
-                    key={msg.id}
                     className={cn(
-                      'flex',
-                      isOwn ? 'justify-end' : 'justify-start'
+                      'px-4 py-2 rounded-2xl max-w-[70%]',
+                      isOwn ? 'bg-primary text-white' : 'bg-secondary'
                     )}
                   >
-                    <div
-                      className={cn(
-                        'px-4 py-2 rounded-2xl max-w-[70%]',
-                        isOwn ? 'bg-primary text-white' : 'bg-secondary'
-                      )}
-                    >
-                      <p>{msg.text}</p>
-                      <p className="text-xs opacity-70 mt-1">
-                        {formatTimestamp(msg.createdAt)}
-                      </p>
-                    </div>
+                    <p>{msg.text}</p>
+                    <p className="text-xs opacity-70 mt-1">
+                      {formatTimestamp(msg.createdAt)}
+                    </p>
                   </div>
-                );
-              })}
-              <div ref={messagesEndRef} />
-            </div>
-      
-            {/* Input */}
-            <form
-              onSubmit={handleSendMessage}
-              className="p-4 border-t border-border flex gap-2 bg-card"
+                </div>
+              );
+            })}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input */}
+          <form
+            onSubmit={handleSendMessage}
+            className="p-4 border-t border-border flex gap-2 bg-card"
+          >
+            <input
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              className="flex-1 px-4 py-2 rounded-full border"
+              placeholder="Type a message..."
+            />
+            <button
+              disabled={!newMessage.trim() || sending}
+              className="p-3 rounded-full bg-primary text-white"
             >
-              <input
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                className="flex-1 px-4 py-2 rounded-full border"
-                placeholder="Type a message..."
-              />
-              <button
-                disabled={!newMessage.trim() || sending}
-                className="p-3 rounded-full bg-primary text-white"
-              >
-                {sending ? <Loader2 className="animate-spin" /> : <Send />}
-              </button>
-            </form>
-          </>
-        )}
+              {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            </button>
+          </form>
+        </>
+      );
+    })()
+  }
+</div>
       </div>
-    </div>
+
   );
 };
 
