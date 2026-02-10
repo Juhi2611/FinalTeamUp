@@ -34,6 +34,11 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   isConfigured: boolean;
+
+  isDemoUser: boolean;
+  enterDemo: () => void;
+  exitDemo: () => void;
+
   login: (email: string, password: string) => Promise<{ error?: string }>;
   register: (
     email: string,
@@ -44,6 +49,7 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<{ error?: string }>;
   logout: () => Promise<void>;
 }
+
 
 /* =======================
    Context
@@ -69,7 +75,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const isConfigured = isFirebaseConfigured();
-  const [isDemoUser, setIsDemoUser] = useState(false);
   const [isDemoUser, setIsDemoUser] = useState(false);
 
   useEffect(() => {
