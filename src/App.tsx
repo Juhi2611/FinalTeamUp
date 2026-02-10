@@ -12,7 +12,7 @@ import ProfilePage from "./pages/ProfilePage";
 import TeamDetails from "./pages/TeamDetails";
 import TeamFiles from "./components/pages/TeamFiles";
 import DemoPage from "./pages/DemoPage";
-import Auth from "./pages/auth"; // adjust path if different
+import Auth from "./components/pages/auth"; // adjust path if different
 
 const queryClient = new QueryClient();
 
