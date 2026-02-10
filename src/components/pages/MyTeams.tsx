@@ -459,6 +459,9 @@ if (editingTeamId) {
                             <button
                               onClick={() => {
                                 setOpenMenu(null);
+                                // Store team context in sessionStorage before navigating
+                                sessionStorage.setItem('inviteForTeamId', team.id);
+                                sessionStorage.setItem('inviteForTeamName', team.name);
                                 onNavigate('discover');
                               }}
                               className="menu-item"
