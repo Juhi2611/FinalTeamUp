@@ -380,7 +380,7 @@ if (editingTeamId) {
                     <p className="text-sm text-muted-foreground mt-1">📍 {team.city}</p>
                   )}
                 </div>
-                <div className="relative hidden md:block">
+                <div className="relative">
                   <button
                     onClick={() =>
                       setOpenMenu(openMenu === team.id ? null : team.id)
@@ -587,91 +587,6 @@ if (editingTeamId) {
                   </div>
                 </div>
               )}
-
-              {/* Team Actions */}
-              <div className="pt-4 border-t border-border md:hidden">
-                <div className="flex flex-wrap gap-2">
-              
-                  {/* Progress — always visible */}
-                  <button 
-                    onClick={() => setShowProgress(team.id)}
-                    className="btn-secondary text-sm flex items-center gap-1.5"
-                  >
-                    <BarChart3 className="w-4 h-4" />
-                    Progress
-                  </button>
-              
-                  {!isCompleted && (
-                    <button
-                      onClick={() => onNavigate('discover')}
-                      className="btn-outline text-sm flex items-center gap-1.5"
-                    >
-                      <Users className="w-4 h-4" />
-                      Find Teammates
-                    </button>
-                  )}
-              
-                  {!isCompleted && isLeader && (
-                    <button 
-                      onClick={() => loadRecommendations(team)}
-                      disabled={loadingRecommendations}
-                      className="btn-primary text-sm flex items-center gap-1.5"
-                    >
-                      {loadingRecommendations ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Sparkles className="w-4 h-4" />
-                      )}
-                      AI Suggestions
-                    </button>
-                  )}
-              
-                  <button
-                    onClick={() => setShowTeamManagement(team.id)}
-                    className="btn-secondary text-sm"
-                  >
-                    Team Management
-                  </button>
-              
-                  {isLeader && (
-                    <button
-                      onClick={() => setEditingTeamId(team.id)}
-                      className="btn-secondary text-sm flex items-center gap-1.5"
-                    >
-                      <Edit className="w-4 h-4" />
-                      Edit Team
-                    </button>
-                  )}
-              
-                  {isLeader && !isCompleted && (
-                    <button
-                      onClick={() => handleDeclareComplete(team.id)}
-                      className="btn-primary text-sm"
-                    >
-                      Declare Complete
-                    </button>
-                  )}
-              
-                  {!isLeader && (
-                    <button 
-                      onClick={() => setShowLeaveConfirm(team.id)}
-                      className="btn-secondary text-sm text-destructive"
-                    >
-                      Leave Team
-                    </button>
-                  )}
-              
-                  {isLeader && (
-                    <button 
-                      onClick={() => setShowTerminateConfirm(team.id)}
-                      className="btn-secondary text-sm text-destructive"
-                    >
-                      Terminate Team
-                    </button>
-                  )}
-              
-                </div>
-              </div>
 
               {/* AI Recommendations */}
               {recommendations && (
