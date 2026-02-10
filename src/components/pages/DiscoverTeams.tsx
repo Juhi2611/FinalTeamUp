@@ -1,7 +1,7 @@
-import DemoLockModal from "@/components/DemoLockModal";
 import { useState, useEffect } from 'react';
 import { Search, Users, Loader2, UserPlus, Filter, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBlocks } from '@/contexts/BlockContext';
 import { 
   subscribeToAvailableTeams,
   getProfile,
@@ -20,11 +20,10 @@ interface DiscoverTeamsProps {
 }
 
 const DiscoverTeams = ({ onNavigate }: DiscoverTeamsProps) => {
-  const { isDemoUser } = useAuth();
-  const [showDemoLock, setShowDemoLock] = useState(false);
   const { user } = useAuth();
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
+  const { wasBlockedByThem } = useBlocks();
   const [searchTerm, setSearchTerm] = useState('');
   const [cityFilter, setCityFilter] = useState('');
   const [availableCities, setAvailableCities] = useState<string[]>([]);
@@ -33,33 +32,29 @@ const DiscoverTeams = ({ onNavigate }: DiscoverTeamsProps) => {
 
   // ✅ Load cities (ONCE)
   useEffect(() => {
-    const loadCities = async () => {
-      const cities = await getAvailableTeamCities();
-      const sorted = cities.filter(Boolean).sort((a, b) => a.localeCompare(b));
-      setAvailableCities(sorted);
-    };
-    loadCities();
-  }, []);
+  if (!isFirebaseConfigured() || !user) {
+    setLoading(false);
+    return;
+  }
 
-  useEffect(() => {
-    if (!isFirebaseConfigured() || !user) {
-      setLoading(false);
-      return;
-    }
+  // Load current user's profile
+  getProfile(user.uid).then(setCurrentUserProfile);
 
-    // Load current user's profile
-    getProfile(user.uid).then(setCurrentUserProfile);
+  // Subscribe to available teams
+  const unsubscribe = subscribeToAvailableTeams((availableTeams) => {
+    // Filter out teams where:
+    // 1. Current user is the leader
+    // 2. Leader has blocked current user
+    const filteredTeams = availableTeams.filter(team => 
+      team.leaderId !== user.uid && 
+      !wasBlockedByThem(team.leaderId) // ✅ Hide teams where leader blocked me
+    );
+    setTeams(filteredTeams);
+    setLoading(false);
+  }, user.uid); // ✅ Pass currentUserId
 
-    // Subscribe to available teams
-    const unsubscribe = subscribeToAvailableTeams((availableTeams) => {
-      // Filter out teams where the current user is the leader
-      const filteredTeams = availableTeams.filter(team => team.leaderId !== user.uid);
-      setTeams(filteredTeams);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [user]);
+  return () => unsubscribe();
+}, [user, wasBlockedByThem]); // ✅ Add dependency
 
   const handleJoinRequest = async (team: Team, message: string) => {
     if (!user || !currentUserProfile) return;
