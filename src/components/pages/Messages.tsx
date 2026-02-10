@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import {
+  MessageCircle,
   Send,
   Loader2
 } from 'lucide-react';
