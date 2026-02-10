@@ -25,18 +25,21 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route
-  path="/auth"
-  element={<Auth onAuthSuccess={() => window.location.href = "/"} />}
-/>
-              <Route path="/profile" element={<Index />} />
-              <Route path="/profile/:userId" element={<ProfilePage />} />
-              <Route path="/teams/:teamId/files" element={<TeamFiles />} />
-              <Route path="/team/:teamId" element={<TeamDetails />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+<Routes>
+  <Route path="/" element={<Index />} />
+  <Route path="/build" element={<Index />} />
+  <Route path="/discover" element={<Index />} />
+  <Route path="/teams" element={<Index />} />
+  <Route path="/notifications" element={<Index />} />
+  <Route path="/profile" element={<Index />} />
+  <Route path="/messages" element={<Index />} />
+
+  <Route path="/profile/:userId" element={<ProfilePage />} />
+  <Route path="/teams/:teamId/files" element={<TeamFiles />} />
+  <Route path="/team/:teamId" element={<TeamDetails />} />
+
+  <Route path="*" element={<NotFound />} />
+</Routes>
           </BrowserRouter>
           </UserProfileProvider>
         </TooltipProvider>
