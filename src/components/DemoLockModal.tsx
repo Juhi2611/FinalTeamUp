@@ -1,19 +1,31 @@
-import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 
-const DemoLockModal = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
-  const navigate = useNavigate();
+interface DemoLockModalProps {
+  open: boolean;
+  onClose: () => void;
+  onSignup: () => void;
+}
 
+const DemoLockModal = ({
+  open,
+  onClose,
+  onSignup,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSignup: () => void;
+}) => {
   if (!open) return null;
 
   return (
     <div className="modal-overlay">
       <div className="modal-content animate-scale-in max-w-md text-center">
         <h2 className="font-display text-xl font-bold mb-2">
-          Sign up to continue
+          You are in Guest Mode
         </h2>
 
         <p className="text-muted-foreground mb-6">
-          This feature is available after creating an account.
+          Sign up to unlock this feature and start collaborating.
         </p>
 
         <div className="flex justify-center gap-3">
@@ -21,10 +33,7 @@ const DemoLockModal = ({ open, onClose }: { open: boolean; onClose: () => void }
             Cancel
           </button>
 
-          <button
-            className="btn-primary"
-            onClick={() => navigate("/signup")}
-          >
+          <button className="btn-primary" onClick={onSignup}>
             Sign Up
           </button>
         </div>

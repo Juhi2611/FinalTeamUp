@@ -2,6 +2,8 @@ import { Button } from "@/components/ui/button";
 import { Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 
 const Header = ({ onGetStarted }: { onGetStarted: () => void }) => {
   const navigate = useNavigate();
@@ -29,9 +31,18 @@ const Header = ({ onGetStarted }: { onGetStarted: () => void }) => {
         {/* CTA */}
         <div className="flex items-center gap-3">
           <button
-            onClick={() => {
-              enterDemo();
-              navigate("/");
+            onClick={async () => {
+              try {
+                await signInWithEmailAndPassword(
+                  auth,
+                  "demo@teamup.app",
+                  "TeamUpDemo123"
+                );
+
+                navigate("/");
+              } catch (e) {
+                console.error(e);
+              }
             }}
             className="bg-[#1E3A8A] text-white px-5 py-2.5 rounded-lg hover:bg-[#1E40AF]"
           >

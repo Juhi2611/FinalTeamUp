@@ -56,7 +56,11 @@ const Index = () => {
   );
   const [showEntry, setShowEntry] = useState(true);
   const [forceAuth, setForceAuth] = useState(false);
-
+  const openAuth = () => {
+    setShowEntry(false);
+    setForceAuth(true);
+  };
+  
   const { leftCollapsed, rightCollapsed, toggleLeft, toggleRight } =
     useSidebarState();
 
@@ -317,7 +321,15 @@ const Index = () => {
         );
 
       case "build":
-        return <BuildTeam onNavigate={handleNavigate} />;
+        return (
+          <BuildTeam
+            onNavigate={handleNavigate}
+            openAuth={() => {
+              setShowEntry(false);
+              setForceAuth(true);
+            }}
+          />
+        );
 
       case "discover":
         return <DiscoverPeople onViewProfile={handleViewProfile} />;

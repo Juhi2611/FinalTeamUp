@@ -8,9 +8,10 @@ import DemoLockModal from "@/components/DemoLockModal";
 
 interface BuildTeamProps {
   onNavigate: (page: string) => void;
+  openAuth: () => void;   // 👈 ADD THIS
 }
 
-const BuildTeam = ({ onNavigate }: BuildTeamProps) => {
+const BuildTeam = ({ onNavigate, openAuth }: BuildTeamProps) => {
   const { isDemoUser } = useAuth();
   const [showDemoLock, setShowDemoLock] = useState(false);
   const { user } = useAuth();
@@ -21,6 +22,7 @@ const BuildTeam = ({ onNavigate }: BuildTeamProps) => {
   const [maxMembers, setMaxMembers] = useState(4);
   const [loading, setLoading] = useState(false);
   const [city, setCity] = useState('');
+  
   
   // ✅ Custom role state
   const [customRole, setCustomRole] = useState('');
@@ -67,27 +69,33 @@ const BuildTeam = ({ onNavigate }: BuildTeamProps) => {
   ];
 
   const handlePost = async () => {
+
+    // 🚫 GUEST MODE BLOCK
+    if (isDemoUser) {
+      setShowDemoLock(true);
+      return;
+    }
+
     if (!user || !isFirebaseConfigured()) return;
-    
+
     if (!city.trim()) {
       toast.error('Please enter a city');
       return;
     }
-    
+
     if (!teamName.trim()) {
       toast.error('Please enter a team name');
       return;
     }
-    
+
     if (!description.trim()) {
       toast.error('Please enter a description');
       return;
     }
 
     setLoading(true);
-    
+
     try {
-      // Create the team
       await createTeam({
         name: teamName,
         description,
@@ -102,10 +110,9 @@ const BuildTeam = ({ onNavigate }: BuildTeamProps) => {
       toast.success('Team created successfully!');
       onNavigate('teams');
     } catch (error: any) {
-      console.error('Error creating team:', error);
       toast.error(error.message || 'Failed to create team');
     }
-    
+
     setLoading(false);
   };
 
@@ -311,6 +318,14 @@ const BuildTeam = ({ onNavigate }: BuildTeamProps) => {
           </button>
         </div>
       </div>
+      <DemoLockModal
+        open={showDemoLock}
+        onClose={() => setShowDemoLock(false)}
+        onSignup={() => {
+          setShowDemoLock(false);
+          openAuth();  
+        }}
+      />
     </div>
   );
 };

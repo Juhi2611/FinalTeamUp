@@ -59,6 +59,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
+  
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
@@ -76,6 +77,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [loading, setLoading] = useState(true);
   const isConfigured = isFirebaseConfigured();
   const [isDemoUser, setIsDemoUser] = useState(false);
+  const isDemoUserComputed = isDemoUser || user?.email === "demo@teamup.app";
 
   useEffect(() => {
     if (!isConfigured) {
@@ -201,7 +203,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         user,
         loading,
         isConfigured,
-        isDemoUser,
+        isDemoUser: isDemoUserComputed,
         enterDemo,
         exitDemo,
         login,
