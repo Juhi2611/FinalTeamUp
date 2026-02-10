@@ -285,9 +285,9 @@ const Index = () => {
   }
 
   // Show auth if not logged in (only when Firebase is configured)
-  if (isFirebaseConfigured() && !authLoading && !user) {
-    return <Auth onAuthSuccess={() => {}} />;
-  }
+  // if (isFirebaseConfigured() && !authLoading && !user) {
+  //   return <Auth onAuthSuccess={() => {}} />;
+  // }
 
   // Show loading
   if (authLoading) {
