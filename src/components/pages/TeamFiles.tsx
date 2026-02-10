@@ -178,45 +178,45 @@ const TeamFiles = () => {
           </p>
         </div>
       ) : (
-        <div className="divide-y divide-border">
+        <div className="space-y-3">
           {files.map((file) => {
             const ext = file.file_name.split(".").pop()?.toLowerCase();
-
+        
             return (
               <div
                 key={file.id}
-                className="flex items-center justify-between py-3 px-2 rounded-lg hover:bg-muted/50 transition"
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 rounded-xl border border-border hover:bg-muted/40 transition"
               >
-                {/* Left */}
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 flex items-center justify-center rounded-lg bg-primary/10 text-primary font-medium">
+                {/* File Info */}
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-11 h-11 flex-shrink-0 flex items-center justify-center rounded-lg bg-primary/10 text-primary font-semibold text-sm">
                     {ext?.toUpperCase() || "FILE"}
                   </div>
-
-                  <div>
-                    <p className="text-sm font-medium text-foreground">
+        
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">
                       {file.file_name}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Uploaded to team workspace
+                      Team workspace
                     </p>
                   </div>
                 </div>
-
-                {/* Right */}
-                <div className="flex gap-2">
+        
+                {/* Actions */}
+                <div className="flex gap-2 w-full sm:w-auto">
                   <button
                     onClick={() => openFile(file.file_path)}
-                    className="btn-secondary text-sm"
+                    className="btn-secondary flex-1 sm:flex-none text-sm"
                   >
                     Open
                   </button>
-
+        
                   <button
                     onClick={() =>
                       downloadFile(file.file_path, file.file_name)
                     }
-                    className="btn-outline text-sm"
+                    className="btn-outline flex-1 sm:flex-none text-sm"
                   >
                     Download
                   </button>
