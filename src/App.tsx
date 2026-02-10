@@ -11,6 +11,7 @@ import NotFound from "./pages/NotFound";
 import ProfilePage from "./pages/ProfilePage";
 import TeamDetails from "./pages/TeamDetails";
 import TeamFiles from "./components/pages/TeamFiles";
+import DemoPage from "./pages/DemoPage";
 
 const queryClient = new QueryClient();
 
