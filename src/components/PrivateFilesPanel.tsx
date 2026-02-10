@@ -50,11 +50,6 @@ const forceDownload = async (file: any) => {
 
   return (
     <div className="w-[320px] border-l border-border bg-card flex flex-col">
-      {/* Header */}
-      <div className="p-4 border-b border-border font-semibold">
-        Private Files
-      </div>
-
       {/* Upload */}
       <div className="p-4">
         <input
@@ -62,10 +57,10 @@ const forceDownload = async (file: any) => {
           type="file"
           className="hidden"
           onChange={(e) => {
-  const file = e.target.files?.[0];
-  console.log('Selected file:', file);
-  if (file) uploadFile(file);
-}}
+            const file = e.target.files?.[0];
+            console.log('Selected file:', file);
+            if (file) uploadFile(file);
+          }}
         />
         <button
           onClick={() => fileInputRef.current?.click()}
