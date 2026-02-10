@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 const Header = ({ onGetStarted }: { onGetStarted: () => void }) => {
   const navigate = useNavigate();
+  const { enterDemo } = useAuth();
 
   return (
     <header className="sticky top-0 z-[100] border-b border-border bg-background/70 backdrop-blur-md">
@@ -27,9 +28,11 @@ const Header = ({ onGetStarted }: { onGetStarted: () => void }) => {
         {/* CTA */}
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate("/demo")}
-            className="bg-[#1E3A8A] text-white px-5 py-2.5 rounded-lg
-                       hover:bg-[#1E40AF] transition font-medium"
+            onClick={() => {
+              enterDemo();
+              navigate("/");
+            }}
+            className="bg-[#1E3A8A] text-white px-5 py-2.5 rounded-lg hover:bg-[#1E40AF]"
           >
             Explore Demo
           </button>
