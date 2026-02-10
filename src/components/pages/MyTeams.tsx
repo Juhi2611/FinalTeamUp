@@ -180,7 +180,10 @@ const loadRecommendations = async (team: TeamWithMembers) => {
 
   try {
     const availableUsers = await getAvailableUsers(user?.uid);
-    const currentMembers = team.loadedMembers.map(m => ({ role: m.role }));
+    const currentMembers = team.loadedMembers.map(m => ({
+  role: m.role,
+  userId: m.userId
+}));
     const recs = await getTeamRecommendations(team, currentMembers, availableUsers);
 
     setRecommendationsByTeam(prev => ({
