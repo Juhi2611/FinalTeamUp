@@ -30,16 +30,25 @@ const Header = ({ onGetStarted }: { onGetStarted: () => void }) => {
 
         {/* CTA */}
         <div className="flex items-center gap-3">
-          <button
-            onClick={enterDemo}
-            className="text-sm text-muted-foreground hover:text-foreground underline"
-          >
-            Explore Demo
-          </button>
-          <Button onClick={onGetStarted}>
-            Get Started
-          </Button>
-        </div>
+        {/* Explore Demo */}
+        <button
+          onClick={enterDemo}
+          className="
+            inline-flex items-center justify-center
+            rounded-lg px-5 py-2.5 text-sm font-medium
+            bg-[#1E3A8A] text-white
+            hover:bg-[#1E40AF]
+            transition-colors
+          "
+        >
+          Explore Demo
+        </button>
+      
+        {/* Get Started */}
+        <Button onClick={onGetStarted}>
+          Get Started
+        </Button>
+      </div>
       </div>
     </header>
   );
