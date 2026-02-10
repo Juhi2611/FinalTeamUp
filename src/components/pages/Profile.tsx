@@ -14,6 +14,7 @@ import {
   SkillVerification
 } from '@/services/firestore';
 import { isFirebaseConfigured } from '@/lib/firebase';
+import { ChevronUp } from 'lucide-react';
 import Linkify from 'linkify-react';
 import { getSkillClass } from '@/data/mockData';
 import { Timestamp } from 'firebase/firestore';
@@ -44,6 +45,7 @@ interface ProfileProps {
 const Profile = ({ userId, isOwnProfile = true, userProfile: passedProfile, onEditProfile, onOpenVerification, onMessage, onProfileUpdated }: ProfileProps) => {
   const { user } = useAuth();
   const [showBlockReportModal, setShowBlockReportModal] = useState(false);
+  const [showAllPosts, setShowAllPosts] = useState(false);
   const { isHidden, refreshBlocks } = useBlocks();
   const [profile, setProfile] = useState<UserProfile | null>(passedProfile || null);
   const [loading, setLoading] = useState(!passedProfile);
@@ -234,6 +236,9 @@ const hasVerifiedSkills =
   skillVerification?.status === 'verified' &&
   totalProfileSkills > 0 &&
   verifiedSkillsCount === totalProfileSkills;
+
+const visiblePosts = showAllPosts ? myPosts : myPosts.slice(0, 2);
+
 
   const languageUsage =
     skillVerification?.stats?.languageUsage ?? [];
@@ -429,15 +434,29 @@ const hasVerifiedSkills =
 
           {/* My Posts Section */}
           <div className="card-base p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="section-title flex items-center gap-2">
-                <PenSquare className="w-4 h-4" />
-                {isOwnProfile ? 'My Posts' : 'Posts'}
-              </h2>
-              <span className="text-xs sm:text-sm text-sm sm:text-base text-muted-foreground">
-                {myPosts.length} {myPosts.length === 1 ? 'post' : 'posts'}
-              </span>
-            </div>
+           <div className="flex items-center justify-between mb-4">
+  <h2 className="section-title flex items-center gap-2">
+    <PenSquare className="w-4 h-4" />
+    {isOwnProfile ? 'My Posts' : 'Posts'}
+  </h2>
+
+  {myPosts.length > 2 && (
+    <div className="flex items-center gap-3">
+      <span className="text-xs sm:text-sm text-muted-foreground">
+        {myPosts.length} {myPosts.length === 1 ? 'post' : 'posts'}
+      </span>
+
+      <button
+        onClick={() => setShowAllPosts(prev => !prev)}
+        className="text-xs text-primary hover:underline"
+      >
+        {showAllPosts ? 'Show less' : 'See all posts'}
+      </button>
+    </div>
+  )}
+</div>
+
+
             
             {postsLoading ? (
               <div className="flex items-center justify-center p-8">
@@ -452,7 +471,7 @@ const hasVerifiedSkills =
               </div>
             ) : (
               <div className="space-y-4">
-                {myPosts.map((post) => (
+                {visiblePosts.map((post) => (
                   <div key={post.id} className="p-4 rounded-lg bg-secondary/30 border border-border">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
@@ -499,11 +518,21 @@ const hasVerifiedSkills =
                           </button>
                         </div>
                       )}
+                      
                     </div>
                   </div>
                 ))}
               </div>
             )}
+             {showAllPosts && myPosts.length > 2 && (
+  <button
+    onClick={() => setShowAllPosts(false)}
+    className="mt-6 mx-auto flex items-center text-muted-foreground hover:text-primary transition"
+    aria-label="Show less posts"
+  >
+    <ChevronUp className="w-5 h-5" />
+  </button>
+)}
           </div>
 
           {/* Quote */}
