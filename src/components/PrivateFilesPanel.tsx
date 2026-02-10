@@ -49,7 +49,7 @@ const forceDownload = async (file: any) => {
 };
 
   return (
-    <div className="w-full md:w-[320px] border-border bg-card flex flex-col md:border-l">
+    <div className="flex-1 bg-card flex flex-col">
       {/* Upload */}
       <div className="p-4">
         <input
@@ -77,7 +77,7 @@ const forceDownload = async (file: any) => {
       </div>
 
       {/* File list */}
-      <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
+      <div className="flex-1 overflow-y-auto p-6 space-y-3">
         {loading ? (
           <p className="text-sm text-muted-foreground">Loading files…</p>
         ) : files.length === 0 ? (
