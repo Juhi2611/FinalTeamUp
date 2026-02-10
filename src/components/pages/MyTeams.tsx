@@ -465,17 +465,10 @@ if (editingTeamId) {
                             </button>
 
                             {/* AI Suggestions */}
-                            <button
+<button
   onClick={() => {
     setOpenMenu(null);
     setOpenRecommendationTeamId(team.id);
-
-    // 🔥 CLEAR previous team recommendations
-    setRecommendationsByTeam(prev => ({
-      ...prev,
-      [team.id]: undefined as any
-    }));
-
     loadRecommendations(team);
   }}
   className="menu-item"
@@ -617,7 +610,7 @@ if (editingTeamId) {
               )}
 
                             {/* AI Recommendations */}
-             {openRecommendationTeamId === team.id && (
+ {openRecommendationTeamId === team.id && (
   <div className="mt-4 p-4 rounded-lg bg-gradient-to-r from-primary/5 to-accent/5 border border-primary/10">
     <div className="flex items-start gap-3">
       <Sparkles className="w-5 h-5 text-primary mt-0.5" />
@@ -625,6 +618,7 @@ if (editingTeamId) {
       <div className="flex-1">
         <div className="flex items-center justify-between">
           <p className="font-medium text-primary mb-2">AI Recommendations</p>
+
           <button
             onClick={() => setOpenRecommendationTeamId(null)}
             className="text-xs text-muted-foreground hover:text-foreground"
@@ -633,66 +627,72 @@ if (editingTeamId) {
           </button>
         </div>
 
-        {loadingRecommendationsByTeam?.[team.id] ? (
+        {loadingRecommendationsByTeam?.[team.id] && (
           <p className="text-sm text-muted-foreground">
             Loading AI suggestions...
           </p>
-        ) : recommendationsByTeam[team.id] ? (
-          <>
-            <p className="text-sm text-muted-foreground mb-3">
-              {recommendationsByTeam[team.id].explanation}
-            </p>
+        )}
 
-            {recommendationsByTeam[team.id].missingRoles.length > 0 && (
-              <div className="mb-3">
-                <p className="text-xs font-medium text-foreground mb-1">
-                  Missing Roles:
-                </p>
-                <div className="flex flex-wrap gap-1">
-                  {recommendationsByTeam[team.id].missingRoles.map((role, idx) => (
-                    <span
-                      key={idx}
-                      className="px-2 py-0.5 rounded-full text-xs bg-accent/10 text-accent"
-                    >
-                      {role}
-                    </span>
-                  ))}
+        {!loadingRecommendationsByTeam?.[team.id] &&
+          recommendationsByTeam[team.id] && (
+            <>
+              <p className="text-sm text-muted-foreground mb-3">
+                {recommendationsByTeam[team.id].explanation}
+              </p>
+
+              {recommendationsByTeam[team.id].missingRoles.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-xs font-medium text-foreground mb-1">
+                    Missing Roles:
+                  </p>
+
+                  <div className="flex flex-wrap gap-1">
+                    {recommendationsByTeam[team.id].missingRoles.map((role, idx) => (
+                      <span
+                        key={idx}
+                        className="px-2 py-0.5 rounded-full text-xs bg-accent/10 text-accent"
+                      >
+                        {role}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {recommendationsByTeam[team.id].recommendedUsers.length > 0 && (
-              <div>
-                <p className="text-xs font-medium text-foreground mb-2">
-                  Recommended Users:
-                </p>
-                <div className="space-y-2">
-                  {recommendationsByTeam[team.id].recommendedUsers.map((rec, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center gap-2 p-2 rounded bg-secondary/50"
-                    >
-                      <img
-                        src={
-                          rec.user.avatar ||
-                          `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
-                            rec.user.fullName || 'User'
-                          )}`
-                        }
-                        alt={rec.user.fullName}
-                        className="w-8 h-8 rounded-full"
-                      />
-                      <div>
-                        <p className="text-sm font-medium">{rec.user.fullName}</p>
-                        <p className="text-xs text-muted-foreground">{rec.reason}</p>
+              {recommendationsByTeam[team.id].recommendedUsers.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-foreground mb-2">
+                    Recommended Users:
+                  </p>
+
+                  <div className="space-y-2">
+                    {recommendationsByTeam[team.id].recommendedUsers.map((rec, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center gap-2 p-2 rounded bg-secondary/50"
+                      >
+                        <img
+                          src={
+                            rec.user.avatar ||
+                            `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+                              rec.user.fullName || "User"
+                            )}`
+                          }
+                          alt={rec.user.fullName}
+                          className="w-8 h-8 rounded-full"
+                        />
+
+                        <div>
+                          <p className="text-sm font-medium">{rec.user.fullName}</p>
+                          <p className="text-xs text-muted-foreground">{rec.reason}</p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </>
-        ) : null}
+              )}
+            </>
+          )}
       </div>
     </div>
   </div>
