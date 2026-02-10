@@ -6,6 +6,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { isFirebaseConfigured } from '@/lib/firebase';
 import { toast } from 'sonner';
+import DemoLockModal from "@/components/DemoLockModal";
 
 interface EditTeamProps {
   teamId: string;
@@ -15,6 +16,8 @@ interface EditTeamProps {
 }
 
 const EditTeam = ({ teamId, onNavigate, onBack, onTeamUpdated }: EditTeamProps) => {
+  const { isDemoUser } = useAuth();
+  const [showDemoLock, setShowDemoLock] = useState(false);
   const { user } = useAuth();
   const [team, setTeam] = useState<Team | null>(null);
   const [teamName, setTeamName] = useState('');
