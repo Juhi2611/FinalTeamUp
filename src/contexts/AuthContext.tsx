@@ -69,6 +69,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const isConfigured = isFirebaseConfigured();
+  const [isDemoUser, setIsDemoUser] = useState(false);
+  const [isDemoUser, setIsDemoUser] = useState(false);
 
   useEffect(() => {
     if (!isConfigured) {
@@ -151,6 +153,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const enterDemo = () => {
+    setIsDemoUser(true);
+    setUser({
+      uid: "demo-user",
+      email: "demo@teamup.app",
+    } as any);
+    setLoading(false);
+  };
+  
+  const exitDemo = async () => {
+    setIsDemoUser(false);
+    if (isConfigured) await signOut(auth);
+    setUser(null);
+  };
+
   const resetPassword = async (email: string) => {
     if (!isConfigured) return { error: 'Firebase not configured' };
 
@@ -179,6 +196,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         user,
         loading,
         isConfigured,
+        isDemoUser,
+        enterDemo,
+        exitDemo,
         login,
         register,
         resetPassword,
