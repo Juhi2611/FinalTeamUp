@@ -322,7 +322,7 @@ const BuildTeam = ({ onNavigate, openAuth }: BuildTeamProps) => {
   onClose={() => setShowDemoLock(false)}
   onSignup={() => {
     setShowDemoLock(false);
-    openAuth();   // this will open auth page
+    openAuth();
   }}
 />
     </div>
