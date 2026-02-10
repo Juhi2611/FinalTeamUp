@@ -71,9 +71,10 @@ const BuildTeam = ({ onNavigate, openAuth }: BuildTeamProps) => {
   const handlePost = async () => {
 
     // 🚫 GUEST MODE BLOCK
-      setShowDemoLock(true);
-      return;
-
+ if (isDemoUser) {
+  setShowDemoLock(true);
+  return;
+}
     if (!user || !isFirebaseConfigured()) return;
 
     if (!city.trim()) {
@@ -319,6 +320,10 @@ const BuildTeam = ({ onNavigate, openAuth }: BuildTeamProps) => {
 <DemoLockModal
   open={showDemoLock}
   onClose={() => setShowDemoLock(false)}
+  onSignup={() => {
+    setShowDemoLock(false);
+    openAuth();   // this will open auth page
+  }}
 />
     </div>
   );
