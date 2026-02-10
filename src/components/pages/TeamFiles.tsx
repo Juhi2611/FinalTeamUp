@@ -1,3 +1,4 @@
+import DemoLockModal from "@/components/DemoLockModal";
 import { useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -15,6 +16,8 @@ type TeamFile = {
 };
 
 const TeamFiles = () => {
+  const { isDemoUser } = useAuth();
+  const [showDemoLock, setShowDemoLock] = useState(false);
   const { teamId } = useParams<{ teamId: string }>();
   const { user } = useAuth();
 
