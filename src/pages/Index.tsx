@@ -56,10 +56,11 @@ const Index = () => {
   );
   const [showEntry, setShowEntry] = useState(true);
   const [forceAuth, setForceAuth] = useState(false);
-  const openAuth = () => {
-    setShowEntry(false);
-    setForceAuth(true);
-  };
+const openAuth = () => {
+  console.log("FORCE AUTH TRIGGERED");
+  setShowEntry(false);
+  setForceAuth(true);
+};
   
   const { leftCollapsed, rightCollapsed, toggleLeft, toggleRight } =
     useSidebarState();
