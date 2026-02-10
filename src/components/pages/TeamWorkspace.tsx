@@ -13,6 +13,7 @@ import {
   getProfile
 } from '@/services/firestore';
 import { isFirebaseConfigured } from '@/lib/firebase';
+import DemoLockModal from "@/components/DemoLockModal";
 
 interface TeamWorkspaceProps {
   teamId: string;
@@ -20,6 +21,8 @@ interface TeamWorkspaceProps {
 }
 
 const TeamWorkspace = ({ teamId, onBack }: TeamWorkspaceProps) => {
+  const { isDemoUser } = useAuth();
+  const [showDemoLock, setShowDemoLock] = useState(false);
   const { user } = useAuth();
   const [team, setTeam] = useState<Team | null>(null);
   const [members, setMembers] = useState<(TeamMember & { profile: UserProfile | null })[]>([]);
