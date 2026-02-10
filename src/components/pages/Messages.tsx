@@ -17,6 +17,7 @@ import { isFirebaseConfigured } from '@/lib/firebase';
 import { Timestamp } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import PrivateFilesPanel from '@/components/PrivateFilesPanel';
+import DemoLockModal from "@/components/DemoLockModal";
 
 interface MessagesProps {
   initialConversationId?: string | null;
@@ -29,7 +30,8 @@ const Messages = ({
   onViewProfile,
 }: MessagesProps) => {
   const { user } = useAuth();
-
+  const { isDemoUser } = useAuth();
+  const [showDemoLock, setShowDemoLock] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(
     initialConversationId || null
