@@ -247,7 +247,12 @@ const Index = () => {
     !authLoading &&
     !user
   ) {
-    return <Auth onAuthSuccess={() => setForceAuth(false)} />;
+    return (
+  <Auth
+    defaultMode={forceAuth ? "signup" : "login"}
+    onAuthSuccess={() => setForceAuth(false)}
+  />
+);
   }
 
   // 3️⃣ LOADING
