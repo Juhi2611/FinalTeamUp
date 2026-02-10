@@ -1,3 +1,4 @@
+import DemoLockModal from "@/components/DemoLockModal";
 import { useState, useEffect } from 'react';
 import { Search, Users, Loader2, UserPlus, Filter, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,6 +20,8 @@ interface DiscoverTeamsProps {
 }
 
 const DiscoverTeams = ({ onNavigate }: DiscoverTeamsProps) => {
+  const { isDemoUser } = useAuth();
+  const [showDemoLock, setShowDemoLock] = useState(false);
   const { user } = useAuth();
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
