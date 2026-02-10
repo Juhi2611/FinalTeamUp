@@ -13,14 +13,17 @@ import {
   subscribeToSkillVerification,
   SkillVerification
 } from '@/services/firestore';
+import { Users } from 'lucide-react';
 import { isFirebaseConfigured } from '@/lib/firebase';
 import { ChevronUp } from 'lucide-react';
 import Linkify from 'linkify-react';
 import { getSkillClass } from '@/data/mockData';
+import { Ban } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
 import EditPostModal from '../EditPostModal';
 import { toast } from 'sonner';
 import BlockReportModal from '../BlockReportModal';
+import { unblockUser } from '@/services/blockReportService';
 import { useBlocks } from '@/contexts/BlockContext';
 import { Flag } from 'lucide-react';
 import { Camera } from 'lucide-react';
@@ -31,7 +34,6 @@ import { auth } from '@/lib/firebase';
 import { deleteUserCompletely } from '@/services/firestore';
 import { unlink } from 'firebase/auth';
 import { Github } from 'lucide-react';
-import DemoLockModal from "@/components/DemoLockModal";
 
 interface ProfileProps {
   userId?: string;
@@ -44,12 +46,10 @@ interface ProfileProps {
 }
 
 const Profile = ({ userId, isOwnProfile = true, userProfile: passedProfile, onEditProfile, onOpenVerification, onMessage, onProfileUpdated }: ProfileProps) => {
-  const { isDemoUser } = useAuth();
-  const [showDemoLock, setShowDemoLock] = useState(false);
   const { user } = useAuth();
   const [showBlockReportModal, setShowBlockReportModal] = useState(false);
   const [showAllPosts, setShowAllPosts] = useState(false);
-  const { isHidden, refreshBlocks } = useBlocks();
+  const { isHidden, isBlockedByMe, wasBlockedByThem, refreshBlocks } = useBlocks();
   const [profile, setProfile] = useState<UserProfile | null>(passedProfile || null);
   const [loading, setLoading] = useState(!passedProfile);
   const [myPosts, setMyPosts] = useState<FeedPost[]>([]);
@@ -64,6 +64,8 @@ const Profile = ({ userId, isOwnProfile = true, userProfile: passedProfile, onEd
   const [verificationLoading, setVerificationLoading] = useState(true);
 
   const targetUserId = userId || user?.uid;
+  
+  const isBlockedUser = user && targetUserId ? isHidden(targetUserId) : false;
 
   useEffect(() => {
   if (!targetUserId) return;
@@ -230,6 +232,56 @@ const handleAvatarChange = async (
       </div>
     );
   }
+  // ✅ BLOCK CHECK - Show blocked UI
+// ✅ BLOCK CHECK - Differentiate who blocked whom
+if (!isOwnProfile && targetUserId) {
+  // I blocked them - show "User Blocked" with unblock option
+  if (isBlockedByMe(targetUserId)) {
+    return (
+      <div className="card-base p-12 text-center">
+        <Ban className="w-16 h-16 text-destructive mx-auto mb-4 opacity-50" />
+        <h3 className="font-display font-bold text-xl text-foreground mb-2">
+          User Blocked
+        </h3>
+        <p className="text-muted-foreground mb-6">
+          You have blocked this user. Unblock them to view their profile.
+        </p>
+        <button
+          onClick={async () => {
+            if (!user || !targetUserId) return;
+            try {
+              await unblockUser(user.uid, targetUserId);
+              toast.success(`Unblocked ${profile?.fullName || 'user'}`);
+              refreshBlocks();
+              const updatedProfile = await getProfile(targetUserId);
+              setProfile(updatedProfile);
+            } catch (error: any) {
+              toast.error(error.message || 'Failed to unblock');
+            }
+          }}
+          className="btn-secondary bg-destructive/10 hover:bg-destructive/20 text-destructive border-destructive/30"
+        >
+          Unblock User
+        </button>
+      </div>
+    );
+  }
+  
+  // They blocked me - show "User Not Found"
+  if (wasBlockedByThem(targetUserId)) {
+    return (
+      <div className="card-base p-12 text-center">
+        <Users className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+        <h3 className="font-display font-bold text-xl text-foreground mb-2">
+          User Not Found
+        </h3>
+        <p className="text-muted-foreground">
+          This profile is not available.
+        </p>
+      </div>
+    );
+  }
+}
 
   // Check if user has verified skills
   const totalProfileSkills = profile.skills?.length || 0;
