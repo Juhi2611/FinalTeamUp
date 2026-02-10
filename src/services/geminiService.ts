@@ -147,7 +147,7 @@ function getDefaultRecommendation(
       user: item.user,
       reason: `Recommended because your team needs ${item.user.primaryRole || "this role"}. Skills: ${
         item.user.skills?.slice(0, 3).map(s => s.name).join(", ") ||
-        "various technologies"
+        "skills not added yet"
       }.`
     }));
 
