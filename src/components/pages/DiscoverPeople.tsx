@@ -17,12 +17,15 @@ import { toast } from 'sonner';
 import { getAvailableCities } from '@/services/firestore';
 import { ChevronDown } from 'lucide-react';
 import { motion } from "framer-motion";
+import DemoLockModal from "@/components/DemoLockModal";
 
 interface DiscoverPeopleProps {
   onViewProfile: (userId: string) => void;
 }
 
 const DiscoverPeople = ({ onViewProfile }: DiscoverPeopleProps) => {
+  const { isDemoUser } = useAuth();
+  const [showDemoLock, setShowDemoLock] = useState(false);
   const [cityFilter, setCityFilter] = useState('');
   const [availableCities, setAvailableCities] = useState<string[]>([]);
   const { user } = useAuth();
