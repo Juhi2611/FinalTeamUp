@@ -1,6 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from "react-router-dom";
-import { FolderKanban, Users, ChevronRight, Plus, Sparkles, Loader2, Crown, LogOut, Trash2, AlertTriangle, BarChart3 } from 'lucide-react';
+import {
+  MoreVertical,
+  FolderKanban,
+  Folder,
+  Users,
+  BarChart3,
+  Sparkles,
+  Settings,
+  Edit,
+  CheckCircle,
+  LogOut,
+  Trash2
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Edit } from 'lucide-react';
 import EditTeam from './EditTeam';
@@ -377,52 +389,138 @@ if (editingTeamId) {
                   </button>
                 
                   {openMenu === team.id && (
-                    <div className="absolute right-0 mt-2 w-44 bg-card border border-border rounded-xl shadow-lg z-50 overflow-hidden">
-                
+                    <div className="absolute right-0 mt-2 w-56 bg-card border border-border rounded-xl shadow-lg z-50 overflow-hidden">
+                  
+                      {/* View Workspace */}
                       <button
-                        onClick={() => onViewWorkspace?.(team.id)}
-                        className="w-full text-left px-4 py-2 hover:bg-secondary"
+                        onClick={() => {
+                          setOpenMenu(null);
+                          onViewWorkspace?.(team.id);
+                        }}
+                        className="menu-item"
                       >
+                        <FolderKanban className="w-4 h-4" />
                         View Workspace
                       </button>
-                
+                  
+                      {/* View Files */}
                       <button
-                        onClick={() => navigate(`/teams/${team.id}/files`)}
-                        className="w-full text-left px-4 py-2 hover:bg-secondary"
+                        onClick={() => {
+                          setOpenMenu(null);
+                          navigate(`/teams/${team.id}/files`);
+                        }}
+                        className="menu-item"
                       >
+                        <Folder className="w-4 h-4" />
                         View Files
                       </button>
-                
+                  
+                      {!isCompleted && (
+                        <>
+                          {/* Find Teammates */}
+                          <button
+                            onClick={() => {
+                              setOpenMenu(null);
+                              onNavigate('discover');
+                            }}
+                            className="menu-item"
+                          >
+                            <Users className="w-4 h-4" />
+                            Find Teammates
+                          </button>
+                  
+                          {/* Progress */}
+                          <button
+                            onClick={() => {
+                              setOpenMenu(null);
+                              setShowProgress(team.id);
+                            }}
+                            className="menu-item"
+                          >
+                            <BarChart3 className="w-4 h-4" />
+                            Progress
+                          </button>
+                  
+                          {/* AI Suggestions (Leader only) */}
+                          {isLeader && (
+                            <button
+                              onClick={() => {
+                                setOpenMenu(null);
+                                loadRecommendations(team);
+                              }}
+                              className="menu-item"
+                            >
+                              <Sparkles className="w-4 h-4" />
+                              AI Suggestions
+                            </button>
+                          )}
+                        </>
+                      )}
+                  
+                      {/* Team Management */}
                       <button
-                        onClick={() => setShowTeamManagement(team.id)}
-                        className="w-full text-left px-4 py-2 hover:bg-secondary"
+                        onClick={() => {
+                          setOpenMenu(null);
+                          setShowTeamManagement(team.id);
+                        }}
+                        className="menu-item"
                       >
+                        <Settings className="w-4 h-4" />
                         Team Management
                       </button>
-                
+                  
+                      {/* Edit Team (Leader only) */}
                       {isLeader && (
                         <button
-                          onClick={() => setEditingTeamId(team.id)}
-                          className="w-full text-left px-4 py-2 hover:bg-secondary"
+                          onClick={() => {
+                            setOpenMenu(null);
+                            setEditingTeamId(team.id);
+                          }}
+                          className="menu-item"
                         >
+                          <Edit className="w-4 h-4" />
                           Edit Team
                         </button>
                       )}
-                
+                  
+                      {/* Declare Complete (Leader + not completed) */}
+                      {isLeader && !isCompleted && (
+                        <button
+                          onClick={() => {
+                            setOpenMenu(null);
+                            handleDeclareComplete(team.id);
+                          }}
+                          className="menu-item text-skill-mobile"
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                          Declare Complete
+                        </button>
+                      )}
+                  
+                      {/* Leave Team (Non-leader) */}
                       {!isLeader && (
                         <button
-                          onClick={() => setShowLeaveConfirm(team.id)}
-                          className="w-full text-left px-4 py-2 text-destructive hover:bg-destructive/10"
+                          onClick={() => {
+                            setOpenMenu(null);
+                            setShowLeaveConfirm(team.id);
+                          }}
+                          className="menu-item text-destructive hover:bg-destructive/10"
                         >
+                          <LogOut className="w-4 h-4" />
                           Leave Team
                         </button>
                       )}
-                
+                  
+                      {/* Terminate Team (Leader) */}
                       {isLeader && (
                         <button
-                          onClick={() => setShowTerminateConfirm(team.id)}
-                          className="w-full text-left px-4 py-2 text-destructive hover:bg-destructive/10"
+                          onClick={() => {
+                            setOpenMenu(null);
+                            setShowTerminateConfirm(team.id);
+                          }}
+                          className="menu-item text-destructive hover:bg-destructive/10"
                         >
+                          <Trash2 className="w-4 h-4" />
                           Terminate Team
                         </button>
                       )}
