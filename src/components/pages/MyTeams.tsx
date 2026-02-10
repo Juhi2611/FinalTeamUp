@@ -269,7 +269,7 @@ if (editingTeamId) {
     <div className="space-y-6">
       {/* Header */}
       <div className="card-base p-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-primary/10">
               <FolderKanban className="w-6 h-6 text-primary" />
@@ -338,10 +338,10 @@ if (editingTeamId) {
           const isCompleted = team.status === 'complete';
           
           return (
-            <div key={team.id} className="card-base card-interactive p-6">
+            <div key={team.id} className="card-base card-interactive p-4 sm:p-6">
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <div className="flex items-center gap-3 mb-1">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
                     <h3 className="font-display font-bold text-xl text-foreground">{team.name}</h3>
                     <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(team.status)}`}>
                       {getStatusLabel(team.status)}
@@ -364,7 +364,7 @@ if (editingTeamId) {
                     <p className="text-sm text-muted-foreground mt-1">📍 {team.city}</p>
                   )}
                 </div>
-                <div className="flex flex-col items-end gap-1">
+                <div className="flex flex-col sm:items-end gap-2">
                 <button 
                   onClick={() => onViewWorkspace?.(team.id)}
                   className="btn-ghost flex items-center gap-1"
@@ -392,7 +392,7 @@ if (editingTeamId) {
                 </p>
                 <div className="flex flex-col gap-2">
   {/* Avatars row */}
-  <div className="flex -space-x-2">
+  <div className="flex -space-x-1 sm:-space-x-2">
     {team.loadedMembers.map((member) => (
       <img
         key={member.id}
@@ -448,7 +448,7 @@ if (editingTeamId) {
                   <p className="text-sm text-muted-foreground">
                     {isLeader ? 'Manage your team' : 'Team options'}
                   </p>
-                  <div className="flex gap-2 flex-wrap">
+                  <div className="grid grid-cols-2 sm:flex gap-2">
                     {!isCompleted && (
                       <button
                         onClick={() => onNavigate('discover')}
