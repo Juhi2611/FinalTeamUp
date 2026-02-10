@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import {
-  MessageCircle,
   Send,
   Loader2
 } from 'lucide-react';
@@ -38,7 +37,6 @@ const Messages = ({
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -79,10 +77,6 @@ const Messages = ({
 
     return unsubscribe;
   }, [selectedConversation, user]);
-
-  useEffect(() => {
-    if (selectedConversation) setSidebarCollapsed(true);
-  }, [selectedConversation]);
 
   /* -------------------- SCROLL HANDLING -------------------- */
 
@@ -159,7 +153,7 @@ const Messages = ({
   /* ====================== UI ====================== */
 
   return (
-    <div className="flex flex-1 min-h-screen md:min-h-0 md:grid md:grid-cols-[320px_1fr] md:h-[calc(100vh-8rem)]">
+    <div className="flex flex-1 min-h-screen md:min-h-0 md:h-[calc(100vh-8rem)]">
       {/* ---------------- CONVERSATIONS ---------------- */}
       <div
         className={cn(
@@ -169,12 +163,7 @@ const Messages = ({
         )}
       >
         <div className="p-4 border-b border-border flex justify-between">
-          {!sidebarCollapsed && (
-            <h2 className="font-bold flex items-center gap-2">
-              <MessageCircle className="w-5 h-5 text-primary" />
-              Messages
-            </h2>
-          )}
+          <h2>Messages</h2>
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -185,22 +174,20 @@ const Messages = ({
                 key={conv.id}
                 onClick={() => setSelectedConversation(conv.id)}
                 className={cn(
-                  'w-full p-4 flex gap-3 text-left hover:bg-secondary',
-                  selectedConversation === conv.id && 'bg-secondary'
-                )}
-              >
+                      'w-full p-4 flex gap-3 text-left hover:bg-secondary',
+                      selectedConversation === conv.id && 'bg-secondary'
+                    )}
+                  >
                 <img
                   src={other.avatar}
                   className="w-10 h-10 rounded-full"
                 />
-                {!sidebarCollapsed && (
-                  <div className="flex-1">
-                    <p className="font-medium">{other.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {conv.lastMessage?.text}
-                    </p>
-                  </div>
-                )}
+                <div className="flex-1">
+                  <p className="font-medium">{other.name}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {conv.lastMessage?.text}
+                  </p>
+                </div>
               </button>
             );
           })}
