@@ -49,7 +49,7 @@ const forceDownload = async (file: any) => {
 };
 
   return (
-    <div className="w-[320px] border-l border-border bg-card flex flex-col">
+    <div className="w-full md:w-[320px] border-l border-border bg-card flex flex-col">
       {/* Upload */}
       <div className="p-4">
         <input
