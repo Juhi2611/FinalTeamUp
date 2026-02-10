@@ -291,7 +291,7 @@ const Messages = ({
             </form>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground">
+          <div className="hidden md:flex flex-1 items-center justify-center text-muted-foreground">
             Select a conversation
           </div>
         )}
