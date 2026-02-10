@@ -262,7 +262,7 @@ const hasVerifiedSkills =
             profile.fullName || 'User'
           )}`
     }
-    className="avatar w-24 h-24 border-4 border-card cursor-pointer"
+    className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl sm:rounded-full object-cover border-4 border-card cursor-pointer"
     onClick={() =>
       isOwnProfile &&
       document.getElementById('avatarInput')?.click()
