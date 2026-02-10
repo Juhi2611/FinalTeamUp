@@ -221,7 +221,7 @@ const handleAvatarChange = async (
   if (!profile) {
     return (
       <div className="card-base p-12 text-center">
-        <p className="text-muted-foreground">Profile not found</p>
+        <p className="text-sm sm:text-base text-muted-foreground">Profile not found</p>
       </div>
     );
   }
@@ -262,7 +262,7 @@ const hasVerifiedSkills =
             profile.fullName || 'User'
           )}`
     }
-    className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl sm:rounded-full object-cover border-4 border-card cursor-pointer"
+    className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl sm:rounded-full object-cover border-4 border-card cursor-pointer"
     onClick={() =>
       isOwnProfile &&
       document.getElementById('avatarInput')?.click()
@@ -293,9 +293,9 @@ const hasVerifiedSkills =
 )}
               <div className="mb-2">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="font-display font-bold text-2xl text-foreground">{profile.fullName}</h1>
+                  <h1 className="font-display font-bold text-xl sm:text-2xl text-foreground">{profile.fullName}</h1>
                   {profile.username && (
-                    <span className="text-sm text-muted-foreground">
+                    <span className="text-xs sm:text-sm text-sm sm:text-base text-muted-foreground">
                       @{profile.username}
                     </span>
                   )}
@@ -323,12 +323,12 @@ const hasVerifiedSkills =
                   </div>
                 )}
               </div>
-                <p className="text-muted-foreground">{profile.primaryRole}</p>
+                <p className="text-sm sm:text-base text-muted-foreground">{profile.primaryRole}</p>
                 {profile.college && (
-                  <p className="text-sm text-muted-foreground">{profile.college} • {profile.yearOfStudy}</p>
+                  <p className="text-sm text-sm sm:text-base text-muted-foreground">{profile.college} • {profile.yearOfStudy}</p>
                 )}
                 {profile.city && (
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+                  <div className="flex items-center gap-1 text-sm text-sm sm:text-base text-muted-foreground mt-1">
                     <MapPin className="w-4 h-4" />
                     <span>{profile.city}</span>
                   </div>
@@ -372,9 +372,9 @@ const hasVerifiedSkills =
           {profile.bio && (
             <div className="card-base p-6">
               <h2 className="section-title mb-3">About</h2>
-              <p className="text-muted-foreground leading-relaxed">{profile.bio && (
+              <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">{profile.bio && (
                 <div className="card-base p-6">
-                  <p className="text-muted-foreground leading-relaxed">
+                  <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
                     <Linkify
                       options={{
                         target: '_blank',
@@ -434,7 +434,7 @@ const hasVerifiedSkills =
                 <PenSquare className="w-4 h-4" />
                 {isOwnProfile ? 'My Posts' : 'Posts'}
               </h2>
-              <span className="text-sm text-muted-foreground">
+              <span className="text-xs sm:text-sm text-sm sm:text-base text-muted-foreground">
                 {myPosts.length} {myPosts.length === 1 ? 'post' : 'posts'}
               </span>
             </div>
@@ -445,8 +445,8 @@ const hasVerifiedSkills =
               </div>
             ) : myPosts.length === 0 ? (
               <div className="text-center py-8">
-                <PenSquare className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground">
+                <PenSquare className="w-10 h-10 text-sm sm:text-base text-muted-foreground mx-auto mb-3" />
+                <p className="text-sm sm:text-base text-muted-foreground">
                   {isOwnProfile ? "You haven't created any posts yet" : "No posts yet"}
                 </p>
               </div>
@@ -457,20 +457,20 @@ const hasVerifiedSkills =
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <h3 className="font-semibold text-foreground mb-1">{post.title}</h3>
-                        <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{post.description}</p>
+                        <p className="text-sm text-sm sm:text-base text-muted-foreground mb-2 line-clamp-2">{post.description}</p>
                         
                         {/* Tags */}
                         {post.tags && post.tags.length > 0 && (
                           <div className="flex flex-wrap gap-1 mb-2">
                             {post.tags.map((tag, idx) => (
-                              <span key={idx} className="px-2 py-0.5 rounded-full text-xs font-medium bg-secondary text-muted-foreground">
+                              <span key={idx} className="px-2 py-0.5 rounded-full text-xs font-medium bg-secondary text-sm sm:text-base text-muted-foreground">
                                 #{tag}
                               </span>
                             ))}
                           </div>
                         )}
                         
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-sm sm:text-base text-muted-foreground">
                           {formatTimestamp(post.createdAt)}
                         </p>
                       </div>
@@ -480,7 +480,7 @@ const hasVerifiedSkills =
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <button
                             onClick={() => setEditingPost(post)}
-                            className="p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
+                            className="p-2 rounded-lg hover:bg-secondary transition-colors text-sm sm:text-base text-muted-foreground hover:text-foreground"
                             title="Edit post"
                           >
                             <Edit className="w-4 h-4" />
@@ -488,7 +488,7 @@ const hasVerifiedSkills =
                           <button
                             onClick={() => handleDeletePost(post.id)}
                             disabled={deletingPostId === post.id}
-                            className="p-2 rounded-lg hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive"
+                            className="p-2 rounded-lg hover:bg-destructive/10 transition-colors text-sm sm:text-base text-muted-foreground hover:text-destructive"
                             title="Delete post"
                           >
                             {deletingPostId === post.id ? (
@@ -518,7 +518,7 @@ const hasVerifiedSkills =
 
             <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${
               profile.teamId || profile.isTeamLeader
-                ? 'bg-muted text-muted-foreground'
+                ? 'bg-muted text-sm sm:text-base text-muted-foreground'
                 : 'bg-skill-mobile/10 text-skill-mobile'
             }`}>
               <span className={`w-2 h-2 rounded-full ${
@@ -553,7 +553,7 @@ const hasVerifiedSkills =
                     <CheckCircle2 className="w-4 h-4 text-skill-mobile" />
                     <p className="text-sm font-medium text-skill-mobile">Skills Verified</p>
                   </div>
-                  <p className="text-xs text-muted-foreground mb-2">
+                  <p className="text-xs text-sm sm:text-base text-muted-foreground mb-2">
                     Verified on {skillVerification.verifiedAt?.toDate().toLocaleDateString()}
                   </p>
                   <div className="flex flex-wrap gap-1">
@@ -563,7 +563,7 @@ const hasVerifiedSkills =
                       </span>
                     ))}
                     {skillVerification.verifiedSkills.length > 5 && (
-                      <span className="text-xs text-muted-foreground px-2">
+                      <span className="text-xs text-sm sm:text-base text-muted-foreground px-2">
                         +{skillVerification.verifiedSkills.length - 5} more
                       </span>
                     )}
@@ -580,7 +580,7 @@ const hasVerifiedSkills =
                 )}
                 
                 {/* Verification Sources */}
-                <div className="text-xs text-muted-foreground space-y-1">
+                <div className="text-xs text-sm sm:text-base text-muted-foreground space-y-1">
                   {skillVerification.sources.github && (
                     <div className="flex items-center gap-1">
                       <CheckCircle2 className="w-3 h-3 text-skill-mobile" />
@@ -601,13 +601,13 @@ const hasVerifiedSkills =
                 className="w-full p-3 rounded-lg bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 hover:from-primary/20 hover:to-accent/20 transition-all text-left"
               >
                 <p className="text-sm font-medium text-primary mb-1">Verify Your Skills</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-sm sm:text-base text-muted-foreground">
                   Increase credibility with GitHub or certificates
                 </p>
               </button>
             ) : (
               <div className="p-3 rounded-lg bg-secondary/50 border border-border">
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-sm sm:text-base text-muted-foreground">
                   Skills not verified yet
                 </p>
               </div>
@@ -625,7 +625,7 @@ const hasVerifiedSkills =
 
               {/* Metrics */}
               <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-sm sm:text-base text-muted-foreground">
                   Language Proficiency (based on GitHub usage)
                 </p>
 
@@ -709,7 +709,7 @@ const hasVerifiedSkills =
       Delete Profile Permanently
     </button>
 
-    <p className="text-xs text-muted-foreground mt-2">
+    <p className="text-xs text-sm sm:text-base text-muted-foreground mt-2">
       This action cannot be undone.
     </p>
   </div>
