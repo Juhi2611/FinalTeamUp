@@ -1,4 +1,4 @@
-import type { UserProfile, Team } from '@/types/firestore.types';
+import type { UserProfile, Team } from "@/types/firestore.types";
 
 interface TeamRecommendation {
   missingRoles: string[];
@@ -9,7 +9,37 @@ interface TeamRecommendation {
   explanation: string;
 }
 
-// Rule-based recommendations (team-specific & filtered)
+/* --------------------------------------------------
+ * ROLE NORMALIZATION & ALIASES
+ * -------------------------------------------------- */
+const ROLE_ALIASES: Record<string, string[]> = {
+  "Frontend Developer": ["frontend", "react", "ui"],
+  "Backend Developer": ["backend", "api", "server"],
+  "Full Stack Developer": ["full stack", "frontend", "backend"],
+  "UI/UX Designer": ["ui", "ux", "design", "presentation"],
+  "Tester": ["qa", "testing"],
+  "ML Engineer": ["ml", "machine learning", "ai", "data"],
+  "Data Scientist": ["data", "ml", "machine learning"],
+  "Mobile Developer": ["mobile", "android", "ios"],
+  "DevOps Engineer": ["devops", "cloud", "aws", "docker"],
+  "Product Manager": ["product", "pm", "management"]
+};
+
+const normalize = (val: string) => val.toLowerCase().trim();
+
+const rolesMatch = (userRole: string, neededRole: string): boolean => {
+  const user = normalize(userRole);
+  const needed = normalize(neededRole);
+
+  if (user.includes(needed) || needed.includes(user)) return true;
+
+  const aliases = ROLE_ALIASES[neededRole] || [];
+  return aliases.some(alias => user.includes(alias));
+};
+
+/* --------------------------------------------------
+ * MAIN ENTRY
+ * -------------------------------------------------- */
 export const getTeamRecommendations = async (
   team: Team,
   currentMembers: { role: string; userId?: string }[],
@@ -18,88 +48,88 @@ export const getTeamRecommendations = async (
   try {
     const currentRoles = currentMembers.map(m => m.role);
 
-    // ✅ exclude already joined members
+    // Exclude already joined users
     const currentMemberIds = new Set(
       currentMembers.map(m => m.userId).filter(Boolean)
     );
 
-    const filteredUsers = availableUsers.filter(u => !currentMemberIds.has(u.id));
+    const filteredUsers = availableUsers.filter(
+      u => !currentMemberIds.has(u.id)
+    );
 
-    return getDefaultRecommendation(team, currentRoles, filteredUsers);
+    return buildRecommendation(team, currentRoles, filteredUsers);
   } catch (error) {
-    console.error('Error getting recommendations:', error);
-    return getDefaultRecommendation(team, [], availableUsers);
+    console.error("Error getting recommendations:", error);
+    return buildRecommendation(team, [], availableUsers);
   }
 };
 
-function getDefaultRecommendation(
+/* --------------------------------------------------
+ * CORE LOGIC
+ * -------------------------------------------------- */
+function buildRecommendation(
   team: Team,
   currentRoles: string[],
-  availableUsers: UserProfile[]
+  users: UserProfile[]
 ): TeamRecommendation {
   const ALL_ROLES = [
-    'Frontend Developer',
-    'Backend Developer',
-    'UI/UX Designer',
-    'Tester',
-    'ML Engineer',
-    'Full Stack Developer',
-    'Mobile Developer',
-    'DevOps Engineer',
-    'Product Manager'
+    "Frontend Developer",
+    "Backend Developer",
+    "UI/UX Designer",
+    "Tester",
+    "ML Engineer",
+    "Full Stack Developer",
+    "Mobile Developer",
+    "DevOps Engineer",
+    "Product Manager"
   ];
 
-  // Normalize roles
-  const normalizedCurrentRoles = currentRoles.map(r => r.toLowerCase());
+  /* 1️⃣ Missing roles */
+  const normalizedCurrent = currentRoles.map(r => normalize(r));
 
-  // Missing roles
   const inferredMissingRoles = ALL_ROLES.filter(role =>
-    !normalizedCurrentRoles.some(cr => cr.includes(role.toLowerCase()))
+    !normalizedCurrent.some(cr => cr.includes(normalize(role)))
   );
 
-  // Priority roles from team.rolesNeeded first
   const prioritizedMissingRoles = team.rolesNeeded?.length
     ? Array.from(new Set([...team.rolesNeeded, ...inferredMissingRoles])).slice(0, 3)
     : inferredMissingRoles.slice(0, 3);
 
-  const teamDesc = team.description?.toLowerCase() || '';
+  const teamDesc = normalize(team.description || "");
 
-  // Score users based on role + description + skills
-  const scoredUsers = availableUsers.map(user => {
+  /* 2️⃣ HARD FILTER: role-based */
+  const roleMatchedUsers = users.filter(user =>
+    user.primaryRole &&
+    prioritizedMissingRoles.some(role =>
+      rolesMatch(user.primaryRole!, role)
+    )
+  );
+
+  const candidateUsers =
+    roleMatchedUsers.length > 0 ? roleMatchedUsers : users;
+
+  /* 3️⃣ SCORING */
+  const scoredUsers = candidateUsers.map(user => {
     let score = 0;
 
-    const userRole = user.primaryRole?.toLowerCase() || '';
-
-    // Role match (big weight)
+    // Role match (strongest)
     prioritizedMissingRoles.forEach(role => {
-      const roleLower = role.toLowerCase();
-      if (userRole.includes(roleLower) || roleLower.includes(userRole)) {
+      if (user.primaryRole && rolesMatch(user.primaryRole, role)) {
         score += 10;
       }
     });
 
-    // Skills match (medium weight)
-    if (user.skills) {
-      user.skills.forEach(skill => {
-        const skillName = skill.name.toLowerCase();
+    // Skills relevance
+    user.skills?.forEach(skill => {
+      if (teamDesc.includes(normalize(skill.name))) {
+        score += 5;
+      }
+    });
 
-        if (teamDesc.includes(skillName)) {
-          score += 5;
-        }
-
-        prioritizedMissingRoles.forEach(role => {
-          if (role.toLowerCase().includes(skillName)) {
-            score += 2;
-          }
-        });
-      });
-    }
-
-    // Bio match (small weight)
-    if (user.bio && teamDesc) {
-      const keywords = teamDesc.split(/\s+/);
-      keywords.forEach(word => {
-        if (word.length > 4 && user.bio!.toLowerCase().includes(word)) {
+    // Bio relevance
+    if (user.bio) {
+      teamDesc.split(/\s+/).forEach(word => {
+        if (word.length > 4 && normalize(user.bio!).includes(word)) {
           score += 1;
         }
       });
@@ -108,37 +138,28 @@ function getDefaultRecommendation(
     return { user, score };
   });
 
-  // Sort and pick top 3
+  /* 4️⃣ PICK TOP 3 (randomize ties) */
   const recommendedUsers = scoredUsers
-    .filter(item => item.score > 0)
-    .sort((a, b) => b.score - a.score)
+    .filter(u => u.score > 0)
+    .sort((a, b) =>
+      b.score !== a.score ? b.score - a.score : Math.random() - 0.5
+    )
     .slice(0, 3)
-    .map(item => ({
-      user: item.user,
-      reason: `Matches role: ${item.user.primaryRole}. Skills: ${
-        item.user.skills?.slice(0, 3).map(s => s.name).join(', ') || 'various technologies'
+    .map(({ user }) => ({
+      user,
+      reason: `Matches your team's need for ${user.primaryRole || "this role"}. Skills: ${
+        user.skills?.slice(0, 3).map(s => s.name).join(", ") ||
+        "skills not added yet"
       }.`
     }));
 
-  // Explanation
-  let explanation = 'Based on your team composition, ';
+  /* 5️⃣ EXPLANATION */
+  let explanation = "Based on your team composition, ";
 
   if (prioritizedMissingRoles.length > 0) {
-    explanation += `we recommend adding ${prioritizedMissingRoles.join(', ')} to balance the team.`;
+    explanation += `we recommend adding ${prioritizedMissingRoles.join(", ")}.`;
   } else {
-    explanation += 'your team already looks balanced.';
-  }
-
-  if (teamDesc.includes('ai') || teamDesc.includes('ml')) {
-    explanation += ' Since your project involves AI/ML, technical expertise is important.';
-  }
-
-  if (teamDesc.includes('mobile') || teamDesc.includes('app')) {
-    explanation += ' A Mobile Developer would be valuable.';
-  }
-
-  if (teamDesc.includes('design') || teamDesc.includes('ux')) {
-    explanation += ' Strong UI/UX will improve user experience.';
+    explanation += "your team already looks balanced.";
   }
 
   return {

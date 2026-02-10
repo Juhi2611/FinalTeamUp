@@ -598,17 +598,18 @@
     throw new Error('User is already in this team');
   }
   
-  // Check for existing pending invitation/request
-  const existingQuery = query(
-    collection(db, 'invitations'),
-    where('fromUserId', '==', data.fromUserId),
-    where('teamId', '==', data.teamId),
-    where('status', '==', 'pending')
-  );
-  const existingSnap = await getDocs(existingQuery);
-  if (!existingSnap.empty) {
-    throw new Error(isJoinRequest ? 'Join request already sent' : 'Invitation already sent');
-  }
+  // Check for existing pending invitation/request for THIS USER to THIS TEAM
+const existingQuery = query(
+  collection(db, 'invitations'),
+  where('fromUserId', '==', data.fromUserId),
+  where('toUserId', '==', data.toUserId),  // ✅ ADD THIS LINE
+  where('teamId', '==', data.teamId),
+  where('status', '==', 'pending')
+);
+const existingSnap = await getDocs(existingQuery);
+if (!existingSnap.empty) {
+  throw new Error(isJoinRequest ? 'Join request already sent' : 'Invitation already sent');
+}
   
   // Create invitation/join request
   await addDoc(collection(db, 'invitations'), {

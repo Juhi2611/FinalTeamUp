@@ -49,6 +49,15 @@ const DiscoverPeople = ({ onViewProfile }: DiscoverPeopleProps) => {
     loadCities();
   }, []);
 
+  // Cleanup team context when component unmounts
+useEffect(() => {
+  return () => {
+    // Clear team context when leaving discover page
+    sessionStorage.removeItem('inviteForTeamId');
+    sessionStorage.removeItem('inviteForTeamName');
+  };
+}, []);
+
   // ✅ 2️⃣ Load users & subscriptions
   useEffect(() => {
     if (!isFirebaseConfigured() || !user) {
@@ -77,31 +86,62 @@ const DiscoverPeople = ({ onViewProfile }: DiscoverPeopleProps) => {
   setSending(true);
   
   try {
-    // Get user's teams
-    const userTeams = await getUserTeams(user.uid);
+    // Check if there's a specific team context from "Find Teammates" button
+    const contextTeamId = sessionStorage.getItem('inviteForTeamId');
+    const contextTeamName = sessionStorage.getItem('inviteForTeamName');
     
-    // Check if user has any teams
-    if (userTeams.length === 0) {
-      toast.error("You don't have any teams. Please create a team first.");
-      setSending(false);
-      setShowModal(null);
-      return;
+    let teamId: string;
+    let teamName: string;
+    
+    if (contextTeamId && contextTeamName) {
+      // ✅ Use the team from context
+      teamId = contextTeamId;
+      teamName = contextTeamName;
+      
+      // Verify user is still leader of this team
+      const userTeams = await getUserTeams(user.uid);
+      const team = userTeams.find(t => t.id === contextTeamId);
+      
+      if (!team) {
+        toast.error("Team not found. Please try again.");
+        sessionStorage.removeItem('inviteForTeamId');
+        sessionStorage.removeItem('inviteForTeamName');
+        setSending(false);
+        setShowModal(null);
+        return;
+      }
+      
+      if (team.leaderId !== user.uid) {
+        toast.error("You are no longer the leader of this team.");
+        sessionStorage.removeItem('inviteForTeamId');
+        sessionStorage.removeItem('inviteForTeamName');
+        setSending(false);
+        setShowModal(null);
+        return;
+      }
+    } else {
+      // ✅ Fallback to first leader team (original behavior)
+      const userTeams = await getUserTeams(user.uid);
+      
+      if (userTeams.length === 0) {
+        toast.error("You don't have any teams. Please create a team first.");
+        setSending(false);
+        setShowModal(null);
+        return;
+      }
+      
+      const leaderTeams = userTeams.filter(team => team.leaderId === user.uid);
+      
+      if (leaderTeams.length === 0) {
+        toast.error("Only team leaders can send invitations.");
+        setSending(false);
+        setShowModal(null);
+        return;
+      }
+      
+      teamId = leaderTeams[0].id;
+      teamName = leaderTeams[0].name;
     }
-    
-    // Find teams where user is the leader
-    const leaderTeams = userTeams.filter(team => team.leaderId === user.uid);
-    
-    // Check if user is a leader of any team
-    if (leaderTeams.length === 0) {
-      toast.error("Only team leaders can send invitations.");
-      setSending(false);
-      setShowModal(null);
-      return;
-    }
-    
-    // Use the first team where user is leader
-    const teamId = leaderTeams[0].id;
-    const teamName = leaderTeams[0].name;
     
     const profile = await getProfile(user.uid);
     
