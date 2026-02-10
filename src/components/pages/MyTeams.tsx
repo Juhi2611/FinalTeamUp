@@ -58,10 +58,13 @@ const MyTeams = ({ onNavigate, onViewWorkspace, onViewProfile, onViewFiles }: My
   const { user } = useAuth();
   const [teams, setTeams] = useState<TeamWithMembers[]>([]);
   const [loading, setLoading] = useState(true);
-  const [recommendations, setRecommendations] = useState<{
+  const [recommendationsByTeam, setRecommendationsByTeam] = useState<{
+  teamId: string;
+  data: {
     missingRoles: string[];
     recommendedUsers: { user: UserProfile; reason: string }[];
     explanation: string;
+    };
   } | null>(null);
   const [loadingRecommendations, setLoadingRecommendations] = useState(false);
   const [joinRequests, setJoinRequests] = useState<Invitation[]>([]);
@@ -173,7 +176,10 @@ const MyTeams = ({ onNavigate, onViewWorkspace, onViewProfile, onViewFiles }: My
       const availableUsers = await getAvailableUsers(user?.uid);
       const currentMembers = team.loadedMembers.map(m => ({ role: m.role }));
       const recs = await getTeamRecommendations(team, currentMembers, availableUsers);
-      setRecommendations(recs);
+      setRecommendationsByTeam({
+      teamId: team.id,
+      data: recs
+    });
     } catch (error) {
       console.error('Error loading recommendations:', error);
     }
@@ -592,19 +598,20 @@ if (editingTeamId) {
               )}
 
               {/* AI Recommendations */}
-              {recommendations && (
+              {recommendationsByTeam?.teamId === team.id && (
                 <div className="mt-4 p-4 rounded-lg bg-gradient-to-r from-primary/5 to-accent/5 border border-primary/10">
                   <div className="flex items-start gap-3">
                     <Sparkles className="w-5 h-5 text-primary mt-0.5" />
                     <div className="flex-1">
                       <p className="font-medium text-primary mb-2">AI Recommendations</p>
-                      <p className="text-sm text-muted-foreground mb-3">{recommendations.explanation}</p>
-                      
-                      {recommendations.missingRoles.length > 0 && (
+                      <p className="text-sm text-muted-foreground mb-3">
+                        {recommendationsByTeam.data.explanation}
+                      </p>                  
+                      {recommendationsByTeam.data.missingRoles.length > 0 && (
                         <div className="mb-3">
                           <p className="text-xs font-medium text-foreground mb-1">Missing Roles:</p>
                           <div className="flex flex-wrap gap-1">
-                            {recommendations.missingRoles.map((role, idx) => (
+                            {recommendationsByTeam.data.missingRoles.map((role, idx) => (
                               <span key={idx} className="px-2 py-0.5 rounded-full text-xs bg-accent/10 text-accent">
                                 {role}
                               </span>
@@ -613,23 +620,37 @@ if (editingTeamId) {
                         </div>
                       )}
                       
-                      {recommendations.recommendedUsers.length > 0 && (
-                        <div>
-                          <p className="text-xs font-medium text-foreground mb-2">Recommended Users:</p>
-                          <div className="space-y-2">
-                            {recommendations.recommendedUsers.map((rec, idx) => (
-                              <div key={idx} className="flex items-center gap-2 p-2 rounded bg-secondary/50">
-                                <img
-                                  src={rec.user.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(rec.user.fullName || 'User')}`}
-                                  alt={rec.user.fullName}
-                                  className="w-8 h-8 rounded-full"
-                                />
-                                <div>
-                                  <p className="text-sm font-medium">{rec.user.fullName}</p>
-                                  <p className="text-xs text-muted-foreground">{rec.reason}</p>
-                                </div>
+                      {recommendationsByTeam.data.recommendedUsers.length > 0 && (
+                            <div>
+                              <p className="text-xs font-medium text-foreground mb-2">
+                                Recommended Users:
+                              </p>
+                          
+                              <div className="space-y-2">
+                                {recommendationsByTeam.data.recommendedUsers.map((rec, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="flex items-center gap-2 p-2 rounded bg-secondary/50"
+                                  >
+                                    <img
+                                      src={
+                                        rec.user.avatar ||
+                                        `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+                                          rec.user.fullName || 'User'
+                                        )}`
+                                      }
+                                      alt={rec.user.fullName}
+                                      className="w-8 h-8 rounded-full"
+                                    />
+                                    <div>
+                                      <p className="text-sm font-medium">{rec.user.fullName}</p>
+                                      <p className="text-xs text-muted-foreground">{rec.reason}</p>
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
-                            ))}
+                            </div>
+                          )}
                           </div>
                         </div>
                       )}
