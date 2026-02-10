@@ -2,9 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   MessageCircle,
   Send,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
+  Loader2
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -177,12 +175,6 @@ const Messages = ({
               Messages
             </h2>
           )}
-          <button
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="hidden md:block"
-          >
-            {sidebarCollapsed ? <ChevronRight /> : <ChevronLeft />}
-          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -222,13 +214,27 @@ const Messages = ({
             Select a conversation
           </div>
         ) : showFiles ? (
-          <PrivateFilesPanel
-            conversationId={selectedConversation}
-            currentUserId={user.uid}
-          />
+          <>
+            {/* Files Header */}
+            <div className="p-4 border-b border-border flex justify-between items-center">
+              <span className="font-medium">Private Files</span>
+      
+              <button
+                onClick={() => setShowFiles(false)}
+                className="text-sm text-primary hover:underline"
+              >
+                Close
+              </button>
+            </div>
+      
+            <PrivateFilesPanel
+              conversationId={selectedConversation}
+              currentUserId={user.uid}
+            />
+          </>
         ) : (
           <>
-            {/* Header */}
+            {/* Chat Header */}
             <div className="p-4 border-b border-border flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <img
@@ -254,7 +260,7 @@ const Messages = ({
               onScroll={handleScroll}
               className="flex-1 overflow-y-auto p-4 space-y-3"
             >
-              {messages.map((msg) => {
+              {messages.map(msg => {
                 const isOwn = msg.senderId === user?.uid;
                 return (
                   <div
@@ -266,7 +272,7 @@ const Messages = ({
                   >
                     <div
                       className={cn(
-                        'px-4 py-2 rounded-2xl max-w-[85%] md:max-w-[70%]',
+                        'px-4 py-2 rounded-2xl max-w-[70%]',
                         isOwn ? 'bg-primary text-white' : 'bg-secondary'
                       )}
                     >
@@ -284,7 +290,7 @@ const Messages = ({
             {/* Input */}
             <form
               onSubmit={handleSendMessage}
-              className="p-4 border-t border-border flex gap-2 sticky bottom-0 bg-card"
+              className="p-4 border-t border-border flex gap-2 bg-card"
             >
               <input
                 value={newMessage}
