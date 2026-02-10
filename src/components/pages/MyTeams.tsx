@@ -38,6 +38,7 @@ import { isFirebaseConfigured } from '@/lib/firebase';
 import { getTeamRecommendations } from '@/services/geminiService';
 import { toast } from 'sonner';
 import TeamProgressPanel from '@/components/TeamProgressPanel';
+import DemoLockModal from "@/components/DemoLockModal";
 
 interface MyTeamsProps {
   onNavigate: (page: string) => void;
@@ -51,6 +52,8 @@ interface TeamWithMembers extends Team {
 }
 
 const MyTeams = ({ onNavigate, onViewWorkspace, onViewProfile, onViewFiles }: MyTeamsProps) => {
+  const { isDemoUser } = useAuth();
+  const [showDemoLock, setShowDemoLock] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
   const [teams, setTeams] = useState<TeamWithMembers[]>([]);
