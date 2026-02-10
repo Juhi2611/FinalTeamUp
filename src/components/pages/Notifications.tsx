@@ -15,6 +15,7 @@ import {
 import { isFirebaseConfigured } from '@/lib/firebase';
 import { Timestamp } from 'firebase/firestore';
 import { toast } from 'sonner';
+import DemoLockModal from "@/components/DemoLockModal";
 
 interface NotificationsProps {
   onNavigateToMessages?: (conversationId: string) => void;
@@ -22,6 +23,8 @@ interface NotificationsProps {
 }
 
 const Notifications: React.FC<NotificationsProps> = ({ onNavigateToMessages, onViewProfile }) => {
+  const { isDemoUser } = useAuth();
+  const [showDemoLock, setShowDemoLock] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
   const [incoming, setIncoming] = useState<Invitation[]>([]);
