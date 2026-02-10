@@ -59,14 +59,16 @@ const MyTeams = ({ onNavigate, onViewWorkspace, onViewProfile, onViewFiles }: My
   const { user } = useAuth();
   const [teams, setTeams] = useState<TeamWithMembers[]>([]);
   const [loading, setLoading] = useState(true);
-  const [recommendationsByTeam, setRecommendationsByTeam] = useState<
+const [recommendationsByTeam, setRecommendationsByTeam] = useState<
   Record<string, {
     missingRoles: string[];
     recommendedUsers: { user: UserProfile; reason: string }[];
     explanation: string;
   }>
 >({});
-  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+
+const [loadingRecommendationsByTeam, setLoadingRecommendationsByTeam] =
+  useState<Record<string, boolean>>({});
   const [joinRequests, setJoinRequests] = useState<Invitation[]>([]);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState<string | null>(null);
   const [showTerminateConfirm, setShowTerminateConfirm] = useState<string | null>(null);
@@ -464,13 +466,21 @@ if (editingTeamId) {
 
                             {/* AI Suggestions */}
                             <button
-                              onClick={() => {
-                                setOpenMenu(null);
-                                setOpenRecommendationTeamId(team.id);
-                                loadRecommendations(team);
-                              }}
-                              className="menu-item"
-                            >
+  onClick={() => {
+    setOpenMenu(null);
+    setOpenRecommendationTeamId(team.id);
+
+    // 🔥 CLEAR previous team recommendations
+    setRecommendationsByTeam(prev => ({
+      ...prev,
+      [team.id]: undefined as any
+    }));
+
+    loadRecommendations(team);
+  }}
+  className="menu-item"
+>
+
                               <Sparkles className="w-4 h-4" />
                               AI Suggestions
                             </button>
