@@ -24,14 +24,15 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
-  <Route path="/" element={<Index />} />
+              <Route path="/" element={<Index />} />
               <Route path="/profile" element={<Index />} />
-  <Route path="/profile" element={<Index />} />
-  <Route path="/profile/:userId" element={<ProfilePage />} />
-  <Route path="/teams/:teamId/files" element={<TeamFiles />} />
-  <Route path="/team/:teamId" element={<TeamDetails />} />
-  <Route path="*" element={<NotFound />} />
-</Routes>
+              <Route path="/profile" element={<Index />} />
+              <Route path="/profile/:userId" element={<ProfilePage />} />
+              <Route path="/teams/:teamId/files" element={<TeamFiles />} />
+              <Route path="/team/:teamId" element={<TeamDetails />} />
+              <Route path="*" element={<NotFound />} />
+              <Route path="/demo" element={<DemoPage />} />
+            </Routes>
           </BrowserRouter>
           </UserProfileProvider>
         </TooltipProvider>
