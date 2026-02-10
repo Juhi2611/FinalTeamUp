@@ -1,9 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Header = ({ onGetStarted }: { onGetStarted: () => void }) => {
   const navigate = useNavigate();
+  const { enterDemo } = useAuth();
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/70 backdrop-blur-md">
@@ -27,9 +29,17 @@ const Header = ({ onGetStarted }: { onGetStarted: () => void }) => {
         </nav>
 
         {/* CTA */}
-        <Button onClick={onGetStarted}>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={enterDemo}
+            className="text-sm text-muted-foreground hover:text-foreground underline"
+          >
+            Explore Demo
+          </button>
+          <Button onClick={onGetStarted}>
             Get Started
-        </Button>
+          </Button>
+        </div>
       </div>
     </header>
   );
