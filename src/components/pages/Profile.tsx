@@ -31,6 +31,7 @@ import { auth } from '@/lib/firebase';
 import { deleteUserCompletely } from '@/services/firestore';
 import { unlink } from 'firebase/auth';
 import { Github } from 'lucide-react';
+import DemoLockModal from "@/components/DemoLockModal";
 
 interface ProfileProps {
   userId?: string;
@@ -43,6 +44,8 @@ interface ProfileProps {
 }
 
 const Profile = ({ userId, isOwnProfile = true, userProfile: passedProfile, onEditProfile, onOpenVerification, onMessage, onProfileUpdated }: ProfileProps) => {
+  const { isDemoUser } = useAuth();
+  const [showDemoLock, setShowDemoLock] = useState(false);
   const { user } = useAuth();
   const [showBlockReportModal, setShowBlockReportModal] = useState(false);
   const [showAllPosts, setShowAllPosts] = useState(false);
