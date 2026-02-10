@@ -466,24 +466,19 @@ if (editingTeamId) {
                             >
                               <Users className="w-4 h-4" />
                               Find Teammates
-                    <button
-                      onClick={() => {
-                        setOpenMenu(null);
-                    
-                        // Toggle open/close per team
-                        setOpenRecommendationTeamId(prev =>
-                          prev === team.id ? null : team.id
-                        );
-                    
-                        // Only load if not already loaded
-                        if (!recommendationsByTeam[team.id]) {
-                          loadRecommendations(team);
-                        }
-                      }}
-                      className="menu-item"
-                    >
-                      <Sparkles className="w-4 h-4" />
-                      AI Suggestions
+<button
+  onClick={() => {
+    setOpenMenu(null);
+
+    setRecommendationsByTeam({});  // ✅ clear all old suggestions
+    setOpenRecommendationTeamId(team.id);
+
+    loadRecommendations(team);
+  }}
+  className="menu-item"
+>
+  <Sparkles className="w-4 h-4" />
+  AI Suggestions
 </button>
 
                             )}
