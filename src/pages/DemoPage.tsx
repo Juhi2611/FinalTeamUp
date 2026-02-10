@@ -1,11 +1,7 @@
-import DemoDashboard from "@/components/demo/DemoDashboard";
+import DemoDashboard from "../components/demo/DemoDashboard";
 
 const DemoPage = () => {
-  return (
-    <div className="min-h-screen bg-background">
-      <DemoDashboard />
-    </div>
-  );
+  return <DemoDashboard />;
 };
 
 export default DemoPage;
