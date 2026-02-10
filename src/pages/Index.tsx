@@ -242,18 +242,17 @@ const Index = () => {
 
   // 2️⃣ AUTH SCREEN (only after Get Started)
   if (
-    (forceAuth || !showEntry) &&
-    isFirebaseConfigured() &&
-    !authLoading &&
-    !user
-  ) {
-    return (
-  <Auth
-    defaultMode={forceAuth ? "signup" : "login"}
-    onAuthSuccess={() => setForceAuth(false)}
-  />
-);
-  }
+  forceAuth &&
+  isFirebaseConfigured() &&
+  !authLoading
+) {
+  return (
+    <Auth
+      defaultMode="signup"
+      onAuthSuccess={() => setForceAuth(false)}
+    />
+  );
+}
 
   // 3️⃣ LOADING
   if (authLoading) {
