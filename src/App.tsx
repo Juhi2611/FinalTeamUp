@@ -32,7 +32,6 @@ const App = () => (
               <Route path="/teams/:teamId/files" element={<TeamFiles />} />
               <Route path="/team/:teamId" element={<TeamDetails />} />
               <Route path="*" element={<NotFound />} />
-              <Route path="/demo" element={<DemoPage />} />
             </Routes>
           </BrowserRouter>
           </UserProfileProvider>
