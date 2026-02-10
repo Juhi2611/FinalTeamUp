@@ -4,12 +4,15 @@ import { useAuth } from '@/contexts/AuthContext';
 import { createTeam, getProfile, createFeedPost } from '@/services/firestore';
 import { isFirebaseConfigured } from '@/lib/firebase';
 import { toast } from 'sonner';
+import DemoLockModal from "@/components/DemoLockModal";
 
 interface BuildTeamProps {
   onNavigate: (page: string) => void;
 }
 
 const BuildTeam = ({ onNavigate }: BuildTeamProps) => {
+  const { isDemoUser } = useAuth();
+  const [showDemoLock, setShowDemoLock] = useState(false);
   const { user } = useAuth();
   const [teamName, setTeamName] = useState('');
   const [description, setDescription] = useState('');
