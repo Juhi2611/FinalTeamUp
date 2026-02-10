@@ -28,9 +28,8 @@ const DemoLockModal = ({
           <button
             className="btn-primary"
             onClick={() => {
-              console.log("SIGNUP BUTTON CLICKED"); // debug
               onClose();
-              onSignup();
+              onSignup(); // 🔥 ONLY THIS
             }}
           >
             Sign Up
