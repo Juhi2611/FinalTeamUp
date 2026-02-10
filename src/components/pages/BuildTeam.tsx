@@ -71,10 +71,8 @@ const BuildTeam = ({ onNavigate, openAuth }: BuildTeamProps) => {
   const handlePost = async () => {
 
     // 🚫 GUEST MODE BLOCK
-    if (isDemoUser) {
       setShowDemoLock(true);
       return;
-    }
 
     if (!user || !isFirebaseConfigured()) return;
 
