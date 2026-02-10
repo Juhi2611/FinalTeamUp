@@ -18,7 +18,6 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Edit } from 'lucide-react';
 import EditTeam from './EditTeam';
 import { 
   subscribeToUserTeams, 
@@ -39,7 +38,6 @@ import { isFirebaseConfigured } from '@/lib/firebase';
 import { getTeamRecommendations } from '@/services/geminiService';
 import { toast } from 'sonner';
 import TeamProgressPanel from '@/components/TeamProgressPanel';
-import { MoreVertical } from 'lucide-react';
 
 interface MyTeamsProps {
   onNavigate: (page: string) => void;
