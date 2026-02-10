@@ -109,16 +109,22 @@ function getDefaultRecommendation(
   });
 
   // Sort and pick top 3
-  const recommendedUsers = scoredUsers
-    .filter(item => item.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 3)
-    .map(item => ({
-      user: item.user,
-      reason: `Matches role: ${item.user.primaryRole}. Skills: ${
-        item.user.skills?.slice(0, 3).map(s => s.name).join(', ') || 'various technologies'
-      }.`
-    }));
+ const recommendedUsers = scoredUsers
+  .filter(item => item.score > 0)
+  .sort((a, b) => {
+    // higher score first
+    if (b.score !== a.score) return b.score - a.score;
+
+    // if same score, randomize
+    return Math.random() - 0.5;
+  })
+  .slice(0, 3)
+  .map(item => ({
+    user: item.user,
+    reason: `Matches role: ${item.user.primaryRole || "N/A"}. Skills: ${
+      item.user.skills?.slice(0, 3).map(s => s.name).join(', ') || 'various technologies'
+    }.`
+  }));
 
   // Explanation
   let explanation = 'Based on your team composition, ';
