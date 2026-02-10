@@ -5,9 +5,9 @@ import { subscribeToFeedPosts, createUserPost, FeedPost as FeedPostType } from '
 import { isFirebaseConfigured } from '@/lib/firebase';
 import { getSkillClass } from '@/data/mockData';
 import { Timestamp } from 'firebase/firestore';
+import { useBlocks } from '@/contexts/BlockContext';
 import CreatePostModal from '../CreatePostModal';
 import { toast } from 'sonner';
-import DemoLockModal from "@/components/DemoLockModal";
 
 interface HomeFeedProps {
   onNavigate: (page: string) => void;
@@ -15,27 +15,30 @@ interface HomeFeedProps {
 }
 
 const HomeFeed = ({ onNavigate, onViewProfile }: HomeFeedProps) => {
-  const { isDemoUser } = useAuth();
-  const [showDemoLock, setShowDemoLock] = useState(false);
   const { user } = useAuth();
   const [filter, setFilter] = useState<'all' | 'team_created' | 'member_joined' | 'looking_for_team' | 'user_post'>('all');
   const [posts, setPosts] = useState<FeedPostType[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const { hiddenUserIds } = useBlocks();
 
   useEffect(() => {
-    if (!isFirebaseConfigured()) {
-      setLoading(false);
-      return;
-    }
-
-    const unsubscribe = subscribeToFeedPosts((fetchedPosts) => {
-      setPosts(fetchedPosts);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
+  if (!isFirebaseConfigured()) {
+    setLoading(false);
+    return;
+  }
+  
+  const unsubscribe = subscribeToFeedPosts((fetchedPosts) => {
+    // ✅ Filter out posts from blocked users
+    const filteredPosts = fetchedPosts.filter(
+      post => !hiddenUserIds.has(post.authorId)
+    );
+    setPosts(filteredPosts);
+    setLoading(false);
+  }, user?.uid);
+  
+  return () => unsubscribe();
+}, [hiddenUserIds, user]); 
 
   const handleCreatePost = async (data: {
   title: string;
