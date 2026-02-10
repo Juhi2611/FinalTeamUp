@@ -162,7 +162,7 @@ const Messages = ({
   /* ====================== UI ====================== */
 
   return (
-    <div className="flex-1 flex md:grid md:grid-cols-[auto_1fr_320px] md:h-[calc(100vh-8rem)] md:max-h-[800px]">
+    <div className="flex flex-1 md:grid md:grid-cols-[auto_1fr_320px] min-h-screen md:h-[calc(100vh-8rem)] md:max-h-[800px]">
       {/* ---------------- CONVERSATIONS ---------------- */}
       <div
         className={cn(
@@ -178,7 +178,10 @@ const Messages = ({
               Messages
             </h2>
           )}
-          <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
+          <button
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="hidden md:block"
+          >
             {sidebarCollapsed ? <ChevronRight /> : <ChevronLeft />}
           </button>
         </div>
@@ -220,22 +223,22 @@ const Messages = ({
             <div className="p-4 border-b border-border flex items-center gap-3">
               <img
                 src={getOtherParticipant(selectedConv).avatar}
-                className="w-10 h-10 rounded-full cursor-pointer"
-                onClick={() =>
-                  onViewProfile?.(
-                    getOtherParticipant(selectedConv).id
-                  )
-                }
+                className="w-10 h-10 rounded-full"
               />
+            
+              <div className="flex flex-col">
+                <span className="font-medium leading-tight">
+                  {getOtherParticipant(selectedConv).name}
+                </span>
+              </div>
+            
+              {/* Mobile Files button */}
               <button
                 className="ml-auto md:hidden text-sm text-primary"
-                onClick={() => setShowFiles(!showFiles)}
+                onClick={() => setShowFiles(true)}
               >
                 Files
               </button>
-              <h3 className="font-medium">
-                {getOtherParticipant(selectedConv).name}
-              </h3>
             </div>
 
             <div
@@ -300,7 +303,7 @@ const Messages = ({
       {/* ---------------- PRIVATE FILES ---------------- */}
       {selectedConversation && user && (
         <>
-          {/* Desktop */}
+          {/* Desktop only */}
           <div className="hidden md:block">
             <PrivateFilesPanel
               conversationId={selectedConversation}
@@ -308,17 +311,20 @@ const Messages = ({
             />
           </div>
       
-          {/* Mobile overlay */}
+          {/* Mobile overlay only */}
           {showFiles && (
-            <div className="fixed inset-0 bg-background z-50 md:hidden">
-              <div className="p-4 border-b flex justify-between">
-                <h3 className="font-semibold">Private Files</h3>
+            <div className="fixed inset-0 bg-background z-50 md:hidden flex flex-col">
+              <div className="p-4 border-b flex justify-between items-center">
+                <span className="font-semibold">Private Files</span>
                 <button onClick={() => setShowFiles(false)}>Close</button>
               </div>
-              <PrivateFilesPanel
-                conversationId={selectedConversation}
-                currentUserId={user.uid}
-              />
+      
+              <div className="flex-1 overflow-y-auto">
+                <PrivateFilesPanel
+                  conversationId={selectedConversation}
+                  currentUserId={user.uid}
+                />
+              </div>
             </div>
           )}
         </>
