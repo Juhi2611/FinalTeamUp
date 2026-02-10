@@ -11,7 +11,11 @@ import {
   Edit,
   CheckCircle,
   LogOut,
-  Trash2
+  Trash2,
+  Loader2,
+  Plus,
+  Crown,
+  AlertTriangle
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Edit } from 'lucide-react';
