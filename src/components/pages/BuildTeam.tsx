@@ -316,13 +316,9 @@ const BuildTeam = ({ onNavigate, openAuth }: BuildTeamProps) => {
           </button>
         </div>
       </div>
-      <DemoLockModal
+<DemoLockModal
   open={showDemoLock}
   onClose={() => setShowDemoLock(false)}
-  onSignup={() => {
-    setShowDemoLock(false);
-    openAuth();
-  }}
 />
     </div>
   );
