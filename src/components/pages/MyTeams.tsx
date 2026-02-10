@@ -450,18 +450,20 @@ if (editingTeamId) {
                             >
                               <Users className="w-4 h-4" />
                               Find Teammates
+                            </button>
+
+                            {/* AI Suggestions */}
                             <button
-  onClick={() => {
-    setOpenMenu(null);
-    setOpenRecommendationTeamId(team.id); // ✅ ADD THIS
-    loadRecommendations(team);
-  }}
-  className="menu-item"
->
-  <Sparkles className="w-4 h-4" />
-  AI Suggestions
-</button>
-                            )}
+                              onClick={() => {
+                                setOpenMenu(null);
+                                setOpenRecommendationTeamId(team.id);
+                                loadRecommendations(team);
+                              }}
+                              className="menu-item"
+                            >
+                              <Sparkles className="w-4 h-4" />
+                              AI Suggestions
+                            </button>
                           </>
                         )}
                   

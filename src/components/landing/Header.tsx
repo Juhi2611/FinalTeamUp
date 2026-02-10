@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Header = ({ onGetStarted }: { onGetStarted: () => void }) => {
   const navigate = useNavigate();
