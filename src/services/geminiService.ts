@@ -9,7 +9,7 @@ interface TeamRecommendation {
   explanation: string;
 }
 
-// Rule-based recommendations (no Gemini API needed for this feature)
+// Rule-based recommendations (team-specific & scored)
 export const getTeamRecommendations = async (
   team: Team,
   currentMembers: { role: string }[],
@@ -26,62 +26,109 @@ export const getTeamRecommendations = async (
 
 function getDefaultRecommendation(
   team: Team,
-  currentRoles: string[], 
+  currentRoles: string[],
   availableUsers: UserProfile[]
 ): TeamRecommendation {
-  const allRoles = [
-    'Frontend Developer', 
-    'Backend Developer', 
-    'UI/UX Designer', 
-    'Tester', 
+  const ALL_ROLES = [
+    'Frontend Developer',
+    'Backend Developer',
+    'UI/UX Designer',
+    'Tester',
     'ML Engineer',
     'Full Stack Developer',
     'Mobile Developer',
     'DevOps Engineer',
     'Product Manager'
   ];
-  
-  const missingRoles = allRoles.filter(role => 
-    !currentRoles.some(cr => cr.toLowerCase().includes(role.toLowerCase()))
-  ).slice(0, 3);
-  
-  const prioritizedMissingRoles = team.rolesNeeded?.length 
-    ? [...new Set([...team.rolesNeeded, ...missingRoles])].slice(0, 3)
-    : missingRoles;
-  
-  const recommendedUsers = availableUsers
-    .filter(u => {
-      const userRole = u.primaryRole?.toLowerCase() || '';
-      return prioritizedMissingRoles.some(role => 
-        userRole.includes(role.toLowerCase()) || 
-        role.toLowerCase().includes(userRole)
-      );
-    })
+
+  /* -----------------------------
+   * 1️⃣ Find missing roles
+   * ----------------------------- */
+  const normalizedCurrentRoles = currentRoles.map(r => r.toLowerCase());
+
+  const inferredMissingRoles = ALL_ROLES.filter(role =>
+    !normalizedCurrentRoles.includes(role.toLowerCase())
+  );
+
+  const prioritizedMissingRoles = team.rolesNeeded?.length
+    ? Array.from(new Set([...team.rolesNeeded, ...inferredMissingRoles])).slice(0, 3)
+    : inferredMissingRoles.slice(0, 3);
+
+  /* -----------------------------
+   * 2️⃣ Score users per team
+   * ----------------------------- */
+  const teamDesc = team.description?.toLowerCase() || '';
+
+  const scoredUsers = availableUsers.map(user => {
+    let score = 0;
+
+    const userRole = user.primaryRole?.toLowerCase() || '';
+
+    // Role match (strong signal)
+    prioritizedMissingRoles.forEach(role => {
+      const roleLower = role.toLowerCase();
+      if (userRole.includes(roleLower) || roleLower.includes(userRole)) {
+        score += 5;
+      }
+    });
+
+    // Skill match with team description
+    if (user.skills) {
+      user.skills.forEach(skill => {
+        if (teamDesc.includes(skill.name.toLowerCase())) {
+          score += 3;
+        }
+      });
+    }
+
+    // Bio relevance (soft signal)
+    if (user.bio && teamDesc) {
+      const keywords = teamDesc.split(' ');
+      keywords.forEach(word => {
+        if (word.length > 3 && user.bio!.toLowerCase().includes(word)) {
+          score += 1;
+        }
+      });
+    }
+
+    return { user, score };
+  });
+
+  /* -----------------------------
+   * 3️⃣ Pick top 3 users
+   * ----------------------------- */
+  const recommendedUsers = scoredUsers
+    .filter(item => item.score > 0)
+    .sort((a, b) => b.score - a.score)
     .slice(0, 3)
-    .map(user => ({
-      user,
-      reason: `Matches needed role: ${user.primaryRole}. Skills include ${user.skills?.slice(0, 3).map(s => s.name).join(', ') || 'various technologies'}.`
+    .map(item => ({
+      user: item.user,
+      reason: `Strong match for ${item.user.primaryRole}. Relevant skills: ${
+        item.user.skills?.slice(0, 3).map(s => s.name).join(', ') || 'various technologies'
+      }.`
     }));
-  
+
+  /* -----------------------------
+   * 4️⃣ Build explanation
+   * ----------------------------- */
   let explanation = 'Based on your team composition, ';
-  
+
   if (prioritizedMissingRoles.length > 0) {
-    explanation += `we recommend filling these roles to have a well-rounded team: ${prioritizedMissingRoles.join(', ')}.`;
+    explanation += `we recommend adding ${prioritizedMissingRoles.join(', ')} to balance the team.`;
   } else {
-    explanation += 'your team seems well-balanced! Consider adding specialized roles based on your project needs.';
+    explanation += 'your team already looks well-balanced.';
   }
-  
-  if (team.description) {
-    const desc = team.description.toLowerCase();
-    if (desc.includes('ai') || desc.includes('ml') || desc.includes('machine learning')) {
-      explanation += ' Given your AI/ML focus, an ML Engineer would be valuable.';
-    }
-    if (desc.includes('mobile') || desc.includes('app')) {
-      explanation += ' For mobile development, consider a Mobile Developer.';
-    }
-    if (desc.includes('design') || desc.includes('ux') || desc.includes('user')) {
-      explanation += ' A strong UI/UX Designer would help with user experience.';
-    }
+
+  if (teamDesc.includes('ai') || teamDesc.includes('ml')) {
+    explanation += ' Since this project involves AI/ML, technical depth is especially important.';
+  }
+
+  if (teamDesc.includes('mobile') || teamDesc.includes('app')) {
+    explanation += ' Mobile experience will be valuable for this project.';
+  }
+
+  if (teamDesc.includes('design') || teamDesc.includes('ux')) {
+    explanation += ' Strong UX skills can significantly improve user experience.';
   }
 
   return {
