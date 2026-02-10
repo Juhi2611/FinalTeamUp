@@ -175,10 +175,9 @@ const MyTeams = ({ onNavigate, onViewWorkspace, onViewProfile, onViewFiles }: My
       const availableUsers = await getAvailableUsers(user?.uid);
       const currentMembers = team.loadedMembers.map(m => ({ role: m.role }));
       const recs = await getTeamRecommendations(team, currentMembers, availableUsers);
-      setRecommendationsByTeam(prev => ({
-        ...prev,
+      setRecommendationsByTeam({
         [team.id]: recs
-      }));
+      });
     } catch (error) {
       console.error('Error loading recommendations:', error);
     }
