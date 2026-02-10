@@ -27,7 +27,10 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
-              <Route path="/auth" element={<Auth onAuthSuccess={() => window.location.href = "/"} />} />
+              <Route
+  path="/auth"
+  element={<Auth onAuthSuccess={() => window.location.href = "/"} />}
+/>
               <Route path="/profile" element={<Index />} />
               <Route path="/profile/:userId" element={<ProfilePage />} />
               <Route path="/teams/:teamId/files" element={<TeamFiles />} />
