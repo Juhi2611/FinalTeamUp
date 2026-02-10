@@ -6,6 +6,7 @@ import { isFirebaseConfigured } from '@/lib/firebase';
 import { toast } from 'sonner';
 import { isValidUsername, getUsernameError } from '@/utils/username';
 import { isUsernameAvailable, generateUniqueUsername } from '@/services/firestore';
+import DemoLockModal from "@/components/DemoLockModal";
 
 interface ProfileSetupProps {
   existingProfile?: UserProfile | null;
@@ -28,6 +29,8 @@ const roleOptions = [
 const proficiencyOptions = ['Beginner', 'Intermediate', 'Pro'] as const;
 
 const ProfileSetup = ({ existingProfile, onComplete, onOpenVerification }: ProfileSetupProps) => {
+  const { isDemoUser } = useAuth();
+  const [showDemoLock, setShowDemoLock] = useState(false);
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
