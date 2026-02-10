@@ -1,21 +1,20 @@
-import { Button } from "@/components/ui/button";
-
-interface DemoLockModalProps {
-  open: boolean;
-  onClose: () => void;
-  onSignup: () => void;
-}
+import { useNavigate } from "react-router-dom";
 
 const DemoLockModal = ({
   open,
   onClose,
-  onSignup,
 }: {
   open: boolean;
   onClose: () => void;
-  onSignup: () => void;
 }) => {
+  const navigate = useNavigate();
+
   if (!open) return null;
+
+  const handleSignup = () => {
+    onClose();
+    navigate("/auth");
+  };
 
   return (
     <div className="modal-overlay">
@@ -33,7 +32,7 @@ const DemoLockModal = ({
             Cancel
           </button>
 
-          <button className="btn-primary" onClick={onSignup}>
+          <button className="btn-primary" onClick={handleSignup}>
             Sign Up
           </button>
         </div>
