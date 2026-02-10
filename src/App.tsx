@@ -12,6 +12,7 @@ import ProfilePage from "./pages/ProfilePage";
 import TeamDetails from "./pages/TeamDetails";
 import TeamFiles from "./components/pages/TeamFiles";
 import DemoPage from "./pages/DemoPage";
+import Auth from "./pages/auth"; // adjust path if different
 
 const queryClient = new QueryClient();
 
@@ -26,6 +27,7 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth onAuthSuccess={() => window.location.href = "/"} />} />
               <Route path="/profile" element={<Index />} />
               <Route path="/profile/:userId" element={<ProfilePage />} />
               <Route path="/teams/:teamId/files" element={<TeamFiles />} />
