@@ -595,14 +595,47 @@ if (editingTeamId) {
                     {isLeader ? 'Manage your team' : 'Team options'}
                   </p>
                   <div className="grid grid-cols-2 sm:flex gap-2">
-                    {!isCompleted && (
+                    {/* Progress — ALWAYS visible */}
                       <button
-                        onClick={() => onNavigate('discover')}
-                        className="btn-outline text-sm"
+                        onClick={() => {
+                          setOpenMenu(null);
+                          setShowProgress(team.id);
+                        }}
+                        className="menu-item"
                       >
-                        Find Teammates
+                        <BarChart3 className="w-4 h-4" />
+                        Progress
                       </button>
-                    )}
+                      
+                      {!isCompleted && (
+                        <>
+                          {/* Find Teammates */}
+                          <button
+                            onClick={() => {
+                              setOpenMenu(null);
+                              onNavigate('discover');
+                            }}
+                            className="menu-item"
+                          >
+                            <Users className="w-4 h-4" />
+                            Find Teammates
+                          </button>
+                      
+                          {/* AI Suggestions */}
+                          {isLeader && (
+                            <button
+                              onClick={() => {
+                                setOpenMenu(null);
+                                loadRecommendations(team);
+                              }}
+                              className="menu-item"
+                            >
+                              <Sparkles className="w-4 h-4" />
+                              AI Suggestions
+                            </button>
+                          )}
+                        </>
+                      )}
                     
                     {/* Progress Button */}
                     <button 
