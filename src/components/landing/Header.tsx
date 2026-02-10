@@ -8,7 +8,7 @@ const Header = ({ onGetStarted }: { onGetStarted: () => void }) => {
   const { enterDemo } = useAuth();
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-background/70 backdrop-blur-md">
+    <header className="sticky top-0 z-[100] border-b border-border bg-background/70 backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
 
         {/* Logo */}
@@ -32,17 +32,21 @@ const Header = ({ onGetStarted }: { onGetStarted: () => void }) => {
         <div className="flex items-center gap-3">
         {/* Explore Demo */}
         <button
-          onClick={enterDemo}
-          className="
-            inline-flex items-center justify-center
-            rounded-lg px-5 py-2.5 text-sm font-medium
-            bg-[#1E3A8A] text-white
-            hover:bg-[#1E40AF]
-            transition-colors
-          "
-        >
-          Explore Demo
-        </button>
+        type="button"
+        onClick={enterDemo}
+        className="
+          pointer-events-auto
+          relative z-[110]
+          inline-flex items-center justify-center
+          rounded-lg px-5 py-2.5 text-sm font-medium
+          bg-[#1E3A8A] text-white
+          hover:bg-[#1E40AF]
+          transition-colors
+        "
+      >
+        Explore Demo
+      </button>
+
       
         {/* Get Started */}
         <Button onClick={onGetStarted}>
