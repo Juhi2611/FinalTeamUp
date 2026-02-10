@@ -170,21 +170,31 @@ const MyTeams = ({ onNavigate, onViewWorkspace, onViewProfile, onViewFiles }: My
   };
 }, [user]);
 
-  const loadRecommendations = async (team: TeamWithMembers) => {
-    setLoadingRecommendations(true);
-    try {
-      const availableUsers = await getAvailableUsers(user?.uid);
-      const currentMembers = team.loadedMembers.map(m => ({ role: m.role }));
-      const recs = await getTeamRecommendations(team, currentMembers, availableUsers);
-      setRecommendationsByTeam(prev => ({
-  ...prev,
-  [team.id]: recs
-}));
-    } catch (error) {
-      console.error('Error loading recommendations:', error);
-    }
-    setLoadingRecommendations(false);
-  };
+const loadRecommendations = async (team: TeamWithMembers) => {
+  setLoadingRecommendationsByTeam(prev => ({
+    ...prev,
+    [team.id]: true
+  }));
+
+  try {
+    const availableUsers = await getAvailableUsers(user?.uid);
+    const currentMembers = team.loadedMembers.map(m => ({ role: m.role }));
+    const recs = await getTeamRecommendations(team, currentMembers, availableUsers);
+
+    setRecommendationsByTeam(prev => ({
+      ...prev,
+      [team.id]: recs
+    }));
+  } catch (error) {
+    console.error('Error loading recommendations:', error);
+  }
+
+  setLoadingRecommendationsByTeam(prev => ({
+    ...prev,
+    [team.id]: false
+  }));
+};
+
 
   const handleLeaveTeam = async (teamId: string) => {
   if (!user) return;
@@ -597,7 +607,7 @@ if (editingTeamId) {
               )}
 
                             {/* AI Recommendations */}
-              {openRecommendationTeamId === team.id && recommendationsByTeam[team.id] && (
+             {openRecommendationTeamId === team.id && (
                 <div className="mt-4 p-4 rounded-lg bg-gradient-to-r from-primary/5 to-accent/5 border border-primary/10">
                   <div className="flex items-start gap-3">
                     <Sparkles className="w-5 h-5 text-primary mt-0.5" />
@@ -617,7 +627,13 @@ if (editingTeamId) {
                       <p className="text-sm text-muted-foreground mb-3">
                         {recommendationsByTeam[team.id].explanation}
                       </p>
-              
+                     {loadingRecommendationsByTeam[team.id] ? (
+                        <p className="text-sm text-muted-foreground">Loading AI suggestions...</p>
+                      ) : (
+                        <>
+                          {/* existing AI recommendation UI */}
+                        </>
+                      )}
                       {recommendationsByTeam[team.id].missingRoles.length > 0 && (
                         <div className="mb-3">
                           <p className="text-xs font-medium text-foreground mb-1">
@@ -779,7 +795,7 @@ if (editingTeamId) {
               return (
                 <TeamProgressPanel
                   teamId={showProgress}
-                  members={team.members}
+                  members={team.loadedMembers}
                   isLeader={team.leaderId === user?.uid}
                   onClose={() => setShowProgress(null)}
                 />
