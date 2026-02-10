@@ -23,6 +23,7 @@ import { isFirebaseConfigured } from '@/lib/firebase';
 import { getTeamRecommendations } from '@/services/geminiService';
 import { toast } from 'sonner';
 import TeamProgressPanel from '@/components/TeamProgressPanel';
+import { MoreVertical } from 'lucide-react';
 
 interface MyTeamsProps {
   onNavigate: (page: string) => void;
@@ -52,6 +53,7 @@ const MyTeams = ({ onNavigate, onViewWorkspace, onViewProfile, onViewFiles }: My
   const [actionLoading, setActionLoading] = useState(false);
   const [showProgress, setShowProgress] = useState<string | null>(null);
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
   const handleDeclareComplete = async (teamId: string) => {
   if (!user) return;
 
@@ -364,25 +366,69 @@ if (editingTeamId) {
                     <p className="text-sm text-muted-foreground mt-1">📍 {team.city}</p>
                   )}
                 </div>
-                <div className="flex flex-col sm:items-end gap-2">
-                <button 
-                  onClick={() => onViewWorkspace?.(team.id)}
-                  className="btn-ghost flex items-center gap-1"
-                >
-                  View Workspace
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-                {/* Files Sharing BELOW View Workspace */}
-                <button
-                  onClick={() => navigate(`/teams/${team.id}/files`)}
-
-                  className="btn-ghost flex items-center gap-1 text-muted-foreground hover:text-primary"
-                >
-                  Files Sharing
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+                <div className="relative">
+                  <button
+                    onClick={() =>
+                      setOpenMenu(openMenu === team.id ? null : team.id)
+                    }
+                    className="p-2 rounded-lg hover:bg-secondary"
+                  >
+                    <MoreVertical className="w-5 h-5" />
+                  </button>
                 
-              </div>
+                  {openMenu === team.id && (
+                    <div className="absolute right-0 mt-2 w-44 bg-card border border-border rounded-xl shadow-lg z-50 overflow-hidden">
+                
+                      <button
+                        onClick={() => onViewWorkspace?.(team.id)}
+                        className="w-full text-left px-4 py-2 hover:bg-secondary"
+                      >
+                        View Workspace
+                      </button>
+                
+                      <button
+                        onClick={() => navigate(`/teams/${team.id}/files`)}
+                        className="w-full text-left px-4 py-2 hover:bg-secondary"
+                      >
+                        View Files
+                      </button>
+                
+                      <button
+                        onClick={() => setShowTeamManagement(team.id)}
+                        className="w-full text-left px-4 py-2 hover:bg-secondary"
+                      >
+                        Team Management
+                      </button>
+                
+                      {isLeader && (
+                        <button
+                          onClick={() => setEditingTeamId(team.id)}
+                          className="w-full text-left px-4 py-2 hover:bg-secondary"
+                        >
+                          Edit Team
+                        </button>
+                      )}
+                
+                      {!isLeader && (
+                        <button
+                          onClick={() => setShowLeaveConfirm(team.id)}
+                          className="w-full text-left px-4 py-2 text-destructive hover:bg-destructive/10"
+                        >
+                          Leave Team
+                        </button>
+                      )}
+                
+                      {isLeader && (
+                        <button
+                          onClick={() => setShowTerminateConfirm(team.id)}
+                          className="w-full text-left px-4 py-2 text-destructive hover:bg-destructive/10"
+                        >
+                          Terminate Team
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
             </div>
 
                {/* Members */}
