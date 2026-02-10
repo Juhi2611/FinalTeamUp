@@ -58,14 +58,13 @@ const MyTeams = ({ onNavigate, onViewWorkspace, onViewProfile, onViewFiles }: My
   const { user } = useAuth();
   const [teams, setTeams] = useState<TeamWithMembers[]>([]);
   const [loading, setLoading] = useState(true);
-  const [recommendationsByTeam, setRecommendationsByTeam] = useState<{
-  teamId: string;
-  data: {
+  const [recommendationsByTeam, setRecommendationsByTeam] = useState<
+  Record<string, {
     missingRoles: string[];
     recommendedUsers: { user: UserProfile; reason: string }[];
     explanation: string;
-    };
-  } | null>(null);
+  }>
+>({});
   const [loadingRecommendations, setLoadingRecommendations] = useState(false);
   const [joinRequests, setJoinRequests] = useState<Invitation[]>([]);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState<string | null>(null);
@@ -176,10 +175,10 @@ const MyTeams = ({ onNavigate, onViewWorkspace, onViewProfile, onViewFiles }: My
       const availableUsers = await getAvailableUsers(user?.uid);
       const currentMembers = team.loadedMembers.map(m => ({ role: m.role }));
       const recs = await getTeamRecommendations(team, currentMembers, availableUsers);
-      setRecommendationsByTeam({
-      teamId: team.id,
-      data: recs
-    });
+      setRecommendationsByTeam(prev => ({
+        ...prev,
+        [team.id]: recs
+      }));
     } catch (error) {
       console.error('Error loading recommendations:', error);
     }
@@ -546,41 +545,41 @@ if (editingTeamId) {
                   Team Members ({team.loadedMembers.length})
                 </p>
                 <div className="flex flex-col gap-2">
-  {/* Avatars row */}
-  <div className="flex -space-x-1 sm:-space-x-2">
-    {team.loadedMembers.map((member) => (
-      <img
-        key={member.id}
-        src={
-          member.profile?.avatar ||
-          `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
-            member.profile?.fullName || 'User'
-          )}`
-        }
-        alt={member.profile?.fullName || 'Team member'}
-        title={`${member.profile?.fullName} - ${member.role}`}
-        onClick={() => onViewProfile?.(member.userId)}
-        className="w-9 h-9 rounded-full border-2 border-card cursor-pointer hover:scale-110 transition-transform"
-      />
-    ))}
-  </div>
-
-  {/* Names row */}
-  <div className="flex flex-wrap gap-1">
-    {team.loadedMembers.map((member, idx) => (
-      <span key={member.id} className="text-sm text-muted-foreground">
-        <span
-          onClick={() => onViewProfile?.(member.userId)}
-          className="text-primary cursor-pointer hover:underline"
-        >
-          {member.profile?.fullName || 'Unknown'}
-        </span>
-        <span className="text-xs text-primary"> ({member.role})</span>
-        {idx < team.loadedMembers.length - 1 ? ', ' : ''}
-      </span>
-    ))}
-  </div>
-</div>
+                {/* Avatars row */}
+                <div className="flex -space-x-1 sm:-space-x-2">
+                  {team.loadedMembers.map((member) => (
+                    <img
+                      key={member.id}
+                      src={
+                        member.profile?.avatar ||
+                        `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+                          member.profile?.fullName || 'User'
+                        )}`
+                      }
+                      alt={member.profile?.fullName || 'Team member'}
+                      title={`${member.profile?.fullName} - ${member.role}`}
+                      onClick={() => onViewProfile?.(member.userId)}
+                      className="w-9 h-9 rounded-full border-2 border-card cursor-pointer hover:scale-110 transition-transform"
+                    />
+                  ))}
+                </div>
+              
+                {/* Names row */}
+                <div className="flex flex-wrap gap-1">
+                  {team.loadedMembers.map((member, idx) => (
+                    <span key={member.id} className="text-sm text-muted-foreground">
+                      <span
+                        onClick={() => onViewProfile?.(member.userId)}
+                        className="text-primary cursor-pointer hover:underline"
+                      >
+                        {member.profile?.fullName || 'Unknown'}
+                      </span>
+                      <span className="text-xs text-primary"> ({member.role})</span>
+                      {idx < team.loadedMembers.length - 1 ? ', ' : ''}
+                    </span>
+                  ))}
+                </div>
+              </div>
               </div>
 
               {/* Roles Needed */}
@@ -598,7 +597,7 @@ if (editingTeamId) {
               )}
 
               {/* AI Recommendations */}
-              {recommendationsByTeam?.teamId === team.id && (
+              {recommendationsByTeam[team.id] && (
                 <div className="mt-4 p-4 rounded-lg bg-gradient-to-r from-primary/5 to-accent/5 border border-primary/10">
                   <div className="flex items-start gap-3">
                     <Sparkles className="w-5 h-5 text-primary mt-0.5" />
@@ -606,14 +605,14 @@ if (editingTeamId) {
                       <p className="font-medium text-primary mb-2">AI Recommendations</p>
               
                       <p className="text-sm text-muted-foreground mb-3">
-                        {recommendationsByTeam.data.explanation}
+                        {{recommendationsByTeam[team.id].explanation}
                       </p>
               
-                      {recommendationsByTeam.data.missingRoles.length > 0 && (
+                      {{recommendationsByTeam[team.id].explanation}.missingRoles.length > 0 && (
                         <div className="mb-3">
                           <p className="text-xs font-medium text-foreground mb-1">Missing Roles:</p>
                           <div className="flex flex-wrap gap-1">
-                            {recommendationsByTeam.data.missingRoles.map((role, idx) => (
+                            {{recommendationsByTeam[team.id].missingRoles.map((role, idx) => (
                               <span
                                 key={idx}
                                 className="px-2 py-0.5 rounded-full text-xs bg-accent/10 text-accent"
@@ -625,14 +624,14 @@ if (editingTeamId) {
                         </div>
                       )}
               
-                      {recommendationsByTeam.data.recommendedUsers.length > 0 && (
+                      {{recommendationsByTeam[team.id].recommendedUsers.length > 0 && (
                         <div>
                           <p className="text-xs font-medium text-foreground mb-2">
                             Recommended Users:
                           </p>
               
                           <div className="space-y-2">
-                            {recommendationsByTeam.data.recommendedUsers.map((rec, idx) => (
+                            {{recommendationsByTeam[team.id].recommendedUsers.map((rec, idx) => (
                               <div
                                 key={idx}
                                 className="flex items-center gap-2 p-2 rounded bg-secondary/50"
