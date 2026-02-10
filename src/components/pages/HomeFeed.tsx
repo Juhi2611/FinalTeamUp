@@ -7,6 +7,7 @@ import { getSkillClass } from '@/data/mockData';
 import { Timestamp } from 'firebase/firestore';
 import CreatePostModal from '../CreatePostModal';
 import { toast } from 'sonner';
+import DemoLockModal from "@/components/DemoLockModal";
 
 interface HomeFeedProps {
   onNavigate: (page: string) => void;
@@ -14,6 +15,8 @@ interface HomeFeedProps {
 }
 
 const HomeFeed = ({ onNavigate, onViewProfile }: HomeFeedProps) => {
+  const { isDemoUser } = useAuth();
+  const [showDemoLock, setShowDemoLock] = useState(false);
   const { user } = useAuth();
   const [filter, setFilter] = useState<'all' | 'team_created' | 'member_joined' | 'looking_for_team' | 'user_post'>('all');
   const [posts, setPosts] = useState<FeedPostType[]>([]);
