@@ -9,32 +9,34 @@ interface TeamRecommendation {
   explanation: string;
 }
 
-// Team-specific rule-based recommendations
+// Rule-based recommendations (team-specific & filtered)
 export const getTeamRecommendations = async (
   team: Team,
   currentMembers: { role: string; userId?: string }[],
   availableUsers: UserProfile[]
 ): Promise<TeamRecommendation> => {
   try {
-    return buildTeamRecommendation(team, currentMembers, availableUsers);
+    const currentRoles = currentMembers.map(m => m.role);
+
+    // ✅ exclude already joined members
+    const currentMemberIds = new Set(
+      currentMembers.map(m => m.userId).filter(Boolean)
+    );
+
+    const filteredUsers = availableUsers.filter(u => !currentMemberIds.has(u.id));
+
+    return getDefaultRecommendation(team, currentRoles, filteredUsers);
   } catch (error) {
     console.error('Error getting recommendations:', error);
-    return {
-      missingRoles: [],
-      recommendedUsers: [],
-      explanation: 'Unable to generate recommendations at this time.'
-    };
+    return getDefaultRecommendation(team, [], availableUsers);
   }
 };
 
-function buildTeamRecommendation(
+function getDefaultRecommendation(
   team: Team,
-  currentMembers: { role: string; userId?: string }[],
+  currentRoles: string[],
   availableUsers: UserProfile[]
 ): TeamRecommendation {
-  /* -----------------------------
-   * 1️⃣ Find missing roles
-   * ----------------------------- */
   const ALL_ROLES = [
     'Frontend Developer',
     'Backend Developer',
@@ -47,98 +49,96 @@ function buildTeamRecommendation(
     'Product Manager'
   ];
 
-  const currentRoles = currentMembers.map(m => m.role.toLowerCase());
+  // Normalize roles
+  const normalizedCurrentRoles = currentRoles.map(r => r.toLowerCase());
 
-  const inferredMissingRoles = ALL_ROLES.filter(
-    role => !currentRoles.some(r => r.includes(role.toLowerCase()))
+  // Missing roles
+  const inferredMissingRoles = ALL_ROLES.filter(role =>
+    !normalizedCurrentRoles.some(cr => cr.includes(role.toLowerCase()))
   );
 
+  // Priority roles from team.rolesNeeded first
   const prioritizedMissingRoles = team.rolesNeeded?.length
     ? Array.from(new Set([...team.rolesNeeded, ...inferredMissingRoles])).slice(0, 3)
     : inferredMissingRoles.slice(0, 3);
 
-  /* -----------------------------
-   * 2️⃣ Exclude existing members
-   * ----------------------------- */
-  const currentMemberIds = new Set(
-    currentMembers.map(m => m.userId).filter(Boolean)
-  );
-
   const teamDesc = team.description?.toLowerCase() || '';
 
-  /* -----------------------------
-   * 3️⃣ Score users uniquely per team
-   * ----------------------------- */
-  const scoredUsers = availableUsers
-    .filter(user => !currentMemberIds.has(user.id))
-    .map(user => {
-      let score = 0;
-      const userRole = user.primaryRole?.toLowerCase() || '';
+  // Score users based on role + description + skills
+  const scoredUsers = availableUsers.map(user => {
+    let score = 0;
 
-      // Strong signal: role match
-      prioritizedMissingRoles.forEach(role => {
-        const roleLc = role.toLowerCase();
-        if (userRole.includes(roleLc) || roleLc.includes(userRole)) {
-          score += 5;
-        }
-      });
+    const userRole = user.primaryRole?.toLowerCase() || '';
 
-      // Medium signal: skill relevance
-      if (user.skills) {
-        user.skills.forEach(skill => {
-          if (teamDesc.includes(skill.name.toLowerCase())) {
-            score += 3;
-          }
-        });
+    // Role match (big weight)
+    prioritizedMissingRoles.forEach(role => {
+      const roleLower = role.toLowerCase();
+      if (userRole.includes(roleLower) || roleLower.includes(userRole)) {
+        score += 10;
       }
-
-      // Soft signal: bio relevance
-      if (user.bio) {
-        teamDesc.split(' ').forEach(word => {
-          if (word.length > 3 && user.bio!.toLowerCase().includes(word)) {
-            score += 1;
-          }
-        });
-      }
-
-      return { user, score };
     });
 
-  /* -----------------------------
-   * 4️⃣ Pick top 3 users
-   * ----------------------------- */
+    // Skills match (medium weight)
+    if (user.skills) {
+      user.skills.forEach(skill => {
+        const skillName = skill.name.toLowerCase();
+
+        if (teamDesc.includes(skillName)) {
+          score += 5;
+        }
+
+        prioritizedMissingRoles.forEach(role => {
+          if (role.toLowerCase().includes(skillName)) {
+            score += 2;
+          }
+        });
+      });
+    }
+
+    // Bio match (small weight)
+    if (user.bio && teamDesc) {
+      const keywords = teamDesc.split(/\s+/);
+      keywords.forEach(word => {
+        if (word.length > 4 && user.bio!.toLowerCase().includes(word)) {
+          score += 1;
+        }
+      });
+    }
+
+    return { user, score };
+  });
+
+  // Sort and pick top 3
   const recommendedUsers = scoredUsers
-    .filter(u => u.score > 0)
+    .filter(item => item.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, 3)
-    .map(({ user }) => ({
-      user,
-      reason: `Good match for ${user.primaryRole}. Relevant skills: ${
-        user.skills?.slice(0, 3).map(s => s.name).join(', ') || 'varied experience'
+    .map(item => ({
+      user: item.user,
+      reason: `Matches role: ${item.user.primaryRole}. Skills: ${
+        item.user.skills?.slice(0, 3).map(s => s.name).join(', ') || 'various technologies'
       }.`
     }));
 
-  /* -----------------------------
-   * 5️⃣ Explanation
-   * ----------------------------- */
-  let explanation = 'Based on your current team setup, ';
+  // Explanation
+  let explanation = 'Based on your team composition, ';
 
-  if (prioritizedMissingRoles.length) {
-    explanation += `adding ${prioritizedMissingRoles.join(', ')} would improve balance.`;
+  if (prioritizedMissingRoles.length > 0) {
+    explanation += `we recommend adding ${prioritizedMissingRoles.join(', ')} to balance the team.`;
   } else {
-    explanation += 'the team already looks well-rounded.';
+    explanation += 'your team already looks balanced.';
   }
 
   if (teamDesc.includes('ai') || teamDesc.includes('ml')) {
-    explanation += ' AI/ML experience is especially valuable here.';
+    explanation += ' Since your project involves AI/ML, technical expertise is important.';
   }
 
   if (teamDesc.includes('mobile') || teamDesc.includes('app')) {
-    explanation += ' Mobile development expertise could help.';
+    explanation += ' A Mobile Developer would be valuable.';
   }
 
   if (teamDesc.includes('design') || teamDesc.includes('ux')) {
-    explanation += ' Strong UX skills will improve usability.';
+    explanation += ' Strong UI/UX will improve user experience.';
   }
 
   return {
