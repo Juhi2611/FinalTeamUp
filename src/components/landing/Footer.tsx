@@ -12,15 +12,8 @@ const Footer = () => {
     <footer className="relative overflow-hidden bg-background">
       
       {/* BIG BACKGROUND BRAND TEXT */}
-      <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 select-none
-                bottom-[-40px] sm:bottom-[-70px] md:bottom-[-90px]">
-        <span
-          className="
-            font-display font-extrabold tracking-tight text-primary/20
-            text-[6rem] sm:text-[10rem] md:text-[14rem] lg:text-[18rem]
-            leading-none
-          "
-        >
+      <div className="hidden sm:block pointer-events-none absolute bottom-[-90px] left-1/2 -translate-x-1/2 select-none">
+        <span className="text-[18rem] font-display font-extrabold tracking-tight text-primary/20">
           TEAMUP
         </span>
       </div>
