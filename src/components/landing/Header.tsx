@@ -32,20 +32,11 @@ const Header = ({ onGetStarted }: { onGetStarted: () => void }) => {
         <div className="flex items-center gap-3">
         {/* Explore Demo */}
         <button
-        type="button"
-        onClick={enterDemo}
-        className="
-          pointer-events-auto
-          relative z-[110]
-          inline-flex items-center justify-center
-          rounded-lg px-5 py-2.5 text-sm font-medium
-          bg-[#1E3A8A] text-white
-          hover:bg-[#1E40AF]
-          transition-colors
-        "
-      >
-        Explore Demo
-      </button>
+          onClick={() => navigate("/demo")}
+          className="bg-[#1E3A8A] text-white px-5 py-2.5 rounded-lg hover:bg-[#1E40AF] transition"
+        >
+          Explore Demo
+        </button>
 
       
         {/* Get Started */}
