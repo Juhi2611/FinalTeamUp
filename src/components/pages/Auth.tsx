@@ -14,10 +14,11 @@ import { AtSign } from 'lucide-react';
 
 interface AuthProps {
   onAuthSuccess: () => void;
+  defaultMode?: "login" | "signup";
 }
 
-const Auth = ({ onAuthSuccess }: AuthProps) => {
-  const [isLogin, setIsLogin] = useState(true);
+const Auth = ({ onAuthSuccess, defaultMode = "login" }: AuthProps) => {
+  const [isLogin, setIsLogin] = useState(defaultMode === "login");
   const [showTerms, setShowTerms] = useState(false);
 const [showPrivacy, setShowPrivacy] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
