@@ -366,7 +366,7 @@ if (editingTeamId) {
                     <p className="text-sm text-muted-foreground mt-1">📍 {team.city}</p>
                   )}
                 </div>
-                <div className="relative">
+                <div className="relative hidden md:block">
                   <button
                     onClick={() =>
                       setOpenMenu(openMenu === team.id ? null : team.id)
@@ -489,7 +489,7 @@ if (editingTeamId) {
               )}
 
               {/* Team Actions */}
-              <div className="pt-4 border-t border-border">
+              <div className="pt-4 border-t border-border md:hidden">
                 <div className="flex items-center justify-between flex-wrap gap-3">
                   <p className="text-sm text-muted-foreground">
                     {isLeader ? 'Manage your team' : 'Team options'}
