@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import {
   MessageCircle,
   Send,
-  ArrowLeft,
   Loader2,
   ChevronLeft,
   ChevronRight,
@@ -162,7 +161,7 @@ const Messages = ({
   /* ====================== UI ====================== */
 
   return (
-    <div className="flex flex-1 min-h-screen md:min-h-0 md:grid md:grid-cols-[320px_1fr_320px] md:h-[calc(100vh-8rem)]">
+    <div className="flex flex-1 min-h-screen md:min-h-0 md:grid md:grid-cols-[320px_1fr] md:h-[calc(100vh-8rem)]">
       {/* ---------------- CONVERSATIONS ---------------- */}
       <div
         className={cn(
@@ -217,30 +216,39 @@ const Messages = ({
       </div>
 
       {/* ---------------- CHAT ---------------- */}
-      <div className="flex flex-col bg-card">
-        {selectedConversation && selectedConv ? (
+      <div className="flex flex-col bg-card flex-1">
+        {!selectedConversation || !selectedConv ? (
+          <div className="hidden md:flex flex-1 items-center justify-center text-muted-foreground">
+            Select a conversation
+          </div>
+        ) : showFiles ? (
+          <PrivateFilesPanel
+            conversationId={selectedConversation}
+            currentUserId={user.uid}
+          />
+        ) : (
           <>
-            <div className="p-4 border-b border-border flex items-center gap-3">
-              <img
-                src={getOtherParticipant(selectedConv).avatar}
-                className="w-10 h-10 rounded-full"
-              />
-            
-              <div className="flex flex-col">
-                <span className="font-medium leading-tight">
+            {/* Header */}
+            <div className="p-4 border-b border-border flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <img
+                  src={getOtherParticipant(selectedConv).avatar}
+                  className="w-10 h-10 rounded-full"
+                />
+                <span className="font-medium">
                   {getOtherParticipant(selectedConv).name}
                 </span>
               </div>
-            
-              {/* Mobile Files button */}
+      
               <button
-                className="ml-auto md:hidden text-sm text-primary"
                 onClick={() => setShowFiles(true)}
+                className="text-sm font-medium text-primary hover:underline"
               >
                 Files
               </button>
             </div>
-
+      
+            {/* Messages */}
             <div
               ref={messagesContainerRef}
               onScroll={handleScroll}
@@ -259,9 +267,7 @@ const Messages = ({
                     <div
                       className={cn(
                         'px-4 py-2 rounded-2xl max-w-[85%] md:max-w-[70%]',
-                        isOwn
-                          ? 'bg-primary text-white'
-                          : 'bg-secondary'
+                        isOwn ? 'bg-primary text-white' : 'bg-secondary'
                       )}
                     >
                       <p>{msg.text}</p>
@@ -274,7 +280,8 @@ const Messages = ({
               })}
               <div ref={messagesEndRef} />
             </div>
-
+      
+            {/* Input */}
             <form
               onSubmit={handleSendMessage}
               className="p-4 border-t border-border flex gap-2 sticky bottom-0 bg-card"
@@ -293,42 +300,8 @@ const Messages = ({
               </button>
             </form>
           </>
-        ) : (
-          <div className="hidden md:flex flex-1 items-center justify-center text-muted-foreground">
-            Select a conversation
-          </div>
         )}
       </div>
-
-      {/* ---------------- PRIVATE FILES ---------------- */}
-      {selectedConversation && user && (
-        <>
-          {/* Desktop only */}
-          <div className="hidden md:block">
-            <PrivateFilesPanel
-              conversationId={selectedConversation}
-              currentUserId={user.uid}
-            />
-          </div>
-      
-          {/* Mobile overlay only */}
-          {showFiles && (
-            <div className="fixed inset-0 bg-background z-50 md:hidden flex flex-col">
-              <div className="p-4 border-b flex justify-between items-center">
-                <span className="font-semibold">Private Files</span>
-                <button onClick={() => setShowFiles(false)}>Close</button>
-              </div>
-      
-              <div className="flex-1 overflow-y-auto">
-                <PrivateFilesPanel
-                  conversationId={selectedConversation}
-                  currentUserId={user.uid}
-                />
-              </div>
-            </div>
-          )}
-        </>
-      )}
     </div>
   );
 };
