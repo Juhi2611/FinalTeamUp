@@ -45,15 +45,23 @@ interface MyTeamsProps {
   onViewWorkspace?: (teamId: string) => void;
   onViewProfile?: (userId: string) => void;
   onViewFiles?: (teamId: string) => void;
+  openAuth: () => void;
 }
 
 interface TeamWithMembers extends Team {
   loadedMembers: (TeamMember & { profile: UserProfile | null })[];
 }
 
-const MyTeams = ({ onNavigate, onViewWorkspace, onViewProfile, onViewFiles }: MyTeamsProps) => {
+const MyTeams = ({ onNavigate, onViewWorkspace, onViewProfile, onViewFiles, openAuth }: MyTeamsProps) => {
   const [openRecommendationTeamId, setOpenRecommendationTeamId] = useState<string | null>(null);
   const { isDemoUser } = useAuth();
+  const blockDemo = () => {
+    if (isDemoUser) {
+      setShowDemoLock(true);
+      return true;
+    }
+    return false;
+  };
   const [showDemoLock, setShowDemoLock] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -291,6 +299,7 @@ if (editingTeamId) {
     <EditTeam
       teamId={editingTeamId}
       onNavigate={onNavigate}
+      openAuth={openAuth}
       onBack={() => setEditingTeamId(null)}
       onTeamUpdated={(updatedTeam) => {
         // ✅ Optimistically update the team in UI immediately
@@ -503,7 +512,7 @@ if (editingTeamId) {
                         <button
                           onClick={() => {
                             setOpenMenu(null);
-                            setEditingTeamId(team.id);
+                            if (!blockDemo()) setEditingTeamId(team.id);
                           }}
                           className="menu-item"
                         >
@@ -517,7 +526,7 @@ if (editingTeamId) {
                         <button
                           onClick={() => {
                             setOpenMenu(null);
-                            handleDeclareComplete(team.id);
+                            if (!blockDemo()) handleDeclareComplete(team.id);
                           }}
                           className="menu-item text-skill-mobile"
                         >
@@ -531,7 +540,7 @@ if (editingTeamId) {
                         <button
                           onClick={() => {
                             setOpenMenu(null);
-                            setShowLeaveConfirm(team.id);
+                            if (!blockDemo()) setShowLeaveConfirm(team.id);
                           }}
                           className="menu-item text-destructive hover:bg-destructive/10"
                         >
@@ -545,7 +554,7 @@ if (editingTeamId) {
                         <button
                           onClick={() => {
                             setOpenMenu(null);
-                            setShowTerminateConfirm(team.id);
+                            if (!blockDemo()) setShowTerminateConfirm(team.id);
                           }}
                           className="menu-item text-destructive hover:bg-destructive/10"
                         >
@@ -715,7 +724,11 @@ if (editingTeamId) {
           <h3 className="font-display font-bold text-lg text-foreground mb-2">No teams yet</h3>
           <p className="text-muted-foreground mb-4">Start your hackathon journey by creating a team or joining one</p>
           <div className="flex justify-center gap-3">
-            <button onClick={() => onNavigate('build')} className="btn-primary">
+            <button onClick={() => {
+              if (blockDemo()) return;
+              onNavigate('build');
+            }}
+            className="btn-primary">
               Create a Team
             </button>
             <button onClick={() => onNavigate('discover-teams')} className="btn-secondary">
@@ -841,6 +854,15 @@ if (editingTeamId) {
           </div>
         </div>
       )}
+
+      <DemoLockModal
+        open={showDemoLock}
+        onClose={() => setShowDemoLock(false)}
+        onSignup={() => {
+          setShowDemoLock(false);
+          openAuth();
+        }}
+      />
     </div>
   );
 };

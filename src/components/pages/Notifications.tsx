@@ -17,14 +17,26 @@ import {
 import { isFirebaseConfigured } from '@/lib/firebase';
 import { Timestamp } from 'firebase/firestore';
 import { toast } from 'sonner';
+import DemoLockModal from "@/components/DemoLockModal";
 
 interface NotificationsProps {
   onNavigateToMessages?: (conversationId: string) => void;
   onViewProfile?: (userId: string) => void;
+  openAuth: () => void;
 }
 
-const Notifications: React.FC<NotificationsProps> = ({ onNavigateToMessages, onViewProfile }) => {
+const Notifications: React.FC<NotificationsProps> = ({ onNavigateToMessages, onViewProfile, openAuth }) => {
   const { user } = useAuth();
+  const { isDemoUser } = useAuth();
+  const [showDemoLock, setShowDemoLock] = useState(false);
+
+  const blockDemo = () => {
+    if (isDemoUser) {
+      setShowDemoLock(true);
+      return true;
+    }
+    return false;
+  };
   const { wasBlockedByThem } = useBlocks();
   const navigate = useNavigate();
   const [incoming, setIncoming] = useState<Invitation[]>([]);
@@ -57,39 +69,45 @@ const Notifications: React.FC<NotificationsProps> = ({ onNavigateToMessages, onV
   }, [user]);
 
   const handleRespond = async (invitation: Invitation, accept: boolean) => {
-  if (!user) return;
-  setProcessingId(invitation.id);
+    if (blockDemo()) return;
+    if (!user) return;
+    setProcessingId(invitation.id);
 
-  try {
-    // Users can join multiple teams - no check needed
-    await respondToInvitation(
-      invitation.id,
-      accept ? 'accepted' : 'rejected',
-      accept ? invitation.teamId : undefined,
-      accept ? user.uid : undefined,
-      accept ? 'Member' : undefined
-    );
+    try {
+      // Users can join multiple teams - no check needed
+      await respondToInvitation(
+        invitation.id,
+        accept ? 'accepted' : 'rejected',
+        accept ? invitation.teamId : undefined,
+        accept ? user.uid : undefined,
+        accept ? 'Member' : undefined
+      );
 
-    toast.success(accept ? `Joined ${invitation.teamName}!` : 'Invitation declined');
-  } catch (error: any) {
-    console.error('Error responding to invitation:', error);
-    toast.error(error.message || 'Failed to respond to invitation');
-  } finally {
-    setProcessingId(null);
-  }
-};
+      toast.success(accept ? `Joined ${invitation.teamName}!` : 'Invitation declined');
+    } catch (error: any) {
+      console.error('Error responding to invitation:', error);
+      toast.error(error.message || 'Failed to respond to invitation');
+    } finally {
+      setProcessingId(null);
+    }
+  };
 
   const handleMarkAsRead = async (notificationId: string) => {
+    if (blockDemo()) return;
     await markNotificationAsRead(notificationId);
   };
 
   const handleMarkAllAsRead = async () => {
+    if (blockDemo()) return;
     if (!user) return;
     await markAllNotificationsAsRead(user.uid);
     toast.success('All notifications marked as read');
   };
 
   const handleNotificationClick = async (notification: NotificationType) => {
+    if (notification.type === 'MESSAGE') {
+      if (blockDemo()) return;
+    }
     // Mark as read
     if (!notification.read) {
       await handleMarkAsRead(notification.id);
@@ -389,6 +407,14 @@ const Notifications: React.FC<NotificationsProps> = ({ onNavigateToMessages, onV
           )}
         </div>
       )}
+      <DemoLockModal
+        open={showDemoLock}
+        onClose={() => setShowDemoLock(false)}
+        onSignup={() => {
+          setShowDemoLock(false);
+          openAuth();
+        }}
+      />
     </div>
   );
 };

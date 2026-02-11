@@ -18,12 +18,20 @@ import DemoLockModal from "@/components/DemoLockModal";
 interface TeamWorkspaceProps {
   teamId: string;
   onBack: () => void;
+  openAuth: () => void;
 }
 
-const TeamWorkspace = ({ teamId, onBack }: TeamWorkspaceProps) => {
+const TeamWorkspace = ({ teamId, onBack, openAuth }: TeamWorkspaceProps) => {
   const { isDemoUser } = useAuth();
   const [showDemoLock, setShowDemoLock] = useState(false);
   const { user } = useAuth();
+  const blockDemo = () => {
+    if (isDemoUser) {
+      setShowDemoLock(true);
+      return true;
+    }
+    return false;
+  };
   const [team, setTeam] = useState<Team | null>(null);
   const [members, setMembers] = useState<(TeamMember & { profile: UserProfile | null })[]>([]);
   const [logs, setLogs] = useState<WorkspaceLog[]>([]);
@@ -165,17 +173,26 @@ const TeamWorkspace = ({ teamId, onBack }: TeamWorkspaceProps) => {
           {/* Add Log Form */}
           <div className="card-base p-6">
             <h2 className="section-title mb-4">Add Progress Update</h2>
-            <form onSubmit={handleAddLog} className="flex gap-3">
+            <form
+              onSubmit={(e) => {
+                if (blockDemo()) {
+                  e.preventDefault();
+                  return;
+                }
+                handleAddLog(e);
+              }}
+              className="flex gap-3"
+            >
               <input
                 type="text"
                 value={newLog}
                 onChange={(e) => setNewLog(e.target.value)}
                 placeholder="What did you accomplish? e.g., 'Completed dashboard UI'"
                 className="input-field flex-1"
+                disabled={isDemoUser}
               />
-              <button 
-                type="submit" 
-                disabled={submitting || !newLog.trim()}
+              <button
+                type="submit"
                 className="btn-primary flex items-center gap-2"
               >
                 {submitting ? (
@@ -254,6 +271,14 @@ const TeamWorkspace = ({ teamId, onBack }: TeamWorkspaceProps) => {
           </div>
         </div>
       </div>
+      <DemoLockModal
+        open={showDemoLock}
+        onClose={() => setShowDemoLock(false)}
+        onSignup={() => {
+          setShowDemoLock(false);
+          openAuth();
+        }}
+      />
     </div>
   );
 };

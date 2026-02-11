@@ -8,14 +8,17 @@ import { Timestamp } from 'firebase/firestore';
 import { useBlocks } from '@/contexts/BlockContext';
 import CreatePostModal from '../CreatePostModal';
 import { toast } from 'sonner';
+import DemoLockModal from "@/components/DemoLockModal";
 
 interface HomeFeedProps {
   onNavigate: (page: string) => void;
   onViewProfile: (userId: string) => void;
+  openAuth: () => void;
 }
 
-const HomeFeed = ({ onNavigate, onViewProfile }: HomeFeedProps) => {
-  const { user } = useAuth();
+const HomeFeed = ({ onNavigate, onViewProfile, openAuth }: HomeFeedProps) => {
+  const { user, isDemoUser } = useAuth();
+  const [showDemoLock, setShowDemoLock] = useState(false);
   const [filter, setFilter] = useState<'all' | 'team_created' | 'member_joined' | 'looking_for_team' | 'user_post'>('all');
   const [posts, setPosts] = useState<FeedPostType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -145,7 +148,13 @@ const HomeFeed = ({ onNavigate, onViewProfile }: HomeFeedProps) => {
       <div className="card-base p-4">
         <div className="flex gap-3">
           <button 
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => {
+              if (isDemoUser) {
+                setShowDemoLock(true);
+                return;
+              }
+              setShowCreateModal(true);
+            }}
             className="flex-1 flex items-center gap-3 p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors text-left"
           >
             <div className="p-2 rounded-full bg-primary/10">
@@ -154,7 +163,13 @@ const HomeFeed = ({ onNavigate, onViewProfile }: HomeFeedProps) => {
             <span className="text-muted-foreground">Share something with the community...</span>
           </button>
           <button 
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => {
+              if (isDemoUser) {
+                setShowDemoLock(true);
+                return;
+              }
+              setShowCreateModal(true);
+            }}
             className="btn-primary flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
@@ -304,6 +319,14 @@ const HomeFeed = ({ onNavigate, onViewProfile }: HomeFeedProps) => {
           onSubmit={handleCreatePost}
         />
       )}
+      <DemoLockModal
+        open={showDemoLock}
+        onClose={() => setShowDemoLock(false)}
+        onSignup={() => {
+          setShowDemoLock(false);
+          openAuth();
+        }}
+      />
     </div>
   );
 };

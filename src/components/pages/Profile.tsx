@@ -34,6 +34,7 @@ import { auth } from '@/lib/firebase';
 import { deleteUserCompletely } from '@/services/firestore';
 import { unlink } from 'firebase/auth';
 import { Github } from 'lucide-react';
+import DemoLockModal from "@/components/DemoLockModal";
 
 interface ProfileProps {
   userId?: string;
@@ -42,11 +43,22 @@ interface ProfileProps {
   onEditProfile?: () => void;
   onOpenVerification?: () => void;
   onMessage?: (userId: string) => void;
-  onProfileUpdated?: (profile: UserProfile) => void; // ✅ ADD
+  onProfileUpdated?: (profile: UserProfile) => void; 
+  openAuth: () => void;
 }
 
-const Profile = ({ userId, isOwnProfile = true, userProfile: passedProfile, onEditProfile, onOpenVerification, onMessage, onProfileUpdated }: ProfileProps) => {
+const Profile = ({ userId, isOwnProfile = true, userProfile: passedProfile, onEditProfile, onOpenVerification, onMessage, onProfileUpdated, openAuth }: ProfileProps) => {
   const { user } = useAuth();
+  const { isDemoUser } = useAuth();
+  const [showDemoLock, setShowDemoLock] = useState(false);
+
+  const blockDemo = () => {
+    if (isDemoUser) {
+      setShowDemoLock(true);
+      return true;
+    }
+    return false;
+  };
   const [showBlockReportModal, setShowBlockReportModal] = useState(false);
   const [showAllPosts, setShowAllPosts] = useState(false);
   const { isHidden, isBlockedByMe, wasBlockedByThem, refreshBlocks } = useBlocks();
@@ -138,6 +150,7 @@ const Profile = ({ userId, isOwnProfile = true, userProfile: passedProfile, onEd
   };
 
 const handleDeleteProfile = async () => {
+  if (blockDemo()) return;
   const confirmText = prompt(
     "This will permanently delete your account.\nType DELETE to continue."
   );
@@ -167,6 +180,7 @@ const isGitHubLinked = auth.currentUser?.providerData.some(
 );
 
 const handleUnlinkGitHub = async () => {
+  if (blockDemo()) return;
   if (!auth.currentUser) return;
 
   try {
@@ -181,6 +195,7 @@ const handleUnlinkGitHub = async () => {
 const handleAvatarChange = async (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
+    if (blockDemo()) return;
     if (!e.target.files || !user) return;
 
     const file = e.target.files[0];
@@ -396,23 +411,26 @@ const visiblePosts = showAllPosts ? myPosts : myPosts.slice(0, 2);
               </div>
             </div>
             {isOwnProfile && onEditProfile && (
-              <button onClick={onEditProfile} className="btn-secondary flex items-center gap-2">
+              <button onClick={() => !blockDemo() && onEditProfile?.()} className="btn-secondary flex items-center gap-2">
                 <Edit className="w-4 h-4" />
                 Edit Profile
               </button>
             )}
             {!isOwnProfile && (
             <div className="flex items-center gap-2">
-              <button className="btn-primary" onClick={() => setShowPitchModal(true)}>
+              <button className="btn-primary" onClick={() => !blockDemo() && setShowPitchModal(true)}>
                 Pitch Your Team
               </button>
 
-              <button onClick={() => onMessage?.(targetUserId!)} className="btn-secondary text-sm">
+              <button
+                onClick={() => !blockDemo() && onMessage?.(targetUserId!)}
+                className="btn-secondary text-sm"
+              >
                 Message
               </button>
 
               <button
-                onClick={() => setShowBlockReportModal(true)}
+                onClick={() => !blockDemo() && setShowBlockReportModal(true)}
                 className="btn-secondary text-sm flex items-center gap-1.5 text-destructive"
               >
                 <Flag className="w-4 h-4" />
@@ -553,14 +571,14 @@ const visiblePosts = showAllPosts ? myPosts : myPosts.slice(0, 2);
                       {isOwnProfile && user?.uid === post.authorId && (
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <button
-                            onClick={() => setEditingPost(post)}
+                            onClick={() => !blockDemo() && setEditingPost(post)}
                             className="p-2 rounded-lg hover:bg-secondary transition-colors text-sm sm:text-base text-muted-foreground hover:text-foreground"
                             title="Edit post"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleDeletePost(post.id)}
+                            onClick={() => !blockDemo() && handleDeletePost(post.id)}
                             disabled={deletingPostId === post.id}
                             className="p-2 rounded-lg hover:bg-destructive/10 transition-colors text-sm sm:text-base text-muted-foreground hover:text-destructive"
                             title="Delete post"
@@ -681,7 +699,7 @@ const visiblePosts = showAllPosts ? myPosts : myPosts.slice(0, 2);
               </div>
             ) : isOwnProfile ? (
               <button
-                onClick={onOpenVerification}
+                onClick={() => !blockDemo() && onOpenVerification?.()}
                 className="w-full p-3 rounded-lg bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 hover:from-primary/20 hover:to-accent/20 transition-all text-left"
               >
                 <p className="text-sm font-medium text-primary mb-1">Verify Your Skills</p>
@@ -760,45 +778,52 @@ const visiblePosts = showAllPosts ? myPosts : myPosts.slice(0, 2);
         />
       )}
       {showPitchModal && !isOwnProfile && (
-  <PitchModal
-    type="pitch"
-    recipientName={profile.fullName}
-    recipientId={targetUserId}
-    onClose={() => setShowPitchModal(false)}
-    onSend={async (message) => {
-      console.log('Pitch sent:', message);
-      // TODO: save pitch / send notification / message
-    }}
-  />
-)}
-{showBlockReportModal && user && profile && (
-  <BlockReportModal
-    targetUserId={profile.id}
-    targetUserName={profile.fullName || 'User'}
-    currentUserId={user.uid}
-    onClose={() => setShowBlockReportModal(false)}
-    onBlockComplete={refreshBlocks}
-  />
-)}
-{isOwnProfile && (
-  <div className="card-base p-6 border border-destructive/30">
-    <h2 className="section-title text-destructive mb-2">
-      Danger Zone
-    </h2>
+          <PitchModal
+            type="pitch"
+            recipientName={profile.fullName}
+            recipientId={targetUserId}
+            onClose={() => setShowPitchModal(false)}
+            onSend={async (message) => {
+              console.log('Pitch sent:', message);
+              // TODO: save pitch / send notification / message
+            }}
+          />
+        )}
+        {showBlockReportModal && user && profile && (
+          <BlockReportModal
+            targetUserId={profile.id}
+            targetUserName={profile.fullName || 'User'}
+            currentUserId={user.uid}
+            onClose={() => setShowBlockReportModal(false)}
+            onBlockComplete={refreshBlocks}
+          />
+        )}
+        {isOwnProfile && (
+          <div className="card-base p-6 border border-destructive/30">
+            <h2 className="section-title text-destructive mb-2">
+              Danger Zone
+            </h2>
 
-    <button
-      onClick={handleDeleteProfile}
-      className="w-full mt-3 p-3 rounded-lg bg-destructive text-white"
-    >
-      Delete Profile Permanently
-    </button>
+            <button
+              onClick={handleDeleteProfile}
+              className="w-full mt-3 p-3 rounded-lg bg-destructive text-white"
+            >
+              Delete Profile Permanently
+            </button>
 
-    <p className="text-xs text-sm sm:text-base text-muted-foreground mt-2">
-      This action cannot be undone.
-    </p>
-  </div>
-)}
-
+            <p className="text-xs text-sm sm:text-base text-muted-foreground mt-2">
+              This action cannot be undone.
+            </p>
+          </div>
+        )}
+        <DemoLockModal
+          open={showDemoLock}
+          onClose={() => setShowDemoLock(false)}
+          onSignup={() => {
+            setShowDemoLock(false);
+            openAuth();
+          }}
+        />
     </div>
   );
 };

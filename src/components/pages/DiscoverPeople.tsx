@@ -19,15 +19,18 @@ import { toast } from 'sonner';
 import { getAvailableCities } from '@/services/firestore';
 import { ChevronDown } from 'lucide-react';
 import { motion } from "framer-motion";
+import DemoLockModal from "@/components/DemoLockModal";
 
 interface DiscoverPeopleProps {
   onViewProfile: (userId: string) => void;
+  openAuth: () => void;
 }
-
-const DiscoverPeople = ({ onViewProfile }: DiscoverPeopleProps) => {
+const DiscoverPeople = ({ onViewProfile, openAuth }: DiscoverPeopleProps) => {
   const [cityFilter, setCityFilter] = useState('');
   const [availableCities, setAvailableCities] = useState<string[]>([]);
   const { user } = useAuth();
+  const { isDemoUser } = useAuth();
+  const [showDemoLock, setShowDemoLock] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('');
   const [availableRoles, setAvailableRoles] = useState<string[]>([]);
@@ -434,7 +437,13 @@ return (
                             whileHover={{ scale: 1.04 }}
                             whileTap={{ scale: 0.96 }}
                             transition={{ duration: 0.12 }}
-                            onClick={() => setShowModal(u)}
+                            onClick={() => {
+                              if (isDemoUser) {
+                                setShowDemoLock(true);
+                                return;
+                              }
+                              setShowModal(u);
+                            }}
                             disabled={sending}
                             className="btn-primary text-sm flex-1"
                           >
@@ -490,6 +499,15 @@ return (
         onSend={(message) => handleSendInvite(showModal, message)}
       />
     )}
+
+    <DemoLockModal
+        open={showDemoLock}
+        onClose={() => setShowDemoLock(false)}
+        onSignup={() => {
+          setShowDemoLock(false);
+          openAuth();
+        }}
+      />
   </div>
 );};
 

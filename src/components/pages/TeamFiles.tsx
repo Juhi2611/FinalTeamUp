@@ -15,11 +15,18 @@ type TeamFile = {
   created_at: string;
 };
 
-const TeamFiles = () => {
+const TeamFiles = ({ openAuth }: { openAuth: () => void }) => {
   const { isDemoUser } = useAuth();
   const [showDemoLock, setShowDemoLock] = useState(false);
   const { teamId } = useParams<{ teamId: string }>();
   const { user } = useAuth();
+  const blockDemo = () => {
+    if (isDemoUser) {
+      setShowDemoLock(true);
+      return true;
+    }
+    return false;
+  };
 
   const [files, setFiles] = useState<TeamFile[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -164,7 +171,14 @@ const TeamFiles = () => {
           <Upload className="w-4 h-4" />
         )}
         {uploading ? "Uploading..." : "Upload File"}
-        <input type="file" hidden onChange={handleUpload} />
+        <input
+          type="file"
+          hidden
+          onChange={(e) => {
+            if (blockDemo()) return;
+            handleUpload(e);
+          }}
+        />
       </label>
     </div>
 
@@ -209,7 +223,7 @@ const TeamFiles = () => {
                 {/* Actions */}
                 <div className="flex gap-2 w-full sm:w-auto">
                   <button
-                    onClick={() => openFile(file.file_path)}
+                    onClick={() => !blockDemo() && openFile(file.file_path)}
                     className="btn-secondary flex-1 sm:flex-none text-sm"
                   >
                     Open
@@ -217,7 +231,7 @@ const TeamFiles = () => {
         
                   <button
                     onClick={() =>
-                      downloadFile(file.file_path, file.file_name)
+                      !blockDemo() && downloadFile(file.file_path, file.file_name)
                     }
                     className="btn-outline flex-1 sm:flex-none text-sm"
                   >
@@ -230,6 +244,14 @@ const TeamFiles = () => {
         </div>
       )}
     </div>
+    <DemoLockModal
+      open={showDemoLock}
+      onClose={() => setShowDemoLock(false)}
+      onSignup={() => {
+        setShowDemoLock(false);
+        openAuth();
+      }}
+    />
   </div>
 );
 

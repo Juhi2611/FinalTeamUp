@@ -13,9 +13,10 @@ interface EditTeamProps {
   onNavigate: (page: string) => void;
   onBack: () => void;
   onTeamUpdated?: (updatedTeam: Partial<Team>) => void;
+  openAuth: () => void;
 }
 
-const EditTeam = ({ teamId, onNavigate, onBack, onTeamUpdated }: EditTeamProps) => {
+const EditTeam = ({ teamId, onNavigate, onBack, onTeamUpdated, openAuth }: EditTeamProps) => {
   const { isDemoUser } = useAuth();
   const [showDemoLock, setShowDemoLock] = useState(false);
   const { user } = useAuth();
@@ -113,6 +114,13 @@ const EditTeam = ({ teamId, onNavigate, onBack, onTeamUpdated }: EditTeamProps) 
   ];
 
   const handleSave = async () => {
+
+    // 🚫 GUEST MODE BLOCK
+    if (isDemoUser) {
+      setShowDemoLock(true);
+      return;
+    }
+
     if (!user || !isFirebaseConfigured() || !team) return;
     
     if (!city.trim()) {
@@ -377,6 +385,16 @@ const EditTeam = ({ teamId, onNavigate, onBack, onTeamUpdated }: EditTeamProps) 
           </button>
         </div>
       </div>
+
+      <DemoLockModal
+        open={showDemoLock}
+        onClose={() => setShowDemoLock(false)}
+        onSignup={() => {
+          setShowDemoLock(false);
+          openAuth();
+        }}
+      />
+
     </div>
   );
 };

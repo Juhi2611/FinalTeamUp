@@ -317,14 +317,14 @@ const BuildTeam = ({ onNavigate, openAuth }: BuildTeamProps) => {
           </button>
         </div>
       </div>
-<DemoLockModal
-  open={showDemoLock}
-  onClose={() => setShowDemoLock(false)}
-  onSignup={() => {
-    setShowDemoLock(false);
-    openAuth();
-  }}
-/>
+      <DemoLockModal
+        open={showDemoLock}
+        onClose={() => setShowDemoLock(false)}
+        onSignup={() => {
+          setShowDemoLock(false);
+          openAuth();
+        }}
+      />
     </div>
   );
 };

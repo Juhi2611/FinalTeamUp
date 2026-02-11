@@ -322,7 +322,11 @@ const openAuth = () => {
     switch (currentPage) {
       case "feed":
         return (
-          <HomeFeed onNavigate={handleNavigate} onViewProfile={handleViewProfile} />
+          <HomeFeed 
+            onNavigate={handleNavigate}
+            onViewProfile={handleViewProfile}
+            openAuth={openAuth}   // ✅ PASS IT HERE
+          />
         );
 
       case "build":
@@ -337,17 +341,24 @@ const openAuth = () => {
         );
 
       case "discover":
-        return <DiscoverPeople onViewProfile={handleViewProfile} />;
+        case "discover":
+          return (
+            <DiscoverPeople 
+              onViewProfile={handleViewProfile}
+              openAuth={openAuth}
+            />
+          );
 
       case "discover-teams":
-        return <DiscoverTeams onNavigate={handleNavigate} />;
+        return <DiscoverTeams onNavigate={handleNavigate} openAuth={openAuth}/>;
 
       case "teams":
         return (
           <MyTeams
             onNavigate={handleNavigate}
             onViewWorkspace={handleViewWorkspace}
-            onViewProfile={handleViewProfile} // ✅ ADD THIS
+            onViewProfile={handleViewProfile} 
+            openAuth={openAuth}
           />
         );
 
@@ -356,6 +367,7 @@ const openAuth = () => {
           <Notifications
             onNavigateToMessages={handleNavigateToMessages}
             onViewProfile={handleViewProfile}
+            openAuth={openAuth}
           />
         );
 
@@ -366,6 +378,7 @@ const openAuth = () => {
             userProfile={profile}
             onEditProfile={handleEditProfile}
             onOpenVerification={handleOpenVerification}
+            openAuth={openAuth}
             onProfileUpdated={(updatedProfile) => {
               setProfile(updatedProfile);
             }}
@@ -378,6 +391,7 @@ const openAuth = () => {
             userId={selectedUserId || undefined}
             isOwnProfile={false}
             onMessage={handleMessageUser}
+            openAuth={openAuth}
           />
         );
 
@@ -386,7 +400,8 @@ const openAuth = () => {
           <Messages
             initialConversationId={activeConversationId}
             onBack={() => handleNavigate("feed")}
-            onViewProfile={handleViewProfile} // ✅ ADD
+            onViewProfile={handleViewProfile} 
+            openAuth={openAuth}
           />
         );
 
@@ -400,7 +415,11 @@ const openAuth = () => {
 
       default:
         return (
-          <HomeFeed onNavigate={handleNavigate} onViewProfile={handleViewProfile} />
+          <HomeFeed 
+            onNavigate={handleNavigate}
+            onViewProfile={handleViewProfile}
+            openAuth={openAuth}   // ✅ ADD THIS
+          />
         );
     }
   };

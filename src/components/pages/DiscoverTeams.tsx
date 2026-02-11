@@ -14,13 +14,16 @@ import { isFirebaseConfigured } from '@/lib/firebase';
 import { toast } from 'sonner';
 import JoinTeamModal from '../JoinTeamModal';
 import { motion } from "framer-motion";
+import DemoLockModal from "@/components/DemoLockModal";
 
 interface DiscoverTeamsProps {
   onNavigate: (page: string) => void;
+  openAuth: () => void;
 }
 
-const DiscoverTeams = ({ onNavigate }: DiscoverTeamsProps) => {
-  const { user } = useAuth();
+const DiscoverTeams = ({ onNavigate, openAuth }: DiscoverTeamsProps) => {
+  const { user, isDemoUser } = useAuth();
+  const [showDemoLock, setShowDemoLock] = useState(false);
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const { wasBlockedByThem } = useBlocks();
@@ -225,7 +228,13 @@ const DiscoverTeams = ({ onNavigate }: DiscoverTeamsProps) => {
 
             {/* Join Button */}
             <button 
-              onClick={() => setSelectedTeam(team)}
+              onClick={() => {
+                if (isDemoUser) {
+                  setShowDemoLock(true);
+                  return;
+                }
+                setSelectedTeam(team);
+              }}
               className="btn-primary w-full flex items-center justify-center gap-2"
             >
               <UserPlus className="w-4 h-4" />
@@ -260,6 +269,15 @@ const DiscoverTeams = ({ onNavigate }: DiscoverTeamsProps) => {
           onSend={(message) => handleJoinRequest(selectedTeam, message)}
         />
       )}
+
+      <DemoLockModal
+        open={showDemoLock}
+        onClose={() => setShowDemoLock(false)}
+        onSignup={() => {
+          setShowDemoLock(false);
+          openAuth();
+        }}
+      />
     </div>
   );
 };
