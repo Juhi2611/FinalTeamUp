@@ -94,16 +94,24 @@ const [showPrivacy, setShowPrivacy] = useState(false);
 
   const handleForgotPassword = async () => {
     if (!email) {
-      toast.error('Please enter your email first');
+      toast.error("Please enter your email first");
       return;
     }
-
+  
     const result = await resetPassword(email);
-
+  
     if (result?.error) {
-      toast.error(result.error);
+      // ✅ Special case: email not registered
+      if (
+        result.error.toLowerCase().includes("user-not-found") ||
+        result.error.toLowerCase().includes("no user record")
+      ) {
+        toast.error("Account not found. Please sign up first.");
+      } else {
+        toast.error(result.error);
+      }
     } else {
-      toast.success('Password reset link sent to your email');
+      toast.success("Password reset link sent to your email");
     }
   };
 
