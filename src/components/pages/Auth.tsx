@@ -215,7 +215,7 @@ const [showPrivacy, setShowPrivacy] = useState(false);
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value.toLowerCase())}
-                  placeholder="e.g. snehi26"
+                  placeholder="e.g. username123"
                   className="input-field pl-11"
                   required
                 />
