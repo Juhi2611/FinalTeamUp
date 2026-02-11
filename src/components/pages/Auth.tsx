@@ -11,6 +11,8 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { AtSign } from 'lucide-react';
+import { db } from "@/lib/firebase";
+import { collection, query, where, getDocs } from "firebase/firestore";
 
 interface AuthProps {
   onAuthSuccess: () => void;
@@ -92,28 +94,34 @@ const [showPrivacy, setShowPrivacy] = useState(false);
     setLoading(false);
   };
 
-  const handleForgotPassword = async () => {
-    if (!email) {
-      toast.error("Please enter your email first");
+const handleForgotPassword = async () => {
+  if (!email) {
+    toast.error("Please enter your email first");
+    return;
+  }
+
+  try {
+    // ✅ Check if user exists in Firestore
+    const q = query(collection(db, "users"), where("email", "==", email));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      toast.error("Account not found. Please sign up first.");
       return;
     }
-  
+
+    // ✅ If exists, send reset email
     const result = await resetPassword(email);
-  
+
     if (result?.error) {
-      // ✅ Special case: email not registered
-      if (
-        result.error.toLowerCase().includes("user-not-found") ||
-        result.error.toLowerCase().includes("no user record")
-      ) {
-        toast.error("Account not found. Please sign up first.");
-      } else {
-        toast.error(result.error);
-      }
+      toast.error(result.error);
     } else {
       toast.success("Password reset link sent to your email");
     }
-  };
+  } catch (err) {
+    toast.error("Something went wrong. Please try again.");
+  }
+};
 
   if (!isConfigured) {
     return (
