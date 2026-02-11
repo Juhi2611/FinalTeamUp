@@ -36,6 +36,7 @@ import WhyChooseUs from "@/components/landing/WhyChooseUs";
 import FAQ from "@/components/landing/FAQ";
 import Newsletter from "@/components/landing/ContactUs";
 import Footer from "@/components/landing/Footer";
+import SettingsPage from '../components/pages/SettingsPage';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -322,11 +323,7 @@ const openAuth = () => {
     switch (currentPage) {
       case "feed":
         return (
-          <HomeFeed 
-            onNavigate={handleNavigate}
-            onViewProfile={handleViewProfile}
-            openAuth={openAuth}   // ✅ PASS IT HERE
-          />
+          <HomeFeed onNavigate={handleNavigate} onViewProfile={handleViewProfile} />
         );
 
       case "build":
@@ -341,24 +338,17 @@ const openAuth = () => {
         );
 
       case "discover":
-        case "discover":
-          return (
-            <DiscoverPeople 
-              onViewProfile={handleViewProfile}
-              openAuth={openAuth}
-            />
-          );
+        return <DiscoverPeople onViewProfile={handleViewProfile} />;
 
       case "discover-teams":
-        return <DiscoverTeams onNavigate={handleNavigate} openAuth={openAuth}/>;
+        return <DiscoverTeams onNavigate={handleNavigate} />;
 
       case "teams":
         return (
           <MyTeams
             onNavigate={handleNavigate}
             onViewWorkspace={handleViewWorkspace}
-            onViewProfile={handleViewProfile} 
-            openAuth={openAuth}
+            onViewProfile={handleViewProfile} // ✅ ADD THIS
           />
         );
 
@@ -367,7 +357,6 @@ const openAuth = () => {
           <Notifications
             onNavigateToMessages={handleNavigateToMessages}
             onViewProfile={handleViewProfile}
-            openAuth={openAuth}
           />
         );
 
@@ -378,12 +367,12 @@ const openAuth = () => {
             userProfile={profile}
             onEditProfile={handleEditProfile}
             onOpenVerification={handleOpenVerification}
-            openAuth={openAuth}
             onProfileUpdated={(updatedProfile) => {
               setProfile(updatedProfile);
             }}
           />
         );
+        
 
       case "viewProfile":
         return (
@@ -391,7 +380,6 @@ const openAuth = () => {
             userId={selectedUserId || undefined}
             isOwnProfile={false}
             onMessage={handleMessageUser}
-            openAuth={openAuth}
           />
         );
 
@@ -400,8 +388,7 @@ const openAuth = () => {
           <Messages
             initialConversationId={activeConversationId}
             onBack={() => handleNavigate("feed")}
-            onViewProfile={handleViewProfile} 
-            openAuth={openAuth}
+            onViewProfile={handleViewProfile} // ✅ ADD
           />
         );
 
@@ -413,13 +400,24 @@ const openAuth = () => {
           />
         );
 
+              case "settings":
+        return (
+          <SettingsPage
+            userProfile={profile}
+            onNavigate={handleNavigate}
+            onEditProfile={handleEditProfile}
+            onDeleteProfile={() => {
+              // Trigger the same delete logic from Profile
+              const profileRef = document.querySelector('[data-delete-profile]') as HTMLElement;
+              if (profileRef) profileRef.click();
+            }}
+          />
+        );
+
+
       default:
         return (
-          <HomeFeed 
-            onNavigate={handleNavigate}
-            onViewProfile={handleViewProfile}
-            openAuth={openAuth}   // ✅ ADD THIS
-          />
+          <HomeFeed onNavigate={handleNavigate} onViewProfile={handleViewProfile} />
         );
     }
   };
