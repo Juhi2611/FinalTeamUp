@@ -226,7 +226,7 @@
     if (!isFirebaseConfigured()) return '';
     
     const leaderProfile = await getProfile(data.leaderId);
-    const leaderName = leaderProfile?.fullName || 'User';
+    const leaderName = leaderProfile?.username || leaderProfile?.fullName || "User";
     
     const docRef = await addDoc(collection(db, 'teams'), {
       ...data,
@@ -325,7 +325,7 @@
     }
     
     const profile = await getProfile(userId);
-    const userName = profile?.fullName || 'User';
+   const userName = profile?.username || profile?.fullName || "User";
     
     // Add member to team's members array
     const updatedMembers = [...(team.members || []), { userId, role, userName }];
@@ -357,63 +357,66 @@
       joinedAt: serverTimestamp()
     });
   };
-  export const getTeamMembers = async (teamId: string): Promise<(TeamMember & { profile: UserProfile | null })[]> => {
-    if (!isFirebaseConfigured()) return [];
-    
-    // Get team and its members array
-    const team = await getTeam(teamId);
-    if (!team) return [];
-    
-    // Fetch profiles for each member
+ export const getTeamMembers = async (teamId: string): Promise<(TeamMember & { profile: UserProfile | null })[]> => {
+  if (!isFirebaseConfigured()) return [];
+
+  const team = await getTeam(teamId);
+  if (!team) return [];
+
+  const members = await Promise.all(
+    (team.members || []).map(async (member) => {
+      const profile = await getProfile(member.userId);
+
+      return {
+        id: `${teamId}-${member.userId}`,
+        teamId,
+        userId: member.userId,
+        role: member.role,
+        userName: member.userName || profile?.username || profile?.fullName || "User", // ✅ FIX
+        joinedAt: team.createdAt,
+        profile
+      };
+    })
+  );
+
+  return members as any;
+};
+
+ export const subscribeToTeamMembers = (
+  teamId: string,
+  onUpdate: (members: (TeamMember & { profile: UserProfile | null })[]) => void
+): Unsubscribe => {
+  if (!isFirebaseConfigured()) return () => {};
+
+  const teamRef = doc(db, 'teams', teamId);
+
+  return onSnapshot(teamRef, async (teamSnap) => {
+    if (!teamSnap.exists()) {
+      onUpdate([]);
+      return;
+    }
+
+    const team = { id: teamSnap.id, ...teamSnap.data() } as Team;
+
     const members = await Promise.all(
       (team.members || []).map(async (member) => {
         const profile = await getProfile(member.userId);
+
         return {
           id: `${teamId}-${member.userId}`,
           teamId,
           userId: member.userId,
           role: member.role,
+          userName: member.userName || profile?.username || profile?.fullName || "User", // ✅ FIX
           joinedAt: team.createdAt,
           profile
-        } as TeamMember & { profile: UserProfile | null };
+        };
       })
     );
-    
-    return members;
-  };
-  export const subscribeToTeamMembers = (
-    teamId: string,
-    onUpdate: (members: (TeamMember & { profile: UserProfile | null })[]) => void
-  ): Unsubscribe => {
-    if (!isFirebaseConfigured()) return () => {};
-    
-    const teamRef = doc(db, 'teams', teamId);
-    
-    return onSnapshot(teamRef, async (teamSnap) => {
-      if (!teamSnap.exists()) {
-        onUpdate([]);
-        return;
-      }
-      
-      const team = { id: teamSnap.id, ...teamSnap.data() } as Team;
-      
-      const members = await Promise.all(
-        (team.members || []).map(async (member) => {
-          const profile = await getProfile(member.userId);
-          return {
-            id: `${teamId}-${member.userId}`,
-            teamId,
-            userId: member.userId,
-            role: member.role,
-            joinedAt: team.createdAt,
-            profile
-          } as TeamMember & { profile: UserProfile | null };
-        })
-      );
-      
-      onUpdate(members);
-    });
-  };
+
+    onUpdate(members as any);
+  });
+};
   export const removeTeamMember = async (
   teamId: string,
   userId: string,
