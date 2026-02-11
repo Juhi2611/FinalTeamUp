@@ -395,12 +395,7 @@ const visiblePosts = showAllPosts ? myPosts : myPosts.slice(0, 2);
                 )}
               </div>
             </div>
-            {isOwnProfile && onEditProfile && (
-              <button onClick={onEditProfile} className="btn-secondary flex items-center gap-2">
-                <Edit className="w-4 h-4" />
-                Edit Profile
-              </button>
-            )}
+            
             {!isOwnProfile && (
             <div className="flex items-center gap-2">
               <button className="btn-primary" onClick={() => setShowPitchModal(true)}>
@@ -779,24 +774,6 @@ const visiblePosts = showAllPosts ? myPosts : myPosts.slice(0, 2);
     onClose={() => setShowBlockReportModal(false)}
     onBlockComplete={refreshBlocks}
   />
-)}
-{isOwnProfile && (
-  <div className="card-base p-6 border border-destructive/30">
-    <h2 className="section-title text-destructive mb-2">
-      Danger Zone
-    </h2>
-
-    <button
-      onClick={handleDeleteProfile}
-      className="w-full mt-3 p-3 rounded-lg bg-destructive text-white"
-    >
-      Delete Profile Permanently
-    </button>
-
-    <p className="text-xs text-sm sm:text-base text-muted-foreground mt-2">
-      This action cannot be undone.
-    </p>
-  </div>
 )}
 
     </div>
