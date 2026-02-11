@@ -10,6 +10,9 @@ import { getProfile, UserProfile } from '@/services/firestore';
 import { unblockUser } from '@/services/blockReportService';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
+import { deleteUser } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import { deleteUserCompletely } from '@/services/firestore';
 
 
 interface SettingsPageProps {
@@ -51,6 +54,36 @@ const SettingsPage = ({ userProfile, onNavigate, onEditProfile, onDeleteProfile 
       .finally(() => setSendingEmail(false));
   };
 
+  const handleDeleteProfile = async () => {
+  const confirmText = prompt(
+    "This will permanently delete your account.\nType DELETE to continue."
+  );
+  
+  if (confirmText !== "DELETE") {
+    toast("Deletion cancelled");
+    return;
+  }
+  
+  try {
+    const currentUser = auth.currentUser;
+    if (!currentUser) throw new Error("No authenticated user");
+    
+    // Delete user data from Firestore
+    await deleteUserCompletely(currentUser.uid);
+    
+    // Delete Firebase Auth account
+    await deleteUser(currentUser);
+    
+    toast.success("Account deleted successfully");
+    
+    // Redirect to home
+    window.location.href = "/";
+  } catch (err: any) {
+    console.error('Delete account error:', err);
+    toast.error(err.message || "Failed to delete account");
+  }
+};
+
   const menuItems = [
     {
       id: 'edit-profile' as const,
@@ -60,12 +93,12 @@ const SettingsPage = ({ userProfile, onNavigate, onEditProfile, onDeleteProfile 
       action: () => onEditProfile?.(),
     },
     {
-      id: 'delete-profile' as const,
-      label: 'Delete Account',
-      icon: Trash2,
-      description: 'Permanently delete your account and data',
-      danger: true,
-      action: () => onDeleteProfile?.(),
+        id: 'delete-profile' as const,
+        label: 'Delete Account',
+        icon: Trash2,
+        description: 'Permanently delete your account and data',
+        danger: true,
+        action: handleDeleteProfile, 
     },
     
     {
