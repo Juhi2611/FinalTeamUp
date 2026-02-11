@@ -101,25 +101,15 @@ const handleForgotPassword = async () => {
   }
 
   try {
-    // ✅ Check if user exists in Firestore
-    const q = query(collection(db, "users"), where("email", "==", email));
-    const snapshot = await getDocs(q);
+    await resetPassword(email);
 
-    if (snapshot.empty) {
-      toast.error("Account not found. Please sign up first.");
-      return;
-    }
-
-    // ✅ If exists, send reset email
-    const result = await resetPassword(email);
-
-    if (result?.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Password reset link sent to your email");
-    }
-  } catch (err) {
-    toast.error("Something went wrong. Please try again.");
+    toast.success(
+      "If an account with this email exists, a password reset link has been sent."
+    );
+  } catch (error) {
+    toast.success(
+      "If an account with this email exists, a password reset link has been sent."
+    );
   }
 };
 
