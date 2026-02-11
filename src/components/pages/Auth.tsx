@@ -100,16 +100,16 @@ const handleForgotPassword = async () => {
     return;
   }
 
-  try {
-    await resetPassword(email);
+  const result = await resetPassword(email);
 
-    toast.success(
-      "If an account with this email exists, a password reset link has been sent."
-    );
-  } catch (error) {
-    toast.success(
-      "If an account with this email exists, a password reset link has been sent."
-    );
+  // ✅ Always show same message (secure + works always)
+  toast.success(
+    "If an account with this email exists, a password reset link has been sent."
+  );
+
+  // Optional: log error only for debugging
+  if (result?.error) {
+    console.log("Reset password error:", result.error);
   }
 };
 
