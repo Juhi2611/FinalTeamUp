@@ -41,7 +41,7 @@ import LegalModal from "@/components/LegalModal";
 const Index = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading, logout } = useAuth();
-
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [currentPage, setCurrentPage] = useState("feed");
   const [showLegal, setShowLegal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
@@ -58,11 +58,11 @@ const Index = () => {
   );
   const [showEntry, setShowEntry] = useState(true);
   const [forceAuth, setForceAuth] = useState(false);
-const openAuth = () => {
-  console.log("FORCE AUTH TRIGGERED");
-  setShowEntry(false);
-  setForceAuth(true);
-};
+  const openAuth = (mode: "login" | "signup" = "login") => {
+    setAuthMode(mode);
+    setShowEntry(false);
+    setForceAuth(true);
+  };
   
   const { leftCollapsed, rightCollapsed, toggleLeft, toggleRight } =
     useSidebarState();
