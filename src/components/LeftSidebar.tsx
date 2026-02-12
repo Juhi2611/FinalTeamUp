@@ -1,6 +1,7 @@
-import { Home, Users, UserPlus, FolderKanban, User, Bell, Sparkles, Crown, Search, ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react';
+import { Home, Users, UserPlus, FolderKanban, User, Bell, Sparkles, Crown, Search, ChevronLeft, ChevronRight, MessageCircle, Settings } from 'lucide-react';
 import { UserProfile } from '../services/firestore';
 import { cn } from '@/lib/utils';
+
 
 interface LeftSidebarProps {
   currentPage: string;
@@ -20,6 +21,8 @@ const LeftSidebar = ({ currentPage, onNavigate, userProfile, collapsed = false, 
     { id: 'messages', label: 'Messages', icon: MessageCircle },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'profile', label: 'My Profile', icon: User },
+    { id: 'settings', label: 'Settings', icon: Settings },
+
   ];
 
   const displayName = userProfile?.fullName || 'User';

@@ -11,6 +11,8 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { AtSign } from 'lucide-react';
+import { db } from "@/lib/firebase";
+import { collection, query, where, getDocs } from "firebase/firestore";
 
 interface AuthProps {
   onAuthSuccess: () => void;
@@ -92,20 +94,24 @@ const [showPrivacy, setShowPrivacy] = useState(false);
     setLoading(false);
   };
 
-  const handleForgotPassword = async () => {
-    if (!email) {
-      toast.error('Please enter your email first');
-      return;
-    }
+const handleForgotPassword = async () => {
+  if (!email) {
+    toast.error("Please enter your email first");
+    return;
+  }
 
-    const result = await resetPassword(email);
+  const result = await resetPassword(email);
 
-    if (result?.error) {
-      toast.error(result.error);
-    } else {
-      toast.success('Password reset link sent to your email');
-    }
-  };
+  // ✅ Always show same message (secure + works always)
+  toast.success(
+    "If an account with this email exists, a password reset link has been sent."
+  );
+
+  // Optional: log error only for debugging
+  if (result?.error) {
+    console.log("Reset password error:", result.error);
+  }
+};
 
   if (!isConfigured) {
     return (
