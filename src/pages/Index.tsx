@@ -227,11 +227,8 @@ const Index = () => {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <Header
-          onGetStarted={() => {
-            setShowEntry(false);
-            setForceAuth(true);
-          }}
-        />
+  onGetStarted={() => openAuth("login")}
+/>
         <Hero />
         <LogoBar />
         <Features />
@@ -244,14 +241,10 @@ const Index = () => {
   }
 
   // 2️⃣ AUTH SCREEN (only after Get Started)
- if (
-  forceAuth &&
-  isFirebaseConfigured() &&
-  !authLoading
-) {
+ if (forceAuth && isFirebaseConfigured() && !authLoading) {
   return (
     <Auth
-      defaultMode="login"
+      defaultMode={authMode}
       onAuthSuccess={() => setForceAuth(false)}
     />
   );
