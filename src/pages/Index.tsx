@@ -249,13 +249,12 @@ const openAuth = () => {
   isFirebaseConfigured() &&
   !authLoading
 ) {
-  return (
-    <Auth
-      defaultMode="signup"
-      onAuthSuccess={() => setForceAuth(false)}
-    />
-  );
-}
+return (
+  <Auth
+    defaultMode="login"
+    onAuthSuccess={() => setForceAuth(false)}
+  />
+);
 
   // 3️⃣ LOADING
   if (authLoading) {
