@@ -92,14 +92,6 @@ const SettingsPage = ({ userProfile, onNavigate, onEditProfile, onDeleteProfile 
       description: 'Update your name, bio, skills and more',
       action: () => onEditProfile?.(),
     },
-    {
-        id: 'delete-profile' as const,
-        label: 'Delete Account',
-        icon: Trash2,
-        description: 'Permanently delete your account and data',
-        danger: true,
-        action: handleDeleteProfile, 
-    },
     
     {
       id: 'blocked-users' as const,
@@ -128,6 +120,14 @@ const SettingsPage = ({ userProfile, onNavigate, onEditProfile, onDeleteProfile 
       icon: Mail,
       description: 'Get in touch with the TeamUp team',
       action: () => setSubPage('contact'),
+    },
+    {
+        id: 'delete-profile' as const,
+        label: 'Delete Account',
+        icon: Trash2,
+        description: 'Permanently delete your account and data',
+        danger: true,
+        action: handleDeleteProfile, 
     },
   ];
 
