@@ -10,6 +10,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import EditTeam from "@/components/pages/EditTeam";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import SettingsPage from '../components/pages/SettingsPage';
 import MyTeams from "../components/pages/MyTeams";
 import Profile from "../components/pages/Profile";
 import Notifications from "../components/pages/Notifications";
@@ -410,6 +411,20 @@ const Index = () => {
             teamId={selectedTeamId || ""}
             onBack={() => handleNavigate("teams")}
             openAuth={openAuth}
+          />
+        );
+
+        case "settings":
+        return (
+          <SettingsPage
+            userProfile={profile}
+            onNavigate={handleNavigate}
+            onEditProfile={handleEditProfile}
+            onDeleteProfile={() => {
+              // Trigger the same delete logic from Profile
+              const profileRef = document.querySelector('[data-delete-profile]') as HTMLElement;
+              if (profileRef) profileRef.click();
+            }}
           />
         );
 
