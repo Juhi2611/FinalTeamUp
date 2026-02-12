@@ -14,8 +14,13 @@ import { AtSign } from 'lucide-react';
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 
+export interface AuthSuccessData {
+  name?: string;
+  username?: string;
+}
+
 interface AuthProps {
-  onAuthSuccess: () => void;
+  onAuthSuccess: (data?: AuthSuccessData) => void;
   defaultMode?: "login" | "signup";
 }
 
@@ -81,14 +86,15 @@ const [showPrivacy, setShowPrivacy] = useState(false);
 
     setLoading(true);
 
-   const result = isLogin
+  const result = isLogin
   ? await login(email, password)
   : await register(email, password, name, username);
 
 if (result?.error) {
   setError(result.error);
 } else {
-  onAuthSuccess();
+  // ✅ PASS name and username ONLY for signup
+  onAuthSuccess(isLogin ? undefined : { name, username });
 }
     setLoading(false);
   };
