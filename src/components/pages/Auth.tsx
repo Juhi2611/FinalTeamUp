@@ -15,13 +15,8 @@ import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 
 interface AuthProps {
-  onAuthSuccess: (data?: AuthSuccessData) => void;
+  onAuthSuccess: () => void;
   defaultMode?: "login" | "signup";
-}
-
-export interface AuthSuccessData {
-  name?: string;
-  username?: string;
 }
 
 const Auth = ({ onAuthSuccess, defaultMode = "login" }: AuthProps) => {
@@ -86,16 +81,15 @@ const [showPrivacy, setShowPrivacy] = useState(false);
 
     setLoading(true);
 
-    const result = isLogin
+   const result = isLogin
   ? await login(email, password)
   : await register(email, password, name, username);
 
 if (result?.error) {
   setError(result.error);
 } else {
-  onAuthSuccess(isLogin ? undefined : { name, username });
+  onAuthSuccess();
 }
-
     setLoading(false);
   };
 
