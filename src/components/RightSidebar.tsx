@@ -258,7 +258,7 @@ const RightSidebar = ({ onViewProfile, onNavigate, collapsed = false, onToggleCo
           <div className="grid grid-cols-2 gap-3">
             <div className="text-center p-3 rounded-lg bg-secondary/50">
               <p className="text-2xl font-bold text-primary">{availableUsersCount}</p>
-              <p className="text-xs text-muted-foreground">Available Users</p>
+              <p className="text-xs text-muted-foreground">Active Users</p>
             </div>
             <div className="text-center p-3 rounded-lg bg-secondary/50">
               <p className="text-2xl font-bold text-accent">{availableTeamsCount}</p>

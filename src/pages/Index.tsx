@@ -225,7 +225,7 @@ const openAuth = () => {
   // 1️⃣ PUBLIC ENTRY (landing page)
   if (showEntry && !user) {
     return (
-      <div className="min-h-screen bg-background flex flex-col overflow-y-scroll">
+      <div className="min-h-screen bg-background flex flex-col">
         <Header
           onGetStarted={() => {
             setShowEntry(false);
@@ -494,7 +494,7 @@ const openAuth = () => {
         </div>
       )}
 
-      <div className="max-w-screen-2xl mx-auto px-4 py-6">
+      <div className="flex-1 max-w-screen-2xl mx-auto px-4 py-6 w-full">
         <div className="flex gap-6">
           <div className="hidden md:block">
             <div className="sticky top-24">
@@ -508,7 +508,7 @@ const openAuth = () => {
             </div>
           </div>
 
-          <main className="flex-1 min-w-0">
+          <main className="flex-1 min-w-0 overflow-y-auto">
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentPage}
