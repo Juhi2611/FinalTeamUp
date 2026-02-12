@@ -36,12 +36,14 @@ import WhyChooseUs from "@/components/landing/WhyChooseUs";
 import FAQ from "@/components/landing/FAQ";
 import Newsletter from "@/components/landing/ContactUs";
 import Footer from "@/components/landing/Footer";
+import LegalModal from "@/components/LegalModal";
 
 const Index = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading, logout } = useAuth();
 
   const [currentPage, setCurrentPage] = useState("feed");
+  const [showLegal, setShowLegal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -223,7 +225,7 @@ const openAuth = () => {
   // 1️⃣ PUBLIC ENTRY (landing page)
   if (showEntry && !user) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background flex flex-col overflow-y-scroll">
         <Header
           onGetStarted={() => {
             setShowEntry(false);
@@ -410,6 +412,7 @@ const openAuth = () => {
           <TeamWorkspace
             teamId={selectedTeamId || ""}
             onBack={() => handleNavigate("teams")}
+            openAuth={openAuth}
           />
         );
 
@@ -425,7 +428,7 @@ const openAuth = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col overflow-y-scroll">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-card border-b border-border">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -491,7 +494,7 @@ const openAuth = () => {
         </div>
       )}
 
-      <div className="max-w-8xl mx-auto px-4 py-6">
+      <div className="max-w-screen-2xl mx-auto px-4 py-6 w-full">
         <div className="flex gap-6">
           <div className="hidden md:block">
             <div className="sticky top-24">
@@ -588,6 +591,17 @@ const openAuth = () => {
             </div>
           </motion.div>
         </div>
+      )}
+      <footer className="w-full border-t border-border bg-background/80 backdrop-blur text-center py-4 text-sm text-muted-foreground mt-8">
+        <button
+          onClick={() => setShowLegal(true)}
+          className="hover:text-foreground transition underline-offset-4 hover:underline"
+        >
+          TeamUp © 2026 · All rights reserved
+        </button>
+      </footer>
+      {showLegal && (
+        <LegalModal onClose={() => setShowLegal(false)} />
       )}
     </div>
   );

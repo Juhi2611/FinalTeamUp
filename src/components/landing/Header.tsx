@@ -61,11 +61,11 @@ const Header = ({ onGetStarted }: { onGetStarted: () => void }) => {
                 console.error(e);
               }
             }}
-            className="h-10 px-4 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition shadow-md hover:shadow-lg flex items-center">
+            className="h-10 px-4 rounded-lg text-sm font-medium text-white bg-blue-600 transition shadow-md hover:shadow-lg flex items-center">
             Explore TeamUp
           </button>
 
-          <Button onClick={onGetStarted} className="h-10 px-4 rounded-lg text-sm font-medium text-white bg-primary hover:bg-blue-700 transition shadow-md hover:shadow-lg flex items-center">
+          <Button onClick={onGetStarted} className="h-10 px-4 rounded-lg text-sm font-medium text-white bg-primary transition shadow-md hover:shadow-lg flex items-center">
             Get Started
           </Button>
         </div>
