@@ -18,7 +18,7 @@ import Auth from "../components/pages/Auth";
 import ProfileSetup from "../components/pages/ProfileSetup";
 import SkillVerificationModal from "@/components/skill-verification/SkillVerificationModal";
 import Messages from "@/components/pages/Messages";
-import { use } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/AuthContext";
 import {
   getProfile,
   subscribeToNotifications,
