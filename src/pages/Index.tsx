@@ -59,7 +59,6 @@ const Index = () => {
   );
   const [showEntry, setShowEntry] = useState(true);
   const [forceAuth, setForceAuth] = useState(false);
-  const [signupData, setSignupData] = useState<{ name?: string; username?: string } | null>(null);
   const openAuth = (mode: "login" | "signup" = "login") => {
     setAuthMode(mode);
     setShowEntry(false);
@@ -251,12 +250,7 @@ const Index = () => {
   return (
     <Auth
       defaultMode={authMode}
-      onAuthSuccess={(data) => {
-        setForceAuth(false);
-        if (data) {
-          setSignupData(data);
-        }
-      }}
+      onAuthSuccess={() => setForceAuth(false)}
     />
   );
 }
@@ -280,22 +274,15 @@ const Index = () => {
   return (
     <ProfileSetup
       existingProfile={editingProfile ? profile : null}
-      initialName={signupData?.name}
-      initialUsername={signupData?.username}
       onComplete={() => {
         setNeedsProfileSetup(false);
         setEditingProfile(false);
-        setSignupData(null);
         checkProfile();
-      }}
-      onSkip={() => {
-        setNeedsProfileSetup(false);
-        handleNavigate('feed');
       }}
       onOpenVerification={handleOpenVerification}
     />
   );
-  }
+}
 
   // Show auth if not logged in (only when Firebase is configured)
   // if (isFirebaseConfigured() && !authLoading && !user) {
