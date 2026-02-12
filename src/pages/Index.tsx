@@ -59,6 +59,7 @@ const Index = () => {
   );
   const [showEntry, setShowEntry] = useState(true);
   const [forceAuth, setForceAuth] = useState(false);
+  const [signupData, setSignupData] = useState<{ name?: string; username?: string } | null>(null);  
   const openAuth = (mode: "login" | "signup" = "login") => {
     setAuthMode(mode);
     setShowEntry(false);
@@ -246,11 +247,16 @@ const Index = () => {
   }
 
   // 2️⃣ AUTH SCREEN (only after Get Started)
- if (forceAuth && isFirebaseConfigured() && !authLoading) {
+  if (forceAuth && isFirebaseConfigured() && !authLoading) {
   return (
     <Auth
       defaultMode={authMode}
-      onAuthSuccess={() => setForceAuth(false)}
+      onAuthSuccess={(data) => {  // ✅ CAPTURE THE DATA
+        setForceAuth(false);
+        if (data) {
+          setSignupData(data);  // ✅ STORE IT
+        }
+      }}
     />
   );
 }
@@ -274,10 +280,17 @@ const Index = () => {
   return (
     <ProfileSetup
       existingProfile={editingProfile ? profile : null}
+      initialName={signupData?.name}        // ✅ PASS NAME
+      initialUsername={signupData?.username} // ✅ PASS USERNAME
       onComplete={() => {
         setNeedsProfileSetup(false);
         setEditingProfile(false);
+        setSignupData(null);  // ✅ CLEAR AFTER USE
         checkProfile();
+      }}
+      onSkip={() => {
+        setNeedsProfileSetup(false);
+        handleNavigate('feed');
       }}
       onOpenVerification={handleOpenVerification}
     />
