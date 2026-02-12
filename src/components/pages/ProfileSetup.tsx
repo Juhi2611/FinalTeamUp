@@ -12,6 +12,9 @@ interface ProfileSetupProps {
   existingProfile?: UserProfile | null;
   onComplete: () => void;
   onOpenVerification?: () => void;
+  initialName?: string;        // ✅ ADD THIS
+  initialUsername?: string;    // ✅ ADD THIS
+  onSkip?: () => void;
 }
 
 const yearOptions = ['First Year', 'Second Year', 'Third Year', 'Fourth Year'] as const;
@@ -28,13 +31,21 @@ const roleOptions = [
 ] as const;
 const proficiencyOptions = ['Beginner', 'Intermediate', 'Pro'] as const;
 
-const ProfileSetup = ({ existingProfile, onComplete, onOpenVerification }: ProfileSetupProps) => {
+const ProfileSetup = ({ 
+  existingProfile, 
+  onComplete, 
+  onOpenVerification,
+  initialName,        // ✅ ADD THIS
+  initialUsername,    // ✅ ADD THIS
+  onSkip 
+}: ProfileSetupProps) => {
   const { isDemoUser } = useAuth();
   const [showDemoLock, setShowDemoLock] = useState(false);
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
+  const resolvedName = existingProfile?.fullName || initialName || '';
+  const resolvedUsername = existingProfile?.username || initialUsername || '';
   const [formData, setFormData] = useState<{
     fullName: string;
     username: string;
@@ -45,10 +56,10 @@ const ProfileSetup = ({ existingProfile, onComplete, onOpenVerification }: Profi
     bio: string;
     skills: { name: string; proficiency: 'Beginner' | 'Intermediate' | 'Pro' }[];
   }>({
-    fullName: existingProfile?.fullName || '',
-    username: existingProfile?.username || '',
+    fullName: resolvedName,
+    username: resolvedUsername,
     college: existingProfile?.college || '',
-    city: existingProfile?.city || '', // ✅ ADDED
+    city: existingProfile?.city || '',
     yearOfStudy: existingProfile?.yearOfStudy || 'First Year',
     primaryRole: existingProfile?.primaryRole || 'Frontend Developer',
     bio: existingProfile?.bio || '',
@@ -155,6 +166,48 @@ const ProfileSetup = ({ existingProfile, onComplete, onOpenVerification }: Profi
     
     return !currentSkills.every((skill, index) => skill === existingSkills[index]);
   };
+
+  const handleSkip = async () => {
+  if (!user || !isFirebaseConfigured()) {
+    onSkip?.();
+    return;
+  }
+
+  const nameToSave = formData.fullName.trim();
+  const usernameToSave = formData.username.trim();
+
+  if (!nameToSave || !usernameToSave) {
+    onSkip?.();
+    return;
+  }
+
+  setLoading(true);
+  try {
+    const minimalProfile = {
+      email: user.email || '',
+      fullName: nameToSave,
+      username: usernameToSave.toLowerCase(),
+      college: '',
+      city: '',
+      yearOfStudy: 'First Year' as UserProfile['yearOfStudy'],
+      primaryRole: 'Frontend Developer' as UserProfile['primaryRole'],
+      bio: '',
+      skills: [] as UserProfile['skills'],
+      avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(nameToSave)}`
+    };
+
+    await createProfile(user.uid, minimalProfile);
+    
+    toast('Profile setup skipped. You can complete it anytime from Settings.', {
+      duration: 5000
+    });
+  } catch (err) {
+    console.error('Skip save failed:', err);
+  } finally {
+    setLoading(false);
+    onSkip?.();
+  }
+};
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -521,23 +574,36 @@ const ProfileSetup = ({ existingProfile, onComplete, onOpenVerification }: Profi
             </div>
 
             {/* Submit */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary w-full flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  {existingProfile ? 'Update Profile' : 'Complete Setup'}
-                </>
-              )}
-            </button>
+            <div className="flex items-center gap-3 pt-4 border-t border-border">
+  {!existingProfile && (
+    <button
+      type="button"
+      onClick={handleSkip}
+      disabled={loading}
+      className="btn-secondary flex items-center gap-2 disabled:opacity-50"
+    >
+      Skip for now
+    </button>
+  )}
+
+  <button
+    type="submit"
+    disabled={loading}
+    className="btn-primary flex-1 flex items-center justify-center gap-2"
+  >
+    {loading ? (
+      <>
+        <Loader2 className="w-4 h-4 animate-spin" />
+        Saving...
+      </>
+    ) : (
+      <>
+        <Save className="w-4 h-4" />
+        {existingProfile ? 'Update Profile' : 'Complete Setup'}
+      </>
+    )}
+  </button>
+</div>
           </form>
         </div>
       </div>
