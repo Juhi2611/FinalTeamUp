@@ -53,7 +53,7 @@ const Header = ({ onGetStarted }: { onGetStarted: () => void }) => {
             }}
             className="h-9 md:h-10 px-3 md:px-4 rounded-lg text-xs md:text-sm font-medium text-white bg-blue-600 shadow-md hover:shadow-lg transition"
           >
-            Explore Demo
+            Explore TeamUp
           </button>
 
           {/* Get Started */}
