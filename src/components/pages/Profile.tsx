@@ -42,7 +42,8 @@ interface ProfileProps {
   onEditProfile?: () => void;
   onOpenVerification?: () => void;
   onMessage?: (userId: string) => void;
-  onProfileUpdated?: (profile: UserProfile) => void; // ✅ ADD
+  onProfileUpdated?: (profile: UserProfile) => void; 
+  openAuth: () => void;
 }
 
 const Profile = ({ userId, isOwnProfile = true, userProfile: passedProfile, onEditProfile, onOpenVerification, onMessage, onProfileUpdated }: ProfileProps) => {

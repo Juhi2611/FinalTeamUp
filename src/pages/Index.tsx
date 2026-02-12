@@ -36,6 +36,7 @@ import WhyChooseUs from "@/components/landing/WhyChooseUs";
 import FAQ from "@/components/landing/FAQ";
 import Newsletter from "@/components/landing/ContactUs";
 import Footer from "@/components/landing/Footer";
+import LegalModal from "@/components/LegalModal";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -323,7 +324,11 @@ const openAuth = () => {
     switch (currentPage) {
       case "feed":
         return (
-          <HomeFeed onNavigate={handleNavigate} onViewProfile={handleViewProfile} />
+          <HomeFeed 
+            onNavigate={handleNavigate}
+            onViewProfile={handleViewProfile}
+            openAuth={openAuth}   // ✅ PASS IT HERE
+          />
         );
 
       case "build":
@@ -338,17 +343,24 @@ const openAuth = () => {
         );
 
       case "discover":
-        return <DiscoverPeople onViewProfile={handleViewProfile} />;
+        case "discover":
+          return (
+            <DiscoverPeople 
+              onViewProfile={handleViewProfile}
+              openAuth={openAuth}
+            />
+          );
 
       case "discover-teams":
-        return <DiscoverTeams onNavigate={handleNavigate} />;
+        return <DiscoverTeams onNavigate={handleNavigate} openAuth={openAuth}/>;
 
       case "teams":
         return (
           <MyTeams
             onNavigate={handleNavigate}
             onViewWorkspace={handleViewWorkspace}
-            onViewProfile={handleViewProfile} // ✅ ADD THIS
+            onViewProfile={handleViewProfile} 
+            openAuth={openAuth}
           />
         );
 
@@ -357,6 +369,7 @@ const openAuth = () => {
           <Notifications
             onNavigateToMessages={handleNavigateToMessages}
             onViewProfile={handleViewProfile}
+            openAuth={openAuth}
           />
         );
 
@@ -367,12 +380,12 @@ const openAuth = () => {
             userProfile={profile}
             onEditProfile={handleEditProfile}
             onOpenVerification={handleOpenVerification}
+            openAuth={openAuth}
             onProfileUpdated={(updatedProfile) => {
               setProfile(updatedProfile);
             }}
           />
         );
-        
 
       case "viewProfile":
         return (
@@ -380,6 +393,7 @@ const openAuth = () => {
             userId={selectedUserId || undefined}
             isOwnProfile={false}
             onMessage={handleMessageUser}
+            openAuth={openAuth}
           />
         );
 
@@ -388,7 +402,8 @@ const openAuth = () => {
           <Messages
             initialConversationId={activeConversationId}
             onBack={() => handleNavigate("feed")}
-            onViewProfile={handleViewProfile} // ✅ ADD
+            onViewProfile={handleViewProfile} 
+            openAuth={openAuth}
           />
         );
 
@@ -401,30 +416,19 @@ const openAuth = () => {
           />
         );
 
-              case "settings":
-        return (
-          <SettingsPage
-            userProfile={profile}
-            onNavigate={handleNavigate}
-            onEditProfile={handleEditProfile}
-            onDeleteProfile={() => {
-              // Trigger the same delete logic from Profile
-              const profileRef = document.querySelector('[data-delete-profile]') as HTMLElement;
-              if (profileRef) profileRef.click();
-            }}
-          />
-        );
-
-
       default:
         return (
-          <HomeFeed onNavigate={handleNavigate} onViewProfile={handleViewProfile} />
+          <HomeFeed 
+            onNavigate={handleNavigate}
+            onViewProfile={handleViewProfile}
+            openAuth={openAuth}   // ✅ ADD THIS
+          />
         );
     }
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col overflow-y-scroll">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-card border-b border-border">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -490,7 +494,7 @@ const openAuth = () => {
         </div>
       )}
 
-      <div className="max-w-screen-2xl mx-auto px-4 py-6 w-full">
+      <div className="max-w-screen-2xl mx-auto px-4 py-6">
         <div className="flex gap-6">
           <div className="hidden md:block">
             <div className="sticky top-24">
