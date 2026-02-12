@@ -18,7 +18,7 @@ import Auth from "../components/pages/Auth";
 import ProfileSetup from "../components/pages/ProfileSetup";
 import SkillVerificationModal from "@/components/skill-verification/SkillVerificationModal";
 import Messages from "@/components/pages/Messages";
-import { useAuth } from "../contexts/AuthContext";
+import { use } from "../contexts/AuthContext";
 import {
   getProfile,
   subscribeToNotifications,
@@ -250,10 +250,9 @@ const openAuth = () => {
   !authLoading
 ) {
 return (
-  <Auth
-    defaultMode="login"
-    onAuthSuccess={() => setForceAuth(false)}
-  />
+ <Auth
+  onAuthSuccess={() => setForceAuth(false)}
+/>
 );
 
   // 3️⃣ LOADING
