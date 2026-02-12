@@ -15,8 +15,13 @@ import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 
 interface AuthProps {
-  onAuthSuccess: () => void;
+  onAuthSuccess: (data?: AuthSuccessData) => void;
   defaultMode?: "login" | "signup";
+}
+
+export interface AuthSuccessData {
+  name?: string;
+  username?: string;
 }
 
 const Auth = ({ onAuthSuccess, defaultMode = "login" }: AuthProps) => {
@@ -82,14 +87,14 @@ const [showPrivacy, setShowPrivacy] = useState(false);
     setLoading(true);
 
     const result = isLogin
-      ? await login(email, password)
-      : await register(email, password, name, username);
+  ? await login(email, password)
+  : await register(email, password, name, username);
 
-    if (result?.error) {
-      setError(result.error);
-    } else {
-      onAuthSuccess();
-    }
+if (result?.error) {
+  setError(result.error);
+} else {
+  onAuthSuccess(isLogin ? undefined : { name, username });
+}
 
     setLoading(false);
   };
