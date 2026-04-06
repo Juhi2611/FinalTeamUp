@@ -1,0 +1,778 @@
+import { useState, useEffect } from "react";
+import { Zap, Menu, X, Bell } from "lucide-react";
+import LeftSidebar from "../components/LeftSidebar";
+import RightSidebar from "../components/RightSidebar";
+import HomeFeed from "../components/pages/HomeFeed";
+import BuildTeam from "../components/pages/BuildTeam";
+import DiscoverPeople from "../components/pages/DiscoverPeople";
+import DiscoverTeams from "../components/pages/DiscoverTeams";
+import { AnimatePresence, motion } from "framer-motion";
+import EditTeam from "@/components/pages/EditTeam";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import SettingsPage from '../components/pages/SettingsPage';
+import MyTeams from "../components/pages/MyTeams";
+import Profile from "../components/pages/Profile";
+import Notifications from "../components/pages/Notifications";
+import TeamWorkspace from "../components/pages/TeamWorkspace";
+import Auth from "../components/pages/Auth";
+import ProfileSetup from "../components/pages/ProfileSetup";
+import SkillVerificationModal from "@/components/skill-verification/SkillVerificationModal";
+import Messages from "@/components/pages/Messages";
+import { useAuth } from "../contexts/AuthContext";
+
+import { PerksBadge } from '@/components/PerksBadge';
+import PerksStatusCard from '@/components/PerksStatusCard';
+import LeaderboardPage from '@/components/pages/LeaderboardPage';
+import { Trophy } from "lucide-react"; // For the sidebar icon later
+
+import AdminPanel from "@/components/pages/AdminPanel";
+import {
+  getProfile,
+  subscribeToNotifications,
+  getOrCreateConversation,
+  UserProfile,
+  Notification,
+} from "../services/firestore";
+import UploadPage from "@/components/pages/UploadPage";
+import { isFirebaseConfigured } from "../lib/firebase";
+import { useSidebarState } from "../hooks/useSidebarState";
+import Header from "@/components/landing/Header";
+import Hero from "@/components/landing/Hero";
+import LogoBar from "@/components/landing/LogoBar";
+import Features from "@/components/landing/Features";
+import WhyChooseUs from "@/components/landing/WhyChooseUs";
+import FAQ from "@/components/landing/FAQ";
+import Newsletter from "@/components/landing/ContactUs";
+import Footer from "@/components/landing/Footer";
+import LegalModal from "@/components/LegalModal";
+import InterviewDashboard from "@/components/interviews/InterviewDashboard";
+import InterviewRouter from "@/components/interviews/InterviewRouter";
+import { InterviewRequest } from "@/services/firestore_interviews";
+import {Settings} from "lucide-react";
+const Index = () => {
+  const navigate = useNavigate();
+  const { user, loading: authLoading, logout } = useAuth();
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+  const [currentPage, setCurrentPage] = useState("feed");
+  const [showLegal, setShowLegal] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [needsProfileSetup, setNeedsProfileSetup] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(
+    null
+  );
+  const [showEntry, setShowEntry] = useState(true);
+  const [forceAuth, setForceAuth] = useState(false);
+  const [signupData, setSignupData] = useState<{ name?: string; username?: string } | null>(null);
+  const [activeInterview, setActiveInterview] = useState<InterviewRequest | null>(null);
+
+  const openAuth = (mode: "login" | "signup" = "login") => {
+    setAuthMode(mode);
+    setShowEntry(false);
+    setForceAuth(true);
+  };
+  
+  const { leftCollapsed, rightCollapsed, toggleLeft, toggleRight } =
+    useSidebarState();
+
+  useEffect(() => {
+    let hasInteracted = false;
+
+    const markInteracted = () => {
+      hasInteracted = true;
+    };
+
+    window.addEventListener("click", markInteracted);
+    window.addEventListener("keydown", markInteracted);
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!hasInteracted) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("click", markInteracted);
+      window.removeEventListener("keydown", markInteracted);
+    };
+  }, []);
+
+  useEffect(() => {
+    // Only scroll to top if we AREN'T going back to a discovery/feed state
+    const maintainPositionPages = ["feed", "discover", "discover-teams"];
+    
+    if (!maintainPositionPages.includes(currentPage)) {
+      window.scrollTo(0, 0);
+    }
+  }, [currentPage]);
+
+  useEffect(() => {
+    if (user && isFirebaseConfigured()) {
+      checkProfile();
+
+      // Subscribe to notifications for unread count
+      const unsubscribe = subscribeToNotifications(user.uid, (notifications) => {
+        const unread = notifications.filter((n) => !n.read).length;
+        setUnreadCount(unread);
+      });
+
+      return () => unsubscribe();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    const savedPage = localStorage.getItem("teamup:lastPage");
+
+const path = window.location.pathname.replace("/", "");
+
+// 🔥 CLEAN BOTH VALUES
+const cleanSavedPage = savedPage?.replace("/", "");
+const cleanPath = path.replace("/", "");
+
+const pageToLoad = cleanSavedPage || cleanPath || "feed";
+
+setCurrentPage(pageToLoad);
+
+    // keep browser history in sync on refresh / direct URL
+    const safePage = pageToLoad.replace("/", "");
+
+window.history.replaceState(
+  { page: safePage },
+  "",
+  safePage === "feed" ? "/" : `/${safePage}`
+);
+  }, []);
+
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      const page = event.state?.page || "feed";
+
+      setCurrentPage(page);
+      setSelectedUserId(null);
+      setSelectedTeamId(null);
+      setEditingProfile(false);
+      setActiveConversationId(null);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  const checkProfile = async () => {
+    if (!user) return;
+
+    const { ensureUserHasUsername } = await import("@/services/firestore");
+    await ensureUserHasUsername(user.uid);
+
+    const userProfile = await getProfile(user.uid);
+
+    // Profile missing entirely — could be a fresh OAuth user whose profile creation failed,
+    // OR a deleted account. For OAuth users, send to profile setup; otherwise force logout.
+    if (!userProfile) {
+      // Check if user signed in via OAuth (has a provider beyond 'password')
+      const isOAuthUser = user.providerData?.some(
+        (p) => p.providerId === 'google.com' || p.providerId === 'github.com'
+      );
+
+      if (isOAuthUser) {
+        // 🔥 Skeleton profile so sidebar looks good immediately
+        setProfile({
+          id: user.uid,
+          fullName: user.displayName || 'User',
+          email: user.email || '',
+          avatar: user.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.displayName || 'User')}`,
+          profileCompleted: false, // Useful flag if needed
+        } as any);
+
+        // OAuth user with no profile — let them set up their profile
+        setNeedsProfileSetup(true);
+        setSignupData({
+          name: user.displayName || undefined,
+          username: undefined,
+        });
+        return;
+      }
+
+      await logout();
+      toast.error("Account not found or email not registered yet");
+      return;
+    }
+
+    if (!userProfile.primaryRole) {
+      // Still set the profile so sidebar shows info while finishing role selection
+      setProfile(userProfile);
+      setNeedsProfileSetup(true);
+      return;
+    }
+
+    setProfile(userProfile);
+    setNeedsProfileSetup(false);
+  };
+
+const handleNavigate = (page: string) => {
+  const cleanPage = page.replace("/", ""); // ✅ FIX
+
+  setCurrentPage(cleanPage);
+  setSelectedUserId(null);
+  setSelectedTeamId(null);
+  setMobileMenuOpen(false);
+  setEditingProfile(false);
+  setActiveConversationId(null);
+
+  localStorage.setItem("teamup:lastPage", cleanPage);
+
+  window.history.pushState(
+    { page: cleanPage },
+    "",
+    cleanPage === "feed" ? "/" : `/${cleanPage}`
+  );
+};
+
+  const handleViewProfile = (userId: string) => {
+    setSelectedUserId(userId);
+    setCurrentPage("viewProfile");
+  };
+
+  const handleMessageUser = async (targetUserId: string) => {
+    if (!user) return;
+
+    try {
+      const conversationId = await getOrCreateConversation(user.uid, targetUserId);
+      setActiveConversationId(conversationId);
+      setCurrentPage("messages");
+    } catch (error) {
+      console.error("Error starting conversation:", error);
+      toast.error("Failed to start conversation");
+    }
+  };
+
+  const handleNavigateToMessages = (conversationId: string) => {
+    setActiveConversationId(conversationId);
+    setCurrentPage("messages");
+  };
+
+  const handleViewWorkspace = (teamId: string) => {
+    setSelectedTeamId(teamId);
+    setCurrentPage("workspace");
+  };
+
+  const handleEditProfile = () => {
+    setEditingProfile(true);
+  };
+
+  const handleOpenVerification = () => {
+    setShowVerificationModal(true);
+  };
+
+  const handleVerificationComplete = () => {
+    setShowVerificationModal(false);
+    checkProfile(); // Refresh profile to show verified status
+  };
+
+  // 1️⃣ PUBLIC ENTRY (landing page)
+  if (showEntry && !user) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Header
+          onGetStarted={() => {
+            setAuthMode("login"); // 👈 IMPORTANT
+            setShowEntry(false);
+            setForceAuth(true);
+          }}
+        />
+        <Hero />
+        <LogoBar />
+        <Features />
+        <WhyChooseUs />
+        <FAQ />
+        <Newsletter />
+        <Footer />
+      </div>
+    );
+  }
+
+  // 2️⃣ AUTH SCREEN (only after Get Started)
+  if (forceAuth && isFirebaseConfigured() && !authLoading) {
+  return (
+    <Auth
+      defaultMode={authMode}
+      onAuthSuccess={(data) => {  // ✅ CAPTURE THE DATA
+        setForceAuth(false);
+        if (data) {
+          setSignupData(data);  // ✅ STORE IT
+        }
+      }}
+    />
+  );
+}
+
+  // 3️⃣ LOADING
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="p-2 rounded-lg bg-gradient-to-br from-primary to-primary/80 w-fit mx-auto mb-4">
+            <Zap className="w-6 h-6 text-primary-foreground" />
+          </div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 4️⃣ PROFILE SETUP
+  if ((needsProfileSetup || editingProfile) && user) {
+  return (
+    <ProfileSetup
+      existingProfile={editingProfile ? profile : null}
+      initialName={signupData?.name}        // ✅ PASS NAME
+      initialUsername={signupData?.username} // ✅ PASS USERNAME
+      onComplete={() => {
+        setNeedsProfileSetup(false);
+        setEditingProfile(false);
+        setSignupData(null);  // ✅ CLEAR AFTER USE
+        checkProfile();
+      }}
+      onSkip={() => {
+        setNeedsProfileSetup(false);
+        handleNavigate('feed');
+      }}
+      onOpenVerification={handleOpenVerification}
+    />
+  );
+}
+
+  // Show auth if not logged in (only when Firebase is configured)
+  // if (isFirebaseConfigured() && !authLoading && !user) {
+  //   return <Auth onAuthSuccess={() => {}} />;
+  // }
+
+  // Show loading
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="p-2 rounded-lg bg-gradient-to-br from-primary to-primary/80 w-fit mx-auto mb-4">
+            <Zap className="w-6 h-6 text-primary-foreground" />
+          </div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show profile setup if needed
+  if ((needsProfileSetup || editingProfile) && user) {
+    return (
+      <ProfileSetup
+        existingProfile={editingProfile ? profile : null}
+        onComplete={() => {
+          setNeedsProfileSetup(false);
+          setEditingProfile(false);
+          checkProfile();
+        }}
+        onOpenVerification={handleOpenVerification}
+      />
+    );
+  }
+
+  const renderContent = () => {
+    switch (currentPage) {
+      case "feed":
+        return (
+          <div className="space-y-4">
+            {user && profile && (
+              <PerksStatusCard
+                profile={profile}
+                onViewLeaderboard={() => handleNavigate("leaderboard")}
+              />
+            )}
+            <HomeFeed 
+              onNavigate={handleNavigate}
+              onViewProfile={handleViewProfile}
+              openAuth={openAuth}
+            />
+          </div>
+        );
+
+      case "leaderboard":
+        return (
+          <LeaderboardPage
+            currentUserId={user?.uid}
+            userProfile={profile}
+            onProfileRefresh={() => checkProfile()}
+          />
+        );
+      case "upload":
+        return <UploadPage onBack={() => handleNavigate("feed")} />;
+            case "build":
+              return (
+                <BuildTeam
+                  onNavigate={handleNavigate}
+                  openAuth={() => {
+                    setShowEntry(false);
+                    setForceAuth(true);
+                  }}
+                />
+              );
+
+      case "discover":
+        case "discover":
+          return (
+            <DiscoverPeople 
+              onViewProfile={handleViewProfile}
+              openAuth={openAuth}
+            />
+          );
+  //     case "admin":
+  // return <AdminPanel />;
+      case "discover-teams":
+        return <DiscoverTeams onNavigate={handleNavigate} openAuth={openAuth} onViewProfile={handleViewProfile}/>;
+
+      case "teams":
+        return (
+          <MyTeams
+            onNavigate={handleNavigate}
+            onViewWorkspace={handleViewWorkspace}
+            onViewProfile={handleViewProfile} 
+            openAuth={openAuth}
+          />
+        );
+
+      case "notifications":
+        return (
+          <Notifications
+            onNavigateToMessages={handleNavigateToMessages}
+            onViewProfile={handleViewProfile}
+            openAuth={openAuth}
+          />
+        );
+
+      case "interviews":
+        return (
+          <InterviewDashboard
+            onStartInterview={(req) => setActiveInterview(req)}
+          />
+        );
+
+      case "profile":
+        return (
+          <Profile
+            isOwnProfile={true}
+            userProfile={profile}
+            onEditProfile={handleEditProfile}
+            onOpenVerification={handleOpenVerification}
+            openAuth={openAuth}
+            onProfileUpdated={(updatedProfile) => {
+              setProfile(updatedProfile);
+            }}
+          />
+        );
+
+      case "viewProfile":
+        return (
+          <Profile
+            userId={selectedUserId || undefined}
+            isOwnProfile={false}
+            onMessage={handleMessageUser}
+            openAuth={openAuth}
+          />
+        );
+
+      case "messages":
+        return (
+          <Messages
+            initialConversationId={activeConversationId}
+            onBack={() => handleNavigate("feed")}
+            onViewProfile={handleViewProfile} 
+            openAuth={openAuth}
+          />
+        );
+
+      case "workspace":
+        return (
+          <TeamWorkspace
+            teamId={selectedTeamId || ""}
+            onBack={() => handleNavigate("teams")}
+            openAuth={openAuth}
+          />
+        );
+        
+        case "settings":
+        return (
+          <SettingsPage
+            userProfile={profile}
+            onNavigate={handleNavigate}
+            onEditProfile={handleEditProfile}
+            onDeleteProfile={() => {
+              // Trigger the same delete logic from Profile
+              const profileRef = document.querySelector('[data-delete-profile]') as HTMLElement;
+              if (profileRef) profileRef.click();
+            }}
+          />
+        );
+
+      default:
+        return (
+          <HomeFeed 
+            onNavigate={handleNavigate}
+            onViewProfile={handleViewProfile}
+            openAuth={openAuth}
+          />
+        );
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-card border-b border-border">
+        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+          <div
+            onClick={() => handleNavigate("feed")}
+            className="flex items-center gap-1.5 cursor-pointer select-none hover:opacity-80 transition"
+          >
+            <img
+              src="/logo.png"
+              alt="TeamUp"
+              className="h-12 w-auto object-contain"
+            />
+            <span className="font-display font-bold text-xl text-foreground">
+              TeamUp
+            </span>
+          </div>
+
+          <div className="hidden md:flex flex-1 max-w-md mx-8"></div>
+
+          <div className="flex items-center gap-3">
+            {/* NEW: Perks Badge */}
+            {user && profile && (
+              <PerksBadge
+                perks={profile.perks ?? 0}
+                totalPerksEarned={profile.totalPerksEarned ?? 0}
+                onClick={() => handleNavigate("leaderboard")}
+              />
+            )}
+
+            <button
+              onClick={() => handleNavigate("notifications")}
+              className="p-2 rounded-lg hover:bg-secondary transition-colors relative"
+            >
+              <Bell className="w-5 h-5 text-muted-foreground" />
+              {unreadCount > 0 && (
+                <span className="absolute top-0.5 right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-accent text-accent-foreground text-xs font-bold flex items-center justify-center">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => handleNavigate("settings")}
+              className="p-2 rounded-lg hover:bg-secondary transition-colors"
+            >
+              <Settings className="w-5 h-5 text-muted-foreground" />
+            </button>
+            <button
+              onClick={() => handleNavigate("profile")}
+              className="p-1 rounded-full hover:bg-secondary transition-colors"
+            >
+              <img
+                src={
+                  profile?.avatar
+                    ? `${profile.avatar}?t=${Date.now()}`
+                    : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+                        profile?.fullName || "User"
+                      )}`
+                }
+                alt="Profile"
+                className="w-8 h-8 rounded-full object-cover border"
+              />
+            </button>
+            <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden p-2 rounded-lg hover:bg-secondary transition-colors"
+            aria-label="Toggle Menu"
+          >
+            {mobileMenuOpen ? (
+              <X className="w-5 h-5 text-foreground" />
+            ) : (
+              <Menu className="w-5 h-5 text-foreground" />
+            )}
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <AnimatePresence>
+      {mobileMenuOpen && (
+        <div key="mobile-sidebar-container">
+          {/* Background Backdrop */}
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setMobileMenuOpen(false)}
+            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
+          />
+          
+          {/* Sidebar Drawer */}
+          <motion.div 
+            initial={{ x: "-100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "-100%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            className="fixed inset-y-0 left-0 z-50 w-72 bg-card border-r border-border md:hidden shadow-2xl"
+          >
+            <div className="flex flex-col h-full p-4">
+              <div className="flex items-center justify-between mb-8 px-2">
+                <span className="font-display font-bold text-xl">Menu</span>
+                <button onClick={() => setMobileMenuOpen(false)}>
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <LeftSidebar
+                currentPage={currentPage}
+                onNavigate={(page) => {
+                  handleNavigate(page);
+                  setMobileMenuOpen(false); // ✅ Auto-close on click
+                }}
+                userProfile={profile}
+              />
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+
+      <div className="flex-1 max-w-screen-2xl mx-auto px-4 py-6 w-full">
+        <div className="flex gap-6">
+          <div className="hidden md:block">
+            <div className="sticky top-24">
+              <LeftSidebar
+                currentPage={currentPage}
+                onNavigate={handleNavigate}
+                userProfile={profile}
+                collapsed={leftCollapsed}
+                onToggleCollapse={toggleLeft}
+              />
+            </div>
+          </div>
+
+          <main className="flex-1 min-w-0 overflow-y-auto">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentPage}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+                className="h-full"
+              >
+                {renderContent()}
+              </motion.div>
+            </AnimatePresence>
+          </main>
+
+          <div className="hidden lg:block">
+            <div className="sticky top-24">
+              <RightSidebar
+                onViewProfile={handleViewProfile}
+                onNavigate={handleNavigate}
+                collapsed={rightCollapsed}
+                onToggleCollapse={toggleRight}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Skill Verification Modal */}
+      {showVerificationModal && user && profile && (
+        <SkillVerificationModal
+          open={showVerificationModal}
+          onOpenChange={setShowVerificationModal}
+          userSkills={profile.skills.map((skill) => skill.name)}
+          onVerificationComplete={handleVerificationComplete}
+        />
+      )}
+
+      {/* Active Interview Overlay */}
+      {activeInterview && (
+        <InterviewRouter
+          request={activeInterview}
+          onEnd={() => setActiveInterview(null)}
+        />
+      )}
+
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="bg-card rounded-xl shadow-lg w-full max-w-sm p-6"
+          >
+            <h2 className="text-lg font-semibold text-foreground mb-2">
+              Confirm Logout
+            </h2>
+
+            <p className="text-sm text-muted-foreground mb-6">
+              Do you really want to exit TeamUp?
+            </p>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                className="px-4 py-2 rounded-lg text-sm bg-secondary text-foreground hover:bg-secondary/80 transition"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={async () => {
+                  try {
+                    setShowLogoutConfirm(false);
+                    await logout();
+                    setCurrentPage("feed");
+                    localStorage.removeItem("teamup:lastPage");
+                    window.location.href = "/";
+                  } catch (err) {
+                    console.error(err);
+                    toast.error("Failed to logout");
+                  }
+                }}
+                className="px-4 py-2 rounded-lg text-sm bg-destructive text-destructive-foreground hover:bg-destructive/90 transition"
+              >
+                {/* Logout */}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+      <footer className="w-full border-t border-border bg-background/80 backdrop-blur text-center py-4 text-sm text-muted-foreground mt-8">
+        <button
+          onClick={() => setShowLegal(true)}
+          className="hover:text-foreground transition underline-offset-4 hover:underline"
+        >
+          TeamUp © 2026 · All rights reserved
+        </button>
+      </footer>
+      {showLegal && (
+        <LegalModal onClose={() => setShowLegal(false)} />
+      )}
+    </div>
+  );
+};
+
+export default Index;
