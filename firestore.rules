@@ -358,5 +358,16 @@ service cloud.firestore {
         && resource.data.referrerId == request.auth.uid;
     }
 
+    // ========================
+    // APP FEEDBACK
+    // ========================
+    match /appFeedback/{feedbackId} {
+      allow create: if isAuthed()
+        && request.resource.data.userId == request.auth.uid;
+      allow read: if isAuthed()
+        && resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
   }
 }

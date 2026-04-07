@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { FolderKanban, Plus, Clock, User, Loader2, ArrowLeft, Users, Send } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { 
-  Team, 
-  getTeam, 
-  getTeamMembers, 
+import {
+  Team,
+  getTeam,
+  getTeamMembers,
   addWorkspaceLog,
   subscribeToWorkspaceLogs,
   WorkspaceLog,
@@ -43,7 +43,7 @@ const TeamWorkspace = ({ teamId, onBack, openAuth }: TeamWorkspaceProps) => {
 
   useEffect(() => {
     loadWorkspace();
-    
+
     // Subscribe to real-time log updates
     if (isFirebaseConfigured() && teamId) {
       const unsubscribe = subscribeToWorkspaceLogs(teamId, (updatedLogs) => {
@@ -107,7 +107,7 @@ const TeamWorkspace = ({ teamId, onBack, openAuth }: TeamWorkspaceProps) => {
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp.seconds * 1000);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
-    
+
     if (diff < 60000) return 'Just now';
     if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
     if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
@@ -208,7 +208,7 @@ const TeamWorkspace = ({ teamId, onBack, openAuth }: TeamWorkspaceProps) => {
           {/* Logs List */}
           <div className="card-base p-6">
             <h2 className="section-title mb-4">Progress Log</h2>
-            
+
             {logs.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">
                 No progress updates yet. Be the first to share your progress!
@@ -248,7 +248,7 @@ const TeamWorkspace = ({ teamId, onBack, openAuth }: TeamWorkspaceProps) => {
               <Users className="w-4 h-4" />
               Team Members ({members.length})
             </h2>
-            
+
             <div className="space-y-3">
               {members.map((member) => (
                 <div key={member.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30">

@@ -137,6 +137,8 @@ export function SkillVerificationModal({
       setGithubStep("success");
       toast.success("GitHub verification successful");
       onVerificationComplete(verifiedSkills);
+      // Dispatch feedback trigger
+      window.dispatchEvent(new CustomEvent('teamup:feedback_trigger', { detail: { type: 'skill_verified' } }));
       onOpenChange(false);
 
     } catch (err:any) {
@@ -399,6 +401,8 @@ export function SkillVerificationModal({
       );
 
       onVerificationComplete(verifiedSkills);
+      // Dispatch feedback trigger
+      window.dispatchEvent(new CustomEvent('teamup:feedback_trigger', { detail: { type: 'skill_verified' } }));
       onOpenChange(false);
     } catch (error: any) {
       console.error('Verification submission error:', error);

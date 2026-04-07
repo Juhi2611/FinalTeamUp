@@ -1,6 +1,6 @@
-import { Settings, UserPen, Trash2, Ban, FileText, Shield, Mail, ChevronRight, ArrowLeft, PlayCircle } from 'lucide-react';
+import { Settings, UserPen, Trash2, Ban, FileText, Shield, Mail, ChevronRight, ArrowLeft, PlayCircle, MessageSquareHeart, Star, Send, Loader2 as SpinnerIcon } from 'lucide-react';
 import emailjs from "@emailjs/browser";
-import { useRef, useState, useEffect} from "react";
+import { useRef, useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { getProfile, UserProfile } from '@/services/firestore';
 import { unblockUser } from '@/services/blockReportService';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
+import { useFeedback } from '@/contexts/FeedbackContext';
 import { deleteUser } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { deleteUserCompletely } from '@/services/firestore';
@@ -23,32 +24,32 @@ interface SettingsPageProps {
   onDeleteProfile?: () => void;
 }
 
-type SettingsSubPage = 'menu' | 'blocked-users' | 'terms' | 'privacy' | 'contact';
+type SettingsSubPage = 'menu' | 'blocked-users' | 'terms' | 'privacy' | 'contact' | 'feedback';
 const SettingsPage = ({ userProfile, onNavigate, onEditProfile, onDeleteProfile }: SettingsPageProps) => {
   const [subPage, setSubPage] = useState<SettingsSubPage>('menu');
   const { logout } = useAuth();
-const navigate = useNavigate();
+  const navigate = useNavigate();
   const handleLogout = async () => {
-  const confirmLogout = confirm("Do you really want to logout?");
-  if (!confirmLogout) return;
+    const confirmLogout = confirm("Do you really want to logout?");
+    if (!confirmLogout) return;
 
-  try {
-    await logout();
+    try {
+      await logout();
 
-    // ✅ use your app navigation system
-    onNavigate("feed");
+      // ✅ use your app navigation system
+      onNavigate("feed");
 
-    // OR if you want router navigation instead:
-    // navigate("/");
+      // OR if you want router navigation instead:
+      // navigate("/");
 
-    localStorage.removeItem("teamup:lastPage");
+      localStorage.removeItem("teamup:lastPage");
 
-    window.location.href = "/";
-  } catch (err) {
-    console.error(err);
-    toast.error("Failed to logout");
-  }
-};
+      window.location.href = "/";
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to logout");
+    }
+  };
   const formRef = useRef<HTMLFormElement>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
 
@@ -77,34 +78,34 @@ const navigate = useNavigate();
   };
 
   const handleDeleteProfile = async () => {
-  const confirmText = prompt(
-    "This will permanently delete your account.\nType DELETE to continue."
-  );
-  
-  if (confirmText !== "DELETE") {
-    toast("Deletion cancelled");
-    return;
-  }
-  
-  try {
-    const currentUser = auth.currentUser;
-    if (!currentUser) throw new Error("No authenticated user");
-    
-    // Delete user data from Firestore
-    await deleteUserCompletely(currentUser.uid);
-    
-    // Delete Firebase Auth account
-    await deleteUser(currentUser);
-    
-    toast.success("Account deleted successfully");
-    
-    // Redirect to home
-    window.location.href = "/";
-  } catch (err: any) {
-    console.error('Delete account error:', err);
-    toast.error(err.message || "Failed to delete account");
-  }
-};
+    const confirmText = prompt(
+      "This will permanently delete your account.\nType DELETE to continue."
+    );
+
+    if (confirmText !== "DELETE") {
+      toast("Deletion cancelled");
+      return;
+    }
+
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error("No authenticated user");
+
+      // Delete user data from Firestore
+      await deleteUserCompletely(currentUser.uid);
+
+      // Delete Firebase Auth account
+      await deleteUser(currentUser);
+
+      toast.success("Account deleted successfully");
+
+      // Redirect to home
+      window.location.href = "/";
+    } catch (err: any) {
+      console.error('Delete account error:', err);
+      toast.error(err.message || "Failed to delete account");
+    }
+  };
 
   const menuItems = [
     {
@@ -114,7 +115,7 @@ const navigate = useNavigate();
       description: 'Update your name, bio, skills and more',
       action: () => onEditProfile?.(),
     },
-    
+
     {
       id: 'blocked-users' as const,
       label: 'Blocked Users',
@@ -144,6 +145,13 @@ const navigate = useNavigate();
       action: () => setSubPage('contact'),
     },
     {
+      id: 'feedback' as const,
+      label: 'Give Feedback',
+      icon: MessageSquareHeart,
+      description: 'Share your thoughts about TeamUp',
+      action: () => setSubPage('feedback'),
+    },
+    {
       id: 'replay-walkthrough' as const,
       label: 'Replay Product Tour',
       icon: PlayCircle,
@@ -161,21 +169,21 @@ const navigate = useNavigate();
       },
     },
     {
-        id: 'delete-profile' as const,
-        label: 'Delete Account',
-        icon: Trash2,
-        description: 'Permanently delete your account and data',
-        danger: true,
-        action: handleDeleteProfile, 
+      id: 'delete-profile' as const,
+      label: 'Delete Account',
+      icon: Trash2,
+      description: 'Permanently delete your account and data',
+      danger: true,
+      action: handleDeleteProfile,
     },
     {
-  id: 'logout' as const,
-  label: 'Logout',
-  icon: ArrowLeft,
-  description: 'Sign out of your account',
-  danger: true,
-  action: handleLogout,
-}
+      id: 'logout' as const,
+      label: 'Logout',
+      icon: ArrowLeft,
+      description: 'Sign out of your account',
+      danger: true,
+      action: handleLogout,
+    }
   ];
 
   if (subPage !== 'menu') {
@@ -231,6 +239,7 @@ const navigate = useNavigate();
             </div>
           </div>
         )}
+        {subPage === 'feedback' && <FeedbackSection />}
       </div>
     );
   }
@@ -255,9 +264,8 @@ const navigate = useNavigate();
           <button
             key={item.id}
             onClick={item.action}
-            className={`w-full flex items-center gap-4 p-4 hover:bg-secondary/50 transition-colors text-left ${
-              item.danger ? 'text-destructive' : 'text-foreground'
-            }`}
+            className={`w-full flex items-center gap-4 p-4 hover:bg-secondary/50 transition-colors text-left ${item.danger ? 'text-destructive' : 'text-foreground'
+              }`}
           >
             <div className={`p-2 rounded-lg ${item.danger ? 'bg-destructive/10' : 'bg-secondary'}`}>
               <item.icon className="w-5 h-5" />
@@ -308,7 +316,7 @@ const BlockedUsersSection = () => {
   const handleUnblock = async (userId: string) => {
     if (!user) return;
     setUnblocking(userId);
-    
+
     try {
       await unblockUser(user.uid, userId);
       toast.success('User unblocked successfully');
@@ -317,7 +325,7 @@ const BlockedUsersSection = () => {
       console.error('Error unblocking user:', error);
       toast.error(error.message || 'Failed to unblock user');
     }
-    
+
     setUnblocking(null);
   };
 
@@ -500,3 +508,112 @@ const ContactSection = () => (
 );
 
 export default SettingsPage;
+
+// ───── Inline Feedback Form (Settings sub-page, no popup) ─────
+const FeedbackSection = () => {
+  const { submitFeedback } = useFeedback();
+  const [rating, setRating] = useState(0);
+  const [hovered, setHovered] = useState(0);
+  const [comment, setComment] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  const ratingLabels = ['', 'Poor', 'Fair', 'Good', 'Great', 'Amazing!'];
+
+  const handleSubmit = async () => {
+    if (rating === 0) return;
+    setSubmitting(true);
+    try {
+      await submitFeedback(rating, comment.trim());
+      setSubmitted(true);
+    } catch (err: any) {
+      console.error('Feedback submission failed:', err);
+      toast.error(err?.message || 'Failed to submit feedback');
+    }
+    setSubmitting(false);
+  };
+
+  if (submitted) {
+    return (
+      <div className="card-base p-8 text-center">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
+          <MessageSquareHeart className="w-8 h-8 text-primary" />
+        </div>
+        <h3 className="font-display font-bold text-xl text-foreground mb-1">Thank you!</h3>
+        <p className="text-sm text-muted-foreground">Your feedback has been submitted successfully.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card-base p-6">
+      <div className="flex items-center gap-3 mb-4">
+        <MessageSquareHeart className="w-5 h-5 text-primary" />
+        <h2 className="font-display font-bold text-xl text-foreground">Give Feedback</h2>
+      </div>
+      <p className="text-sm text-muted-foreground mb-6">
+        Help us improve TeamUp by sharing your experience. Your feedback is invaluable!
+      </p>
+
+      {/* Star Rating */}
+      <div className="mb-5">
+        <label className="block text-sm font-medium text-foreground mb-3">How would you rate TeamUp?</label>
+        <div className="flex items-center gap-3">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setRating(i)}
+              onMouseEnter={() => setHovered(i)}
+              onMouseLeave={() => setHovered(0)}
+              className="focus:outline-none transition-transform hover:scale-110"
+            >
+              <Star
+                className={`w-9 h-9 transition-colors duration-150 ${
+                  i <= (hovered || rating)
+                    ? 'fill-amber-400 text-amber-400'
+                    : 'text-gray-300'
+                }`}
+              />
+            </button>
+          ))}
+          {(hovered || rating) > 0 && (
+            <span className="text-sm font-medium text-primary ml-2">
+              {ratingLabels[hovered || rating]}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Comment */}
+      <div className="mb-6">
+        <label className="block text-sm font-medium text-foreground mb-2">Additional comments (optional)</label>
+        <Textarea
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          placeholder="What do you like? What can we improve?"
+          rows={4}
+        />
+      </div>
+
+      {/* Submit */}
+      <Button
+        onClick={handleSubmit}
+        disabled={rating === 0 || submitting}
+        className="btn-primary flex items-center gap-2"
+      >
+        {submitting ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Submitting...
+          </>
+        ) : (
+          <>
+            <Send className="w-4 h-4" />
+            Submit Feedback
+          </>
+        )}
+      </Button>
+    </div>
+  );
+};

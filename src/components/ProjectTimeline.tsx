@@ -7,9 +7,9 @@
 // Leader can rename stages, mark current stage, add/remove stages
 // =============================================================
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Check, ChevronRight, Edit2, Plus, Trash2, X, Save, Loader2 } from 'lucide-react';
-import FeedbackModal from '@/components/FeedbackModal';
+
 export interface ProjectStage {
   id: string;
   label: string;
@@ -39,7 +39,7 @@ const ProjectTimeline = ({
   onSave,
   compact = false
 }: ProjectTimelineProps) => {
-  const [showFeedback, setShowFeedback] = useState(false);
+
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<ProjectStage[]>(stages);
   const [saving, setSaving] = useState(false);
@@ -87,24 +87,7 @@ const ProjectTimeline = ({
     setEditing(false);
     setNewLabel('');
   };
-useEffect(() => {
-  const lastStage = stages[stages.length - 1];
-  const alreadyGiven = localStorage.getItem(`feedback_${teamId}`);
 
-  console.log("Stages:", stages);
-  console.log("Last Stage:", lastStage);
-  console.log("Completed:", lastStage?.completed);
-  console.log("Stored Feedback:", alreadyGiven);
-
-  if (
-    lastStage?.label?.toLowerCase().includes('launch') &&
-    lastStage.completed &&
-    !alreadyGiven
-  ) {
-    console.log("🚀 SHOWING FEEDBACK MODAL");
-    setShowFeedback(true);
-  }
-}, [stages, teamId]);
 
   // ── Compact mode (DiscoverTeams) ─────────────────────────
   if (compact) {
@@ -243,12 +226,7 @@ useEffect(() => {
           </div>
         </div>
       )}
-      {showFeedback && (
-  <FeedbackModal
-  teamId={teamId}
-  onClose={() => setShowFeedback(false)}
-/>
-)}
+
     </div>
   );
 };

@@ -56,19 +56,19 @@ const LeftSidebar = ({ currentPage, onNavigate, userProfile, collapsed = false, 
           <div className={cn("bg-gradient-to-r from-primary to-primary/80", collapsed ? "h-8" : "h-16")} />
           <div className={cn("px-4 pb-4", collapsed && "px-2 pb-2")}>
             <div className={cn("-mt-8 flex flex-col items-center", collapsed && "-mt-4")}>
-              <img 
+              <img
                 src={
                   userProfile?.avatar
                     ? `${userProfile.avatar}?t=${Date.now()}`
                     : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
-                        userProfile?.fullName || 'User'
-                      )}`
+                      userProfile?.fullName || 'User'
+                    )}`
                 }
-                alt={displayName} 
+                alt={displayName}
                 className={cn(
                   "avatar border-4 border-card transition-all",
                   collapsed ? "w-10 h-10" : "w-16 h-16"
-                )} 
+                )}
               />
               {!collapsed && (
                 <>

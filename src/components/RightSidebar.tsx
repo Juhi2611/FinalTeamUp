@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Sparkles, Users, Zap, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getSkillClass } from '../data/mockData';
-import { 
-  getAvailableUsers, 
+import {
+  getAvailableUsers,
   subscribeToAvailableTeams,
   getAvailableUsersCount,
   getAvailableTeamsCount,
@@ -35,7 +35,7 @@ const RightSidebar = ({ onViewProfile, onNavigate, collapsed = false, onToggleCo
     }
 
     loadData();
-    
+
     // Subscribe to available teams
     const unsubscribe = subscribeToAvailableTeams((teams) => {
       setAvailableTeams(teams.slice(0, 3)); // Show top 3
@@ -52,7 +52,7 @@ const RightSidebar = ({ onViewProfile, onNavigate, collapsed = false, onToggleCo
         getAvailableUsersCount(),
         getAvailableTeamsCount()
       ]);
-      
+
       // Get top 3 random available users as suggestions
       const shuffled = available.sort(() => 0.5 - Math.random());
       setSuggestedUsers(shuffled.slice(0, 3));
@@ -68,9 +68,9 @@ const RightSidebar = ({ onViewProfile, onNavigate, collapsed = false, onToggleCo
   if (collapsed) {
     return (
       <aside className={cn(
-      "flex-shrink-0 transition-all duration-300 max-h-[calc(100vh-6rem)] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent",
-      collapsed ? "w-16" : "w-80"
-    )}>
+        "flex-shrink-0 transition-all duration-300 max-h-[calc(100vh-6rem)] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent",
+        collapsed ? "w-16" : "w-80"
+      )}>
         <div className="space-y-4 pb-4">
           {onToggleCollapse && (
             <button
@@ -84,7 +84,7 @@ const RightSidebar = ({ onViewProfile, onNavigate, collapsed = false, onToggleCo
             </button>
           )}
 
-          
+
           <div className="card-base p-2 flex flex-col items-center gap-3">
             <div className="p-1.5 rounded-lg bg-primary/10" title="AI Matches">
               <Sparkles className="w-4 h-4 text-primary" />
@@ -114,7 +114,7 @@ const RightSidebar = ({ onViewProfile, onNavigate, collapsed = false, onToggleCo
       <div className="space-y-4 pb-4">
         {/* Collapse Toggle Button */}
         {onToggleCollapse && (
-            <button
+          <button
             onClick={onToggleCollapse}
             className={cn(
               "w-full flex items-center justify-center p-4 rounded-lg transition-all duration-200 sticky top-0 z-10",
@@ -122,9 +122,9 @@ const RightSidebar = ({ onViewProfile, onNavigate, collapsed = false, onToggleCo
               "shadow-sm text-2xl font-bold"
             )}
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            >
+          >
             {collapsed ? "<-" : "->"}
-            </button>
+          </button>
         )}
 
         {/* Suggested Teammates */}
@@ -133,7 +133,7 @@ const RightSidebar = ({ onViewProfile, onNavigate, collapsed = false, onToggleCo
             <h3 className="section-title text-sm">Available Teammates</h3>
             <span className="text-xs text-muted-foreground">Real-time</span>
           </div>
-          
+
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-5 h-5 animate-spin text-primary" />
@@ -186,7 +186,7 @@ const RightSidebar = ({ onViewProfile, onNavigate, collapsed = false, onToggleCo
             </div>
           )}
         </div>
-        
+
 
         {/* Available Teams */}
         <div id="tour-right-teams" className="card-base p-4">
@@ -194,7 +194,7 @@ const RightSidebar = ({ onViewProfile, onNavigate, collapsed = false, onToggleCo
             <Users className="w-4 h-4 text-accent" />
             <h3 className="section-title text-sm">Available Teams</h3>
           </div>
-          
+
           {loading ? (
             <div className="flex items-center justify-center py-6">
               <Loader2 className="w-5 h-5 animate-spin text-primary" />
@@ -206,8 +206,8 @@ const RightSidebar = ({ onViewProfile, onNavigate, collapsed = false, onToggleCo
           ) : (
             <div className="space-y-3">
               {availableTeams.map((team) => (
-                <div 
-                  key={team.id} 
+                <div
+                  key={team.id}
                   className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary/50 transition-colors cursor-pointer"
                   onClick={() => onNavigate?.('discover-teams')}
                 >
@@ -223,7 +223,7 @@ const RightSidebar = ({ onViewProfile, onNavigate, collapsed = false, onToggleCo
                 </div>
               ))}
               {availableTeams.length >= 3 && (
-                <button 
+                <button
                   onClick={() => onNavigate?.('discover-teams')}
                   className="w-full text-xs text-primary hover:underline text-center mt-2"
                 >

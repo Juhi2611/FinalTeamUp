@@ -9,10 +9,10 @@ import { useBlocks } from '@/contexts/BlockContext';
 import CreatePostModal from '../CreatePostModal';
 import { toast } from 'sonner';
 import DemoLockModal from "@/components/DemoLockModal";
-import { updateDoc, doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase"; // adjust path if needed
+
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { useNavigate } from "react-router-dom";
-import { submitAppFeedback } from '@/services/firestore_app_feedback';
 
 
 interface HomeFeedProps {
@@ -22,7 +22,7 @@ interface HomeFeedProps {
 }
 
 const HomeFeed = ({ onNavigate, onViewProfile, openAuth }: HomeFeedProps) => {
-  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+
   const [showReminder, setShowReminder] = useState(false);
   const { user, isDemoUser } = useAuth();
   const [showDemoLock, setShowDemoLock] = useState(false);
@@ -32,95 +32,68 @@ const HomeFeed = ({ onNavigate, onViewProfile, openAuth }: HomeFeedProps) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const { hiddenUserIds } = useBlocks();
   const navigate = useNavigate();
-  const handleFeedback = async () => {
-  const handleFeedback = () => {
-  setShowFeedbackModal(true);
-};
-};
   useEffect(() => {
-  if (!isFirebaseConfigured()) {
-    setLoading(false);
-    return;
-  }
-
-  // 🔹 Feed subscription
-  const unsubscribe = subscribeToFeedPosts((fetchedPosts) => {
-    const filteredPosts = fetchedPosts.filter(
-      post => !hiddenUserIds.has(post.authorId)
-    );
-    setPosts(filteredPosts);
-    setLoading(false);
-  }, user?.uid);
-
-  // 🔹 Reminder logic (SEPARATE, NOT NESTED)
-  const checkReminder = async () => {
-    if (!user) return;
-
-    try {
-      const docRef = doc(db, "profiles", user.uid); // ✅ FIXED
-      const userSnap = await getDoc(docRef);
-
-      if (!userSnap.exists()) return;
-
-      const data = userSnap.data();
-
-      const hasUploaded =
-        data.cvUploaded || data.videoUploaded; // ✅ FIXED FIELD NAMES
-
-      if (hasUploaded) return;
-
-      const checkReminder = async () => {
-  if (!user) return;
-
-  try {
-    const docRef = doc(db, "profiles", user.uid);
-    const userSnap = await getDoc(docRef);
-
-    if (!userSnap.exists()) return;
-
-    const data = userSnap.data();
-
-    const hasUploaded = data.cvUploaded || data.videoUploaded;
-
-    if (!hasUploaded) {
-      setShowReminder(true); // show reminder every visit until uploaded
-    } else {
-      setShowReminder(false); // hide only after actual upload
+    if (!isFirebaseConfigured()) {
+      setLoading(false);
+      return;
     }
 
-  } catch (err) {
-    console.error("Reminder error:", err);
-  }
-};
-    } catch (err) {
-      console.error("Reminder error:", err);
-    }
-  };
+    // 🔹 Feed subscription
+    const unsubscribe = subscribeToFeedPosts((fetchedPosts) => {
+      const filteredPosts = fetchedPosts.filter(
+        post => !hiddenUserIds.has(post.authorId)
+      );
+      setPosts(filteredPosts);
+      setLoading(false);
+    }, user?.uid);
 
-  checkReminder();
+    // 🔹 Reminder logic
+    const checkReminder = async () => {
+      if (!user) return;
 
-  return () => unsubscribe();
-}, [hiddenUserIds, user]);
-  
+      try {
+        const docRef = doc(db, "profiles", user.uid);
+        const userSnap = await getDoc(docRef);
+
+        if (!userSnap.exists()) return;
+
+        const data = userSnap.data();
+        const hasUploaded = data.cvUploaded || data.videoUploaded;
+
+        if (!hasUploaded) {
+          setShowReminder(true);
+        } else {
+          setShowReminder(false);
+        }
+      } catch (err) {
+        console.error("Reminder error:", err);
+      }
+    };
+
+    checkReminder();
+
+    return () => unsubscribe();
+  }, [hiddenUserIds, user]);
+
 
   const handleCreatePost = async (data: {
-  title: string;
-  description: string;
-  tags: string[];
-  image?: File | null;
-}) => {
+    title: string;
+    description: string;
+    tags: string[];
+    image?: File | null;
+  }) => {
     if (!user) return;
     await createUserPost(user.uid, {
-  title: data.title,
-  description: data.description,
-  tags: data.tags,
-  image: data.image || null,
-});
+      title: data.title,
+      description: data.description,
+      tags: data.tags,
+      image: data.image || null,
+    });
     toast.success('Post created successfully!');
   };
 
-  const filteredPosts = filter === 'all' 
-    ? posts 
+  const filteredPosts = filter === 'all'
+    ? posts
     : posts.filter((post) => post.type === filter);
 
   const filters = [
@@ -138,7 +111,7 @@ const HomeFeed = ({ onNavigate, onViewProfile, openAuth }: HomeFeedProps) => {
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
-    
+
     if (diffMins < 1) return 'Just now';
     if (diffMins < 60) return `${diffMins} min ago`;
     if (diffHours < 24) return `${diffHours} hours ago`;
@@ -207,7 +180,7 @@ const HomeFeed = ({ onNavigate, onViewProfile, openAuth }: HomeFeedProps) => {
       {/* Create Post CTA */}
       <div className="card-base p-4">
         <div className="flex gap-3">
-          <button 
+          <button
             onClick={() => {
               if (isDemoUser) {
                 setShowDemoLock(true);
@@ -222,7 +195,7 @@ const HomeFeed = ({ onNavigate, onViewProfile, openAuth }: HomeFeedProps) => {
             </div>
             <span className="text-muted-foreground">Share something with the community...</span>
           </button>
-          <button 
+          <button
             onClick={() => {
               if (isDemoUser) {
                 setShowDemoLock(true);
@@ -244,11 +217,10 @@ const HomeFeed = ({ onNavigate, onViewProfile, openAuth }: HomeFeedProps) => {
           <button
             key={id}
             onClick={() => setFilter(id as any)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-              filter === id 
-                ? 'bg-primary text-primary-foreground' 
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${filter === id
+                ? 'bg-primary text-primary-foreground'
                 : 'text-muted-foreground hover:bg-secondary'
-            }`}
+              }`}
           >
             {Icon && <Icon className="w-4 h-4" />}
             {label}
@@ -267,10 +239,10 @@ const HomeFeed = ({ onNavigate, onViewProfile, openAuth }: HomeFeedProps) => {
                 className="avatar w-12 h-12 cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
                 onClick={() => onViewProfile(post.authorId)}
               />
-              
+
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <span 
+                  <span
                     className="font-semibold text-foreground hover:text-primary cursor-pointer"
                     onClick={() => onViewProfile(post.authorId)}
                   >
@@ -280,7 +252,7 @@ const HomeFeed = ({ onNavigate, onViewProfile, openAuth }: HomeFeedProps) => {
                     <span className="text-sm text-muted-foreground">• {post.authorRole}</span>
                   )}
                 </div>
-                
+
                 <div className="flex items-center gap-2 mb-3">
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 ${getTypeBadge(post.type)}`}>
                     {getTypeIcon(post.type)}
@@ -290,22 +262,22 @@ const HomeFeed = ({ onNavigate, onViewProfile, openAuth }: HomeFeedProps) => {
                     {formatTimestamp(post.createdAt)}
                   </span>
                 </div>
-                
+
                 <h3 className="font-semibold text-foreground mb-2">{post.title}</h3>
                 <p className="text-muted-foreground mb-4">{post.description}</p>
                 {/* Post Image */}
-{post.imageUrl && (
-  <div className="mt-3 rounded-lg bg-muted/40 p-2">
-  <img
-  src={post.imageUrl}
-  alt="Post"
-  className="rounded-lg w-full"
-/>
+                {post.imageUrl && (
+                  <div className="mt-3 rounded-lg bg-muted/40 p-2">
+                    <img
+                      src={post.imageUrl}
+                      alt="Post"
+                      className="rounded-lg w-full"
+                    />
 
-</div>
+                  </div>
 
-)}
-                
+                )}
+
                 {/* Tags */}
                 {post.tags && post.tags.length > 0 && (
                   <div className="mb-4">
@@ -318,7 +290,7 @@ const HomeFeed = ({ onNavigate, onViewProfile, openAuth }: HomeFeedProps) => {
                     </div>
                   </div>
                 )}
-                
+
                 {/* Roles Needed */}
                 {post.rolesNeeded && post.rolesNeeded.length > 0 && (
                   <div className="mb-4">
@@ -332,7 +304,7 @@ const HomeFeed = ({ onNavigate, onViewProfile, openAuth }: HomeFeedProps) => {
                     </div>
                   </div>
                 )}
-                
+
                 {/* Skills */}
                 {post.skills && post.skills.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
@@ -346,7 +318,7 @@ const HomeFeed = ({ onNavigate, onViewProfile, openAuth }: HomeFeedProps) => {
 
                 {/* Message Author Button */}
                 <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
-                  <button 
+                  <button
                     onClick={() => onViewProfile(post.authorId)}
                     className="btn-secondary text-sm flex items-center gap-1.5"
                   >
@@ -388,59 +360,55 @@ const HomeFeed = ({ onNavigate, onViewProfile, openAuth }: HomeFeedProps) => {
         }}
       />
       {showReminder && (
-  <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
-    <div className="bg-white p-6 rounded-xl shadow-lg text-center max-w-md">
-      
-      <h2 className="text-xl font-bold mb-2">
-        Complete Your Profile 🚀
-      </h2>
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
+          <div className="bg-white p-6 rounded-xl shadow-lg text-center max-w-md">
 
-      <p className="text-gray-600 mb-4">
-        Upload your CV or Intro Video to get better team matches.
-      </p>
+            <h2 className="text-xl font-bold mb-2">
+              Complete Your Profile 🚀
+            </h2>
 
-      <div className="flex gap-3 justify-center">
-<div className="flex gap-4 justify-center">
+            <p className="text-gray-600 mb-4">
+              Upload your CV or Intro Video to get better team matches.
+            </p>
 
-  {/* Upload CV */}
-  <button 
-    onClick={() => {
-      onNavigate("upload");
-    }}
-    className="group flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-white font-medium shadow-sm hover:shadow-md hover:bg-primary/90 transition-all"
-  >
-    📄 Upload CV
-  </button>
+            <div className="flex gap-3 justify-center">
+              <div className="flex gap-4 justify-center">
 
-  {/* Upload Video */}
-  <button 
-    onClick={() => {
-      onNavigate("upload");
-    }}
-    className="group flex items-center gap-2 px-5 py-2.5 rounded-lg bg-white border border-border text-foreground font-medium shadow-sm hover:bg-secondary hover:shadow-md transition-all"
-  >
-    🎥 Upload Video
-  </button>
+                {/* Upload CV */}
+                <button
+                  onClick={() => {
+                    onNavigate("upload");
+                  }}
+                  className="group flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-white font-medium shadow-sm hover:shadow-md hover:bg-primary/90 transition-all"
+                >
+                  📄 Upload CV
+                </button>
+
+                {/* Upload Video */}
+                <button
+                  onClick={() => {
+                    onNavigate("upload");
+                  }}
+                  className="group flex items-center gap-2 px-5 py-2.5 rounded-lg bg-white border border-border text-foreground font-medium shadow-sm hover:bg-secondary hover:shadow-md transition-all"
+                >
+                  🎥 Upload Video
+                </button>
 
 
-</div>
-      </div>
+              </div>
+            </div>
 
-      <button 
-        onClick={() => setShowReminder(false)}
-        className="mt-4 text-sm text-gray-500"
-      >
-        Remind me later
-      </button>
+            <button
+              onClick={() => setShowReminder(false)}
+              className="mt-4 text-sm text-gray-500"
+            >
+              Remind me later
+            </button>
 
-    </div>
-  </div>
-)}
-{showFeedbackModal && (
-<button onClick={handleFeedback} className="btn-primary">
-  Send Feedback
-</button>
-)}
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

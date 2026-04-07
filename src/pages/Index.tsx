@@ -47,6 +47,7 @@ import FAQ from "@/components/landing/FAQ";
 import Newsletter from "@/components/landing/ContactUs";
 import Footer from "@/components/landing/Footer";
 import LegalModal from "@/components/LegalModal";
+import FeedbackPopup from "@/components/FeedbackPopup";
 import InterviewDashboard from "@/components/interviews/InterviewDashboard";
 import InterviewRouter from "@/components/interviews/InterviewRouter";
 import { InterviewRequest } from "@/services/firestore_interviews";
@@ -298,6 +299,8 @@ const handleNavigate = (page: string) => {
   const handleVerificationComplete = () => {
     setShowVerificationModal(false);
     checkProfile(); // Refresh profile to show verified status
+    // Dispatch feedback trigger
+    window.dispatchEvent(new CustomEvent('teamup:feedback_trigger', { detail: { type: 'skill_verified' } }));
   };
 
   // 1️⃣ PUBLIC ENTRY (landing page)
@@ -732,7 +735,11 @@ const handleNavigate = (page: string) => {
       {activeInterview && (
         <InterviewRouter
           request={activeInterview}
-          onEnd={() => setActiveInterview(null)}
+          onEnd={() => {
+            setActiveInterview(null);
+            // Dispatch feedback trigger
+            window.dispatchEvent(new CustomEvent('teamup:feedback_trigger', { detail: { type: 'interview_completed' } }));
+          }}
         />
       )}
 
@@ -793,6 +800,9 @@ const handleNavigate = (page: string) => {
       {showLegal && (
         <LegalModal onClose={() => setShowLegal(false)} />
       )}
+
+      {/* Feedback Popup */}
+      <FeedbackPopup />
 
       {showWalkthrough && user && (
         <ProductWalkthrough 

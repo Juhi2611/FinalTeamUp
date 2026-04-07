@@ -66,6 +66,13 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        "card-pastel": {
+          blue: "hsl(var(--card-pastel-blue))",
+          green: "hsl(var(--card-pastel-green))",
+          pink: "hsl(var(--card-pastel-pink))",
+          purple: "hsl(var(--card-pastel-purple))",
+          orange: "hsl(var(--card-pastel-orange))",
+        },
         skill: {
           frontend: "hsl(var(--skill-frontend))",
           backend: "hsl(var(--skill-backend))",

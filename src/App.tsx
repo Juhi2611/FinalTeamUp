@@ -6,6 +6,7 @@ import { BlockProvider } from "./contexts/BlockContext";
 import { UserProfileProvider } from "./contexts/UserProfileContext";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+import { FeedbackProvider } from "./contexts/FeedbackContext";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import ProfilePage from "./pages/ProfilePage";
@@ -22,6 +23,7 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
+      <FeedbackProvider>
       <BlockProvider>
         <TooltipProvider>
           <UserProfileProvider>
@@ -62,6 +64,7 @@ const App = () => (
           </UserProfileProvider>
         </TooltipProvider>
       </BlockProvider>
+      </FeedbackProvider>
     </AuthProvider>
   </QueryClientProvider>
 );

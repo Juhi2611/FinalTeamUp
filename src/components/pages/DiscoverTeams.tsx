@@ -333,6 +333,8 @@ const DiscoverTeams = ({ onNavigate, openAuth, onViewProfile }: { onNavigate: (p
         message, type: 'join_request'
       });
       toast.success(`Join request sent to ${team.name}!`);
+      // Dispatch feedback trigger
+      window.dispatchEvent(new CustomEvent('teamup:feedback_trigger', { detail: { type: 'team_joined' } }));
       setSelectedTeam(null);
     } catch (error: any) {
       toast.error(error.message || 'Failed to send join request');

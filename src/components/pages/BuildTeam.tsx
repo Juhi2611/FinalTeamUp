@@ -22,8 +22,8 @@ const BuildTeam = ({ onNavigate, openAuth }: BuildTeamProps) => {
   const [maxMembers, setMaxMembers] = useState(4);
   const [loading, setLoading] = useState(false);
   const [city, setCity] = useState('');
-  
-  
+
+
   // ✅ Custom role state
   const [customRole, setCustomRole] = useState('');
   const [showAddRole, setShowAddRole] = useState(false);
@@ -41,8 +41,8 @@ const BuildTeam = ({ onNavigate, openAuth }: BuildTeamProps) => {
   ];
 
   const toggleRole = (role: string) => {
-    setRolesNeeded(prev => 
-      prev.includes(role) 
+    setRolesNeeded(prev =>
+      prev.includes(role)
         ? prev.filter(r => r !== role)
         : [...prev, role]
     );
@@ -71,10 +71,10 @@ const BuildTeam = ({ onNavigate, openAuth }: BuildTeamProps) => {
   const handlePost = async () => {
 
     // 🚫 GUEST MODE BLOCK
- if (isDemoUser) {
-  setShowDemoLock(true);
-  return;
-}
+    if (isDemoUser) {
+      setShowDemoLock(true);
+      return;
+    }
     if (!user || !isFirebaseConfigured()) return;
 
     if (!city.trim()) {
@@ -107,6 +107,8 @@ const BuildTeam = ({ onNavigate, openAuth }: BuildTeamProps) => {
       });
 
       toast.success('Team created successfully!');
+      // Dispatch feedback trigger
+      window.dispatchEvent(new CustomEvent('teamup:feedback_trigger', { detail: { type: 'team_created' } }));
       onNavigate('teams');
     } catch (error: any) {
       toast.error(error.message || 'Failed to create team');
@@ -216,11 +218,10 @@ const BuildTeam = ({ onNavigate, openAuth }: BuildTeamProps) => {
               <button
                 key={role}
                 onClick={() => toggleRole(role)}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                  rolesNeeded.includes(role)
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all ${rolesNeeded.includes(role)
                     ? 'bg-primary text-primary-foreground'
                     : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                }`}
+                  }`}
               >
                 {rolesNeeded.includes(role) ? (
                   <X className="w-3.5 h-3.5" />
@@ -291,7 +292,7 @@ const BuildTeam = ({ onNavigate, openAuth }: BuildTeamProps) => {
             <div>
               <p className="font-medium text-primary">AI Tip</p>
               <p className="text-sm text-muted-foreground mt-1">
-                A well-balanced team typically needs a mix of technical and design skills. 
+                A well-balanced team typically needs a mix of technical and design skills.
                 Consider adding roles that complement your own expertise!
               </p>
             </div>
@@ -303,8 +304,8 @@ const BuildTeam = ({ onNavigate, openAuth }: BuildTeamProps) => {
           <button onClick={() => onNavigate('feed')} className="btn-secondary">
             Cancel
           </button>
-          <button 
-            onClick={handlePost} 
+          <button
+            onClick={handlePost}
             disabled={loading || !teamName.trim() || !description.trim() || !city.trim()}
             className="btn-primary flex items-center gap-2"
           >
@@ -317,14 +318,14 @@ const BuildTeam = ({ onNavigate, openAuth }: BuildTeamProps) => {
           </button>
         </div>
       </div>
-<DemoLockModal
-  open={showDemoLock}
-  onClose={() => setShowDemoLock(false)}
-  onSignup={() => {
-    setShowDemoLock(false);
-    openAuth(); 
-  }}
-/>
+      <DemoLockModal
+        open={showDemoLock}
+        onClose={() => setShowDemoLock(false)}
+        onSignup={() => {
+          setShowDemoLock(false);
+          openAuth();
+        }}
+      />
     </div>
   );
 };
