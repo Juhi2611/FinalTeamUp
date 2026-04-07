@@ -17,7 +17,6 @@ import AdminPanel from "./components/pages/AdminPanel";
 import ProtectedAdmin from "./components/ProtectedAdmin";
 import SitemapVisualizer from "./pages/SitemapVisualizer";
 
-
 const queryClient = new QueryClient();
 
 const App = () => (

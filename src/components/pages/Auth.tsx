@@ -49,7 +49,7 @@ const [showPrivacy, setShowPrivacy] = useState(false);
   const { login, register, resetPassword, signInWithGoogle, signInWithGithub, isConfigured } = useAuth();
 
   const handleOAuth = async (provider: 'google' | 'github') => {
-    if (!acceptedTerms) {
+    if (!isLogin && !acceptedTerms) {
       setError('Please accept the Terms & Conditions and Privacy Policy to continue');
       return;
     }
@@ -103,8 +103,8 @@ const [showPrivacy, setShowPrivacy] = useState(false);
     // 🔐 SIGN UP VALIDATION ONLY
     if (!isLogin) {
       if (!acceptedTerms) {
-      setError('Please accept the Terms & Conditions and Privacy Policy');
-      return;
+        setError('Please accept the Terms & Conditions and Privacy Policy');
+        return;
       }
       if (!name.trim()) {
         setError('Name is required');
@@ -131,10 +131,6 @@ const [showPrivacy, setShowPrivacy] = useState(false);
 
       if (!/^\S+@\S+\.\S+$/.test(email)) {
         setError('Enter a valid email address');
-        return;
-      }
-      if (!acceptedTerms) {
-        setError('You must agree to the Terms & Conditions to continue');
         return;
       }
     }
@@ -431,6 +427,36 @@ const handleForgotPassword = async () => {
               </button>
             </label>
           </div>
+          {!isLogin && (
+            <div className="flex items-start gap-2 text-sm mt-4">
+              <input
+                type="checkbox"
+                id="terms"
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                className="mt-1"
+                required
+              />
+              <label htmlFor="terms" className="text-muted-foreground">
+                I agree to the{' '}
+                <button
+                  type="button"
+                  onClick={() => setShowTerms(true)}
+                  className="text-primary hover:underline"
+                >
+                  Terms & Conditions
+                </button>
+                {' '}and{' '}
+                <button
+                  type="button"
+                  onClick={() => setShowPrivacy(true)}
+                  className="text-primary hover:underline"
+                >
+                  Privacy Policy
+                </button>
+              </label>
+            </div>
+          )}
 
           <button
             type="submit"
