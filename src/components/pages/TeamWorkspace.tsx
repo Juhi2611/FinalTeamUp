@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FolderKanban, Plus, Clock, User, Loader2, ArrowLeft, Users, Send } from 'lucide-react';
+import { FolderKanban, Plus, Clock, User, Loader2, ArrowLeft, Users, Send, Award } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Team,
@@ -14,6 +14,7 @@ import {
 } from '@/services/firestore';
 import { isFirebaseConfigured } from '@/lib/firebase';
 import DemoLockModal from "@/components/DemoLockModal";
+import CertificationModal from "@/components/certification/CertificationModal";
 
 interface TeamWorkspaceProps {
   teamId: string;
@@ -40,6 +41,12 @@ const TeamWorkspace = ({ teamId, onBack, openAuth }: TeamWorkspaceProps) => {
   const [submitting, setSubmitting] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isMember, setIsMember] = useState(false);
+  const [showCertificationModal, setShowCertificationModal] = useState(false);
+
+  // Testimonial State
+  const [editingTestimonialUser, setEditingTestimonialUser] = useState<{ id: string, name: string } | null>(null);
+  const [testimonialText, setTestimonialText] = useState("");
+  const isLeader = team?.leaderId === user?.uid;
 
   useEffect(() => {
     loadWorkspace();
@@ -100,6 +107,24 @@ const TeamWorkspace = ({ teamId, onBack, openAuth }: TeamWorkspaceProps) => {
       console.error('Error adding log:', error);
     }
     setSubmitting(false);
+  };
+
+  const handleSaveTestimonial = async () => {
+    if (!team || !editingTestimonialUser) return;
+    try {
+      const { updateTeam } = await import('@/services/firestore');
+      const updatedMembers = (team.members || []).map(m =>
+        m.userId === editingTestimonialUser.id ? { ...m, testimonial: testimonialText } : m
+      );
+      await updateTeam(team.id, { members: updatedMembers });
+      setTeam({ ...team, members: updatedMembers });
+      setEditingTestimonialUser(null);
+      setTestimonialText("");
+      // reload members
+      loadWorkspace();
+    } catch (error) {
+      console.error('Error saving testimonial:', error);
+    }
   };
 
   const formatTime = (timestamp: any): string => {
@@ -164,6 +189,13 @@ const TeamWorkspace = ({ teamId, onBack, openAuth }: TeamWorkspaceProps) => {
               </div>
             </div>
           </div>
+          <button
+            onClick={() => setShowCertificationModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg shadow-sm hover:opacity-90 font-medium transition-opacity"
+          >
+            <Award className="w-5 h-5" />
+            <span className="hidden sm:inline">Get Certified</span>
+          </button>
         </div>
       </div>
 
@@ -251,7 +283,7 @@ const TeamWorkspace = ({ teamId, onBack, openAuth }: TeamWorkspaceProps) => {
 
             <div className="space-y-3">
               {members.map((member) => (
-                <div key={member.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30">
+                <div key={member.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30 relative group">
                   <img
                     src={member.profile?.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(member.profile?.fullName || 'User')}`}
                     alt={member.profile?.fullName}
@@ -265,6 +297,19 @@ const TeamWorkspace = ({ teamId, onBack, openAuth }: TeamWorkspaceProps) => {
                       {member.role} • {member.profile?.primaryRole}
                     </p>
                   </div>
+
+                  {isLeader && member.userId !== user?.uid && (
+                    <button
+                      onClick={() => {
+                        setEditingTestimonialUser({ id: member.userId, name: member.profile?.fullName || 'User' });
+                        const existing = (team.members.find(m => m.userId === member.userId) as any)?.testimonial || "";
+                        setTestimonialText(existing);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 absolute right-3 text-[10px] bg-primary/10 text-primary px-2 py-1 rounded transition-opacity"
+                    >
+                      {(team.members.find((m: any) => m.userId === member.userId) as any)?.testimonial ? "Edit Testimonial" : "+ Testimonial"}
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -279,6 +324,35 @@ const TeamWorkspace = ({ teamId, onBack, openAuth }: TeamWorkspaceProps) => {
           openAuth();
         }}
       />
+
+      {showCertificationModal && userProfile && team && (
+        <CertificationModal
+          open={showCertificationModal}
+          onOpenChange={setShowCertificationModal}
+          userProfile={userProfile}
+        />
+      )}
+
+      {editingTestimonialUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-card w-full max-w-md rounded-xl shadow-xl border border-border p-6 flex flex-col">
+            <h3 className="font-bold text-lg mb-1">Leader Testimonial</h3>
+            <p className="text-sm text-muted-foreground mb-4">Write a testimonial for {editingTestimonialUser.name}. This will appear on their portfolio.</p>
+
+            <textarea
+              className="w-full resize-none min-h-[120px] input-field mb-4"
+              placeholder="e.g. Excellent problem solver and consistently met deadlines..."
+              value={testimonialText}
+              onChange={e => setTestimonialText(e.target.value)}
+            />
+
+            <div className="flex gap-3 justify-end mt-2">
+              <button onClick={() => setEditingTestimonialUser(null)} className="btn-secondary px-4 py-2 text-sm">Cancel</button>
+              <button onClick={handleSaveTestimonial} className="btn-primary px-4 py-2 text-sm">Save Testimonial</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

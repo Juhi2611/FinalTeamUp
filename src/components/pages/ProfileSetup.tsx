@@ -7,6 +7,8 @@ import { toast } from 'sonner';
 import { isValidUsername, getUsernameError } from '@/utils/username';
 import { isUsernameAvailable, generateUniqueUsername } from '@/services/firestore';
 import DemoLockModal from "@/components/DemoLockModal";
+import CitySelect from "@/components/ui/CitySelect";
+import InstitutionSelect from "@/components/ui/InstitutionSelect";
 
 interface ProfileSetupProps {
   existingProfile?: UserProfile | null;
@@ -423,15 +425,14 @@ const ProfileSetup = ({
               </h2>
               
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
+                <label className="block text-sm font-medium text-foreground mb-1.5 flex items-center gap-2">
+                  <GraduationCap className="w-4 h-4" />
                   College / University
                 </label>
-                <input
-                  type="text"
+                <InstitutionSelect
                   value={formData.college}
-                  onChange={(e) => setFormData(prev => ({ ...prev, college: e.target.value }))}
-                  placeholder="Stanford University"
-                  className="input-field"
+                  onChange={(collegeId) => setFormData(prev => ({ ...prev, college: collegeId }))}
+                  placeholder="Select your college"
                 />
               </div>
 
@@ -441,13 +442,10 @@ const ProfileSetup = ({
                   <MapPin className="w-4 h-4" />
                   City *
                 </label>
-                <input
-                  type="text"
+                <CitySelect
                   value={formData.city}
-                  onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
-                  placeholder="San Francisco"
-                  className="input-field"
-                  required
+                  onChange={(cityId) => setFormData(prev => ({ ...prev, city: cityId }))}
+                  placeholder="Select your city in India"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   Your city helps you find local teams and teammates

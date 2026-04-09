@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { 
-  Search, Users, Loader2, UserPlus, Filter, ChevronDown, 
-  MapPin, RotateCcw, Sparkles, Check, X, Eye, ChevronRight, 
+import {
+  Search, Users, Loader2, UserPlus, Filter, ChevronDown,
+  MapPin, RotateCcw, Sparkles, Check, X, Eye, ChevronRight,
   Zap, BadgeCheck, Clock,
   Crown
 } from 'lucide-react';
 import { motion, useMotionValue, useTransform, animate, AnimatePresence, PanInfo } from "framer-motion";
 import { useAuth } from '@/contexts/AuthContext';
 import { useBlocks } from '@/contexts/BlockContext';
-import { 
+import {
   subscribeToAvailableTeams,
   getProfile,
   sendInvitation,
@@ -21,6 +21,11 @@ import { toast } from 'sonner';
 import JoinTeamModal from '../JoinTeamModal';
 import DemoLockModal from "@/components/DemoLockModal";
 import ProjectTimeline, { DEFAULT_STAGES } from '@/components/ProjectTimeline';
+import CitySelect from "@/components/ui/CitySelect";
+import { normalizeCityString, getCityById } from "@/utils/cityData";
+import InstitutionSelect from "@/components/ui/InstitutionSelect";
+import { normalizeInstitutionString, getInstitutionById } from "@/utils/institutionData";
+import { useInstitutionName } from "@/utils/useInstitutionName";
 
 // ─── Team Swipe Card Component ──────────────────────────────────────────────
 
@@ -34,8 +39,8 @@ interface TeamSwipeCardProps {
   onRequestJoin: (team: Team) => void;
 }
 
-function MemberAvatar({ userId, fallbackName, size = "w-9 h-9", isLeader = false }: { 
-  userId: string; fallbackName: string; size?: string; isLeader?: boolean 
+function MemberAvatar({ userId, fallbackName, size = "w-9 h-9", isLeader = false }: {
+  userId: string; fallbackName: string; size?: string; isLeader?: boolean
 }) {
   const [avatar, setAvatar] = useState<string | null>(null);
 
@@ -47,8 +52,8 @@ function MemberAvatar({ userId, fallbackName, size = "w-9 h-9", isLeader = false
 
   return (
     <div className="relative group">
-      <img 
-        src={avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(fallbackName)}`} 
+      <img
+        src={avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(fallbackName)}`}
         className={`${size} rounded-full border-2 ${isLeader ? 'border-primary' : 'border-white'} shadow-sm bg-white object-cover transition-transform group-hover:scale-110`}
         alt={fallbackName}
       />
@@ -62,6 +67,8 @@ function MemberAvatar({ userId, fallbackName, size = "w-9 h-9", isLeader = false
 }
 
 function TeamSwipeCard({ team, index, total, active, onSwipe, onViewProfile, onRequestJoin }: TeamSwipeCardProps) {
+  const collegeName = useInstitutionName(team.college);
+
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-300, 300], [-12, 12]);
   const connOp = useTransform(x, [40, 130], [0, 1]);
@@ -105,7 +112,7 @@ function TeamSwipeCard({ team, index, total, active, onSwipe, onViewProfile, onR
       transition={{ type: "spring", stiffness: 240, damping: 26 }}
       className={`absolute inset-0 ${active ? "z-50 cursor-grab active:cursor-grabbing" : "z-0 pointer-events-none"}`}
     >
-      <div 
+      <div
         className="w-full h-full rounded-3xl p-7 relative overflow-hidden flex flex-col"
         style={{
           background: "linear-gradient(145deg, rgba(255,255,255,0.85) 0%, rgba(240,253,250,0.80) 100%)",
@@ -159,8 +166,13 @@ function TeamSwipeCard({ team, index, total, active, onSwipe, onViewProfile, onR
               </p>
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm text-slate-700">
-                  <Check size={14} className="text-cyan-600" /> {team.city || "Ahmedabad Based"}
+                  <Check size={14} className="text-cyan-600" /> {getCityById(team.city || '')?.name || team.city || "Ahmedabad Based"}
                 </div>
+                {collegeName && (
+                  <div className="flex items-center gap-2 text-sm text-slate-700">
+                    <Check size={14} className="text-cyan-600" /> {collegeName}
+                  </div>
+                )}
                 <div className="flex items-center gap-2 text-sm text-slate-700">
                   <Users size={14} className="text-cyan-600" /> {team.members.length} Active Members
                 </div>
@@ -177,10 +189,10 @@ function TeamSwipeCard({ team, index, total, active, onSwipe, onViewProfile, onR
               </p>
               <div className="flex-1 overflow-y-auto no-scrollbar">
                 {/* ✅ Integrating your ProjectTimeline component */}
-                <ProjectTimeline 
-                  stages={DEFAULT_STAGES} 
-                  teamId={team.id} 
-                  compact 
+                <ProjectTimeline
+                  stages={DEFAULT_STAGES}
+                  teamId={team.id}
+                  compact
                 />
               </div>
             </div>
@@ -192,16 +204,16 @@ function TeamSwipeCard({ team, index, total, active, onSwipe, onViewProfile, onR
               <div className="flex items-center gap-6">
                 {/* 👑 PROJECT LEADER SECTION */}
                 <div className="flex items-center gap-2.5 pr-4 border-r border-slate-200">
-                  <button 
+                  <button
                     onClick={(e) => { e.stopPropagation(); onViewProfile(team.leaderId); }}
                     className="flex items-center gap-2.5 pr-4 border-r border-slate-200"
                   >
                     {/* ✅ Use the helper to fetch the leader's actual avatar */}
-                    <MemberAvatar 
-                      userId={team.leaderId} 
-                      fallbackName={team.leaderName} 
-                      size="w-10 h-10" 
-                      isLeader={true} 
+                    <MemberAvatar
+                      userId={team.leaderId}
+                      fallbackName={team.leaderName}
+                      size="w-10 h-10"
+                      isLeader={true}
                     />
                     <div>
                       <p className="text-[10px] font-black uppercase tracking-tighter text-slate-400 leading-none text-left">Founder</p>
@@ -214,15 +226,15 @@ function TeamSwipeCard({ team, index, total, active, onSwipe, onViewProfile, onR
                 <div className="flex items-center gap-3">
                   <div className="flex -space-x-2">
                     {team.members.filter(m => m.userId !== team.leaderId).slice(0, 3).map((m, i) => (
-                      <button 
-                        key={i} 
+                      <button
+                        key={i}
                         onClick={(e) => { e.stopPropagation(); onViewProfile(m.userId); }}
                         className="z-0 hover:z-10"
                       >
                         {/* ✅ Use the helper to fetch each member's actual avatar */}
-                        <MemberAvatar 
-                          userId={m.userId} 
-                          fallbackName={m.userName || 'User'} 
+                        <MemberAvatar
+                          userId={m.userId}
+                          fallbackName={m.userName || 'User'}
                         />
                       </button>
                     ))}
@@ -234,7 +246,7 @@ function TeamSwipeCard({ team, index, total, active, onSwipe, onViewProfile, onR
               </div>
 
               {/* CONNECT BUTTON */}
-              <button 
+              <button
                 onClick={() => onRequestJoin(team)}
                 className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-teal-600 to-cyan-700 text-white rounded-full font-black text-base shadow-xl shadow-teal-600/20 hover:opacity-90 transition-all"
               >
@@ -271,10 +283,11 @@ const DiscoverTeams = ({ onNavigate, openAuth, onViewProfile }: { onNavigate: (p
   const [teams, setTeams] = useState<Team[]>([]);
   const [queue, setQueue] = useState<Team[]>([]);
   const [skipped, setSkipped] = useState<string[]>(() => JSON.parse(sessionStorage.getItem("teamup:teams_skipped") || "[]"));
-  
+
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [cityFilter, setCityFilter] = useState('');
+  const [collegeFilter, setCollegeFilter] = useState('');
   const [availableCities, setAvailableCities] = useState<string[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
@@ -291,7 +304,7 @@ const DiscoverTeams = ({ onNavigate, openAuth, onViewProfile }: { onNavigate: (p
     getAvailableTeamCities().then(setAvailableCities);
 
     const unsub = subscribeToAvailableTeams((availableTeams) => {
-      const filtered = availableTeams.filter(team => 
+      const filtered = availableTeams.filter(team =>
         team.leaderId !== user.uid && !wasBlockedByThem(team.leaderId)
       );
       setTeams(filtered);
@@ -305,8 +318,12 @@ const DiscoverTeams = ({ onNavigate, openAuth, onViewProfile }: { onNavigate: (p
   const filteredTeams = teams.filter((team) => {
     const term = searchTerm.toLowerCase();
     const matchesSearch = team.name.toLowerCase().includes(term) || team.description.toLowerCase().includes(term);
-    const matchesCity = !cityFilter || team.city?.toLowerCase() === cityFilter.toLowerCase();
-    return matchesSearch && matchesCity;
+    let matchesCity = true;
+    if (cityFilter) {
+      matchesCity = team.city === cityFilter || normalizeCityString(team.city || '')?.id === cityFilter;
+    }
+    const matchesCollege = !collegeFilter || team.college === collegeFilter;
+    return matchesSearch && matchesCity && matchesCollege;
   });
 
   useEffect(() => {
@@ -363,24 +380,36 @@ const DiscoverTeams = ({ onNavigate, openAuth, onViewProfile }: { onNavigate: (p
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Main Search Row */}
+        <div className="mb-4">
           <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <input
               type="text" value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              placeholder="Search teams or projects..."
-              className="input-field pl-10 w-full text-sm"
+              placeholder="Search teams, projects, or hackathons..."
+              className="input-field pl-12 h-12 w-full text-base shadow-sm border-border/60 hover:border-primary/40 focus:border-primary/60 transition-all rounded-2xl"
             />
           </div>
-          <div className="relative">
-            <Filter className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <select value={cityFilter} onChange={e => setCityFilter(e.target.value)}
-              className="input-field pl-10 pr-10 w-full appearance-none text-sm">
-              <option value="">All Cities</option>
-              {availableCities.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        </div>
+
+        {/* Filters Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="min-w-0">
+            <CitySelect
+              value={cityFilter}
+              onChange={(cityId) => setCityFilter(cityId)}
+              placeholder="All Cities"
+              className="h-full"
+            />
+          </div>
+          <div className="min-w-0">
+            <InstitutionSelect
+              value={collegeFilter}
+              onChange={(collegeId) => setCollegeFilter(collegeId)}
+              placeholder="All Colleges"
+              className="h-full"
+            />
           </div>
         </div>
       </div>
@@ -391,8 +420,8 @@ const DiscoverTeams = ({ onNavigate, openAuth, onViewProfile }: { onNavigate: (p
           <div className="text-center space-y-4">
             <RotateCcw className="w-12 h-12 text-muted-foreground mx-auto" />
             <h3 className="font-display font-bold text-xl text-foreground">No teams left to explore</h3>
-            <button 
-              onClick={() => { setSkipped([]); sessionStorage.removeItem("teamup:teams_skipped"); }} 
+            <button
+              onClick={() => { setSkipped([]); sessionStorage.removeItem("teamup:teams_skipped"); }}
               className="btn-primary"
             >
               Refresh Stack

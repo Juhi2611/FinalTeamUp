@@ -7,6 +7,7 @@ import { db } from '@/lib/firebase';
 import { isFirebaseConfigured } from '@/lib/firebase';
 import { toast } from 'sonner';
 import DemoLockModal from "@/components/DemoLockModal";
+import CitySelect from "@/components/ui/CitySelect";
 
 interface EditTeamProps {
   teamId: string;
@@ -247,12 +248,10 @@ const EditTeam = ({ teamId, onNavigate, onBack, onTeamUpdated, openAuth }: EditT
           <label className="block text-sm font-medium text-foreground mb-2">
             City *
           </label>
-          <input
-            type="text"
+          <CitySelect
             value={city}
-            onChange={(e) => setCity(e.target.value)}
-            placeholder="e.g., Mumbai, Bangalore, Delhi"
-            className="input-field"
+           onChange={(cityId) => setCity(cityId)}
+            placeholder="Select your city in India"
           />
         </div>
 

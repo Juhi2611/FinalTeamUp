@@ -27,21 +27,26 @@ import {
   Video, Award, Zap, BadgeCheck, Clock, MapPin,
 } from "lucide-react";
 
-import { useAuth }            from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   subscribeToAllUsers, getProfile, getUserTeams, sendInvitation,
   getAvailableRoles, getAvailableCities, UserProfile, Team,
-}                             from "@/services/firestore";
+} from "@/services/firestore";
 import { getUserTeams as getLeaderTeams } from "@/services/firestore";
-import { isFirebaseConfigured }           from "@/lib/firebase";
-import { useBlocks }                      from "@/contexts/BlockContext";
-import { getSkillClass }                  from "@/data/mockData";
-import { PerkRankBadge }                  from "@/components/PerksBadge";
-import { getJoinFee }                     from "@/types/firestore.types";
-import PitchModal                         from "../PitchModal";
-import InterviewRequestModal              from "@/components/interviews/InterviewRequestModal";
-import DemoLockModal                      from "@/components/DemoLockModal";
-import { toast }                          from "sonner";
+import { isFirebaseConfigured } from "@/lib/firebase";
+import { useBlocks } from "@/contexts/BlockContext";
+import { getSkillClass } from "@/data/mockData";
+import { PerkRankBadge } from "@/components/PerksBadge";
+import { getJoinFee } from "@/types/firestore.types";
+import PitchModal from "../PitchModal";
+import InterviewRequestModal from "@/components/interviews/InterviewRequestModal";
+import DemoLockModal from "@/components/DemoLockModal";
+import { toast } from "sonner";
+import CitySelect from "@/components/ui/CitySelect";
+import { normalizeCityString, getCityById } from "@/utils/cityData";
+import InstitutionSelect from "@/components/ui/InstitutionSelect";
+import { normalizeInstitutionString, getInstitutionById } from "@/utils/institutionData";
+import { useInstitutionName } from "@/utils/useInstitutionName";
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
@@ -53,34 +58,34 @@ interface DiscoverPeopleProps {
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
 function computeMatchScore(u: UserProfile): number {
-  const base       = 65;
+  const base = 65;
   const skillBonus = Math.min((u.skills?.length ?? 0) * 3, 20);
-  const teamBonus  = (u.leaderOfTeamIds?.length ?? 0) > 0 ? 5 : 0;
-  const hash       = (u.id?.charCodeAt(0) ?? 0) % 11;
+  const teamBonus = (u.leaderOfTeamIds?.length ?? 0) > 0 ? 5 : 0;
+  const hash = (u.id?.charCodeAt(0) ?? 0) % 11;
   return Math.min(base + skillBonus + teamBonus + hash, 99);
 }
 
 function getMatchReasons(u: UserProfile): { icon: "skill" | "collab" | "time"; text: string }[] {
   const reasons: { icon: "skill" | "collab" | "time"; text: string }[] = [];
   if (u.skills?.length)
-    reasons.push({ icon: "skill",  text: `Matches your ${u.skills[0].name} development needs` });
+    reasons.push({ icon: "skill", text: `Matches your ${u.skills[0].name} development needs` });
   reasons.push({ icon: "collab", text: "Open to joining early-stage projects & collaborations" });
-  reasons.push({ icon: "time",   text: `Active recently` });
+  reasons.push({ icon: "time", text: `Active recently` });
   return reasons.slice(0, 3);
 }
 
 type AvailState = "Available" | "Open to offers" | "In a team";
 function getAvailability(u: UserProfile): AvailState {
   const leading = u.leaderOfTeamIds?.length ?? 0;
-  const total   = u.teamIds?.length ?? 0;
+  const total = u.teamIds?.length ?? 0;
   if (leading > 0 || total > 0) return "In a team";
   return "Available";
 }
 
 /** Deterministic pastel avatar background from user id */
 const AVATAR_COLORS = [
-  "#ef4444","#f97316","#eab308","#22c55e","#14b8a6",
-  "#3b82f6","#8b5cf6","#ec4899","#0ea5e9","#84cc16",
+  "#ef4444", "#f97316", "#eab308", "#22c55e", "#14b8a6",
+  "#3b82f6", "#8b5cf6", "#ec4899", "#0ea5e9", "#84cc16",
 ];
 function avatarBg(id: string) {
   const code = id ? id.charCodeAt(0) + id.charCodeAt(id.length - 1) : 0;
@@ -98,14 +103,14 @@ function scoreColor(s: number) {
 
 function ScoreRing({ score }: { score: number }) {
   const size = 72, r = 28, circ = 2 * Math.PI * r;
-  const off  = circ - (score / 100) * circ;
-  const col  = scoreColor(score);
+  const off = circ - (score / 100) * circ;
+  const col = scoreColor(score);
   return (
     <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: "rotate(-90deg)" }}>
-        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="5" />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="5" />
         <circle
-          cx={size/2} cy={size/2} r={r} fill="none"
+          cx={size / 2} cy={size / 2} r={r} fill="none"
           stroke={col} strokeWidth="5" strokeLinecap="round"
           strokeDasharray={circ} strokeDashoffset={off}
         />
@@ -152,32 +157,33 @@ interface SwipeCardProps {
 function SwipeCard({
   user, index, total, onSwipe, onExpand, onInterview, active, isLeader,
 }: SwipeCardProps) {
-  const x      = useMotionValue(0);
-  const y      = useMotionValue(0);
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
   const rotate = useTransform(x, [-300, 300], [-12, 12]);
   const connOp = useTransform(x, [40, 130], [0, 1]);
   const skipOp = useTransform(x, [-130, -40], [1, 0]);
   const viewOp = useTransform(y, [-100, -30], [1, 0]);
 
   // Stack offsets — each card shifts down and scales slightly
-  const STACK_GAP   = 14;
+  const STACK_GAP = 14;
   const STACK_SCALE = 0.045;
-  const stackY   = index * STACK_GAP;
-  const stackSc  = 1 - index * STACK_SCALE;
+  const stackY = index * STACK_GAP;
+  const stackSc = 1 - index * STACK_SCALE;
   const stackRot = index * 1.5 * (index % 2 === 0 ? 1 : -1);
 
-  const score   = computeMatchScore(user);
-  const avail   = getAvailability(user);
+  const score = computeMatchScore(user);
+  const avail = getAvailability(user);
   const reasons = getMatchReasons(user);
-  const badges  = getBadges(user);
+  const badges = getBadges(user);
   const leading = user.leaderOfTeamIds?.length ?? 0;
-  const inTeam  = (user.teamIds?.length ?? 0) - leading;
+  const inTeam = (user.teamIds?.length ?? 0) - leading;
 
   const avatarSrc = user.avatar
     ? `${user.avatar}?t=${Math.floor(Date.now() / 60000)}`
     : null;
 
   const expLevel = user.skills?.[0]?.proficiency ?? null;
+  const collegeName = useInstitutionName(user.college);
 
   const handleDragEnd = useCallback(
     (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
@@ -186,9 +192,9 @@ function SwipeCard({
       const swU = offset.y < -80 || velocity.y < -400;
       if (swU) {
         // Increase velocity or decrease duration to make it snappier
-        animate(y, -800, { duration: 0.25, ease: "easeOut" }); 
+        animate(y, -800, { duration: 0.25, ease: "easeOut" });
         // Trigger immediately or with a shorter delay
-        setTimeout(() => onSwipe(user.id, "up"), 100); 
+        setTimeout(() => onSwipe(user.id, "up"), 100);
       } else if (swX && offset.x > 0) {
         animate(x, 700, { duration: 0.3 });
         setTimeout(() => onSwipe(user.id, "right"), 240);
@@ -225,11 +231,10 @@ function SwipeCard({
       animate={{ y: stackY, scale: stackSc, rotate: active ? 0 : stackRot }}
       transition={{ type: "spring", stiffness: 240, damping: 26 }}
       // Keep active cards interactive, but ensure the z-index is high enough during the swipe
-      className={`absolute inset-0 transition-shadow ${
-        active 
-          ? "cursor-grab active:cursor-grabbing z-50" 
+      className={`absolute inset-0 transition-shadow ${active
+          ? "cursor-grab active:cursor-grabbing z-50"
           : "pointer-events-none z-0"
-      }`}
+        }`}
     >
       {/* ── GLASSMORPHISM CARD ─── */}
       <div
@@ -379,12 +384,12 @@ function SwipeCard({
             {user.city && (
               <span className="flex items-center gap-1 text-sm" style={{ color: "#64748b" }}>
                 <MapPin size={13} style={{ color: "#ec4899" }} />
-                {user.city}
+                {getCityById(user.city || '')?.name || user.city}
               </span>
             )}
-            {user.college && (
+            {collegeName && (
               <span className="text-sm" style={{ color: "#64748b" }}>
-                · {user.college}
+                · {collegeName}
               </span>
             )}
           </div>
@@ -407,9 +412,9 @@ function SwipeCard({
             <div className="space-y-1.5">
               {reasons.map((r, i) => (
                 <div key={i} className="flex items-start gap-2">
-                  {r.icon === "skill"  && <Check  size={14} className="flex-shrink-0 mt-0.5" style={{ color: "#0d9488" }} />}
-                  {r.icon === "collab" && <Check  size={14} className="flex-shrink-0 mt-0.5" style={{ color: "#0d9488" }} />}
-                  {r.icon === "time"   && <Clock  size={14} className="flex-shrink-0 mt-0.5" style={{ color: "#0d9488" }} />}
+                  {r.icon === "skill" && <Check size={14} className="flex-shrink-0 mt-0.5" style={{ color: "#0d9488" }} />}
+                  {r.icon === "collab" && <Check size={14} className="flex-shrink-0 mt-0.5" style={{ color: "#0d9488" }} />}
+                  {r.icon === "time" && <Clock size={14} className="flex-shrink-0 mt-0.5" style={{ color: "#0d9488" }} />}
                   <span className="text-sm leading-snug" style={{ color: "#1e293b" }}>{r.text}</span>
                 </div>
               ))}
@@ -477,12 +482,12 @@ function SwipeCard({
             </motion.div>
             <motion.div style={{ opacity: viewOp }} className="absolute inset-0 rounded-3xl pointer-events-none">
               {/* ✅ Ensure this border only appears during the swipe */}
-              <div 
-                className="absolute inset-0 rounded-3xl" 
-                style={{ 
-                  background: "rgba(59,130,246,0.08)", 
-                  border: "3px solid #3b82f6" 
-                }} 
+              <div
+                className="absolute inset-0 rounded-3xl"
+                style={{
+                  background: "rgba(59,130,246,0.08)",
+                  border: "3px solid #3b82f6"
+                }}
               />
               <div
                 className="absolute top-5 left-1/2 -translate-x-1/2 font-black rounded-2xl px-4 py-2 text-white"
@@ -505,11 +510,12 @@ function ProfileDrawer({
 }: {
   user: UserProfile; onClose: () => void; onConnect: () => void; onSkip: () => void;
 }) {
-  const score   = computeMatchScore(user);
-  const avail   = getAvailability(user);
+  const score = computeMatchScore(user);
+  const avail = getAvailability(user);
   const reasons = getMatchReasons(user);
-  const badges  = getBadges(user);
+  const badges = getBadges(user);
   const avatarSrc = user.avatar ? user.avatar : null;
+  const collegeName = useInstitutionName(user.college);
 
   return (
     <motion.div
@@ -555,8 +561,8 @@ function ProfileDrawer({
                     🟢 Available
                   </span>
                 )}
-                {user.city && <span className="flex items-center gap-1"><MapPin size={12} style={{ color: "#ec4899" }} />{user.city}</span>}
-                {user.college && <span>· {user.college}{user.yearOfStudy ? `, ${user.yearOfStudy}` : ""}</span>}
+                {user.city && <span className="flex items-center gap-1"><MapPin size={12} style={{ color: "#ec4899" }} />{getCityById(user.city || '')?.name || user.city}</span>}
+                {collegeName && <span>· {collegeName}{user.yearOfStudy ? `, ${user.yearOfStudy}` : ""}</span>}
                 <PerkRankBadge totalPerksEarned={user.totalPerksEarned ?? 0} size="sm" />
               </div>
             </div>
@@ -647,32 +653,33 @@ function ToastBanner({ msg, type }: { msg: string; type: "connect" | "skip" }) {
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 const DiscoverPeople = ({ onViewProfile, openAuth }: DiscoverPeopleProps) => {
-  const { user, isDemoUser }                             = useAuth();
-  const { wasBlockedByThem }                             = useBlocks();
+  const { user, isDemoUser } = useAuth();
+  const { wasBlockedByThem } = useBlocks();
 
-  const [allUsers, setAllUsers]                          = useState<UserProfile[]>([]);
-  const [loading, setLoading]                            = useState(true);
-  const [currentUserProfile, setCurrentUserProfile]      = useState<UserProfile | null>(null);
-  const [leaderTeams, setLeaderTeams]                    = useState<Team[]>([]);
-  const [availableRoles, setAvailableRoles]              = useState<string[]>([]);
-  const [availableCities, setAvailableCities]            = useState<string[]>([]);
+  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
+  const [leaderTeams, setLeaderTeams] = useState<Team[]>([]);
+  const [availableRoles, setAvailableRoles] = useState<string[]>([]);
+  const [availableCities, setAvailableCities] = useState<string[]>([]);
 
-  const [searchTerm, setSearchTerm]                      = useState("");
-  const [roleFilter, setRoleFilter]                      = useState("");
-  const [cityFilter, setCityFilter]                      = useState("");
-  const [availabilityFilter, setAvailabilityFilter]      = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
+  const [cityFilter, setCityFilter] = useState("");
+  const [collegeFilter, setCollegeFilter] = useState("");
+  const [availabilityFilter, setAvailabilityFilter] = useState("all");
 
-  const [queue, setQueue]                                = useState<UserProfile[]>([]);
-  const [connected, setConnected]                        = useState<string[]>(() => JSON.parse(sessionStorage.getItem("teamup:swiped_right") || "[]"));
-  const [skipped, setSkipped]                            = useState<string[]>(() => JSON.parse(sessionStorage.getItem("teamup:swiped_left") || "[]"));
+  const [queue, setQueue] = useState<UserProfile[]>([]);
+  const [connected, setConnected] = useState<string[]>(() => JSON.parse(sessionStorage.getItem("teamup:swiped_right") || "[]"));
+  const [skipped, setSkipped] = useState<string[]>(() => JSON.parse(sessionStorage.getItem("teamup:swiped_left") || "[]"));
 
-  const [expandedUser, setExpandedUser]                  = useState<UserProfile | null>(null);
-  const [showModal, setShowModal]                        = useState<UserProfile | null>(null);
-  const [interviewTarget, setInterviewTarget]            = useState<UserProfile | null>(null);
-  const [showDemoLock, setShowDemoLock]                  = useState(false);
-  const [sending, setSending]                            = useState(false);
-  const [toastMsg, setToastMsg]                          = useState<{ msg: string; type: "connect" | "skip" } | null>(null);
-  const toastTimer                                       = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [expandedUser, setExpandedUser] = useState<UserProfile | null>(null);
+  const [showModal, setShowModal] = useState<UserProfile | null>(null);
+  const [interviewTarget, setInterviewTarget] = useState<UserProfile | null>(null);
+  const [showDemoLock, setShowDemoLock] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [toastMsg, setToastMsg] = useState<{ msg: string; type: "connect" | "skip" } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Load ───────────────────────────────────────────────────────────────────
 
@@ -716,32 +723,34 @@ const DiscoverPeople = ({ onViewProfile, openAuth }: DiscoverPeopleProps) => {
 
   const filteredUsers = allUsers.filter(u => {
     if (wasBlockedByThem(u.id)) return false;
-    const term     = searchTerm.toLowerCase();
-    const leading  = u.leaderOfTeamIds?.length ?? 0;
+    const term = searchTerm.toLowerCase();
+    const leading = u.leaderOfTeamIds?.length ?? 0;
     const memberIn = (u.teamIds?.length ?? 0) - leading;
-    const isAvail  = leading === 0 && memberIn === 0;
+    const isAvail = leading === 0 && memberIn === 0;
 
     const matchesSearch =
       (u.fullName?.toLowerCase().includes(term) ?? false) ||
       (u.primaryRole?.toLowerCase().includes(term) ?? false) ||
       (u.skills?.some(s => s.name.toLowerCase().includes(term)) ?? false);
 
-    const matchesRole  = !roleFilter || u.primaryRole === roleFilter;
-    const matchesCity  = !cityFilter || u.city?.toLowerCase() === cityFilter.toLowerCase();
+    const matchesRole = !roleFilter || u.primaryRole === roleFilter;
+    const matchesCity = !cityFilter || u.city === cityFilter || normalizeCityString(u.city || '')?.id === cityFilter;
+    const matchesCollege = !collegeFilter || u.college === collegeFilter;
+
     const matchesAvail =
       availabilityFilter === "all" ||
       (availabilityFilter === "available" && isAvail) ||
-      (availabilityFilter === "busy"      && !isAvail);
+      (availabilityFilter === "busy" && !isAvail);
 
-    return matchesSearch && matchesRole && matchesCity && matchesAvail;
+    return matchesSearch && matchesRole && matchesCity && matchesAvail && matchesCollege;
   });
 
   // Sync queue on filter change
   useEffect(() => {
     const seen = new Set([...connected, ...skipped]);
     setQueue(filteredUsers.filter(u => !seen.has(u.id)));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredUsers.length, connected.length, skipped.length, searchTerm, roleFilter, cityFilter, availabilityFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredUsers.length, connected.length, skipped.length, searchTerm, roleFilter, cityFilter, collegeFilter, availabilityFilter]);
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -761,7 +770,7 @@ const DiscoverPeople = ({ onViewProfile, openAuth }: DiscoverPeopleProps) => {
         onViewProfile(target.id);
       }
       // ✅ Do not filter the queue here; let the user return to this card
-      return; 
+      return;
     }
 
     // Standard logic for left/right swipes
@@ -775,7 +784,6 @@ const DiscoverPeople = ({ onViewProfile, openAuth }: DiscoverPeopleProps) => {
       setSkipped(prev => [...prev, id]);
       showToast("Skipped", "skip");
     }
-    
     setQueue(prev => prev.filter(p => p.id !== id));
   }, [allUsers, isDemoUser, onViewProfile]);
 
@@ -790,7 +798,7 @@ const DiscoverPeople = ({ onViewProfile, openAuth }: DiscoverPeopleProps) => {
 
   const handleSendInvite = async (targetUser: UserProfile, message: string) => {
     if (!user || !targetUser.id) return;
-    const fee            = getJoinFee(currentUserProfile?.totalPerksEarned ?? 0);
+    const fee = getJoinFee(currentUserProfile?.totalPerksEarned ?? 0);
     const currentBalance = currentUserProfile?.perks ?? 0;
     if (fee > 0 && currentBalance < fee) {
       toast.error(`You need ${fee} Perks. You currently have ${currentBalance}.`);
@@ -799,12 +807,12 @@ const DiscoverPeople = ({ onViewProfile, openAuth }: DiscoverPeopleProps) => {
     if (fee > 0) toast.info(`Note: ${fee} Perks will be deducted.`);
     setSending(true);
     try {
-      const ctxId   = sessionStorage.getItem("inviteForTeamId");
+      const ctxId = sessionStorage.getItem("inviteForTeamId");
       const ctxName = sessionStorage.getItem("inviteForTeamName");
       let teamId: string, teamName: string;
       if (ctxId && ctxName) {
         const userTeams = await getUserTeams(user.uid);
-        const team      = userTeams.find(t => t.id === ctxId);
+        const team = userTeams.find(t => t.id === ctxId);
         if (!team || team.leaderId !== user.uid) {
           toast.error("Team not found or you're no longer the leader.");
           setSending(false); setShowModal(null); return;
@@ -812,7 +820,7 @@ const DiscoverPeople = ({ onViewProfile, openAuth }: DiscoverPeopleProps) => {
         teamId = ctxId; teamName = ctxName;
       } else {
         const userTeams = await getUserTeams(user.uid);
-        const myLeader  = userTeams.filter(t => t.leaderId === user.uid);
+        const myLeader = userTeams.filter(t => t.leaderId === user.uid);
         if (!myLeader.length) {
           toast.error("Only team leaders can send invitations.");
           setSending(false); setShowModal(null); return;
@@ -822,10 +830,10 @@ const DiscoverPeople = ({ onViewProfile, openAuth }: DiscoverPeopleProps) => {
       const currentProfile = await getProfile(user.uid);
       await sendInvitation({
         teamId, teamName,
-        fromUserId:   user.uid,
+        fromUserId: user.uid,
         fromUserName: currentProfile?.fullName || user.email?.split("@")[0] || "User",
-        toUserId:     targetUser.id,
-        toUserName:   targetUser.fullName || "User",
+        toUserId: targetUser.id,
+        toUserName: targetUser.fullName || "User",
         message, type: "invite",
       });
       toast.success(`Invitation sent to ${targetUser.fullName}`);
@@ -844,8 +852,8 @@ const DiscoverPeople = ({ onViewProfile, openAuth }: DiscoverPeopleProps) => {
       const top = queue[0];
       if (!top) return;
       if (e.key === "ArrowRight") handleSwipe(top.id, "right");
-      if (e.key === "ArrowLeft")  handleSwipe(top.id, "left");
-      if (e.key === "ArrowUp")    { e.preventDefault(); handleSwipe(top.id, "up"); }
+      if (e.key === "ArrowLeft") handleSwipe(top.id, "left");
+      if (e.key === "ArrowUp") { e.preventDefault(); handleSwipe(top.id, "up"); }
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
@@ -862,7 +870,7 @@ const DiscoverPeople = ({ onViewProfile, openAuth }: DiscoverPeopleProps) => {
   }
 
   const cardCount = queue.length;
-  const isLeader  = leaderTeams.length > 0;
+  const isLeader = leaderTeams.length > 0;
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -895,44 +903,59 @@ const DiscoverPeople = ({ onViewProfile, openAuth }: DiscoverPeopleProps) => {
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Main Search Row */}
+        <div className="mb-4">
           <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <input
               type="text" value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              placeholder="Search name, role, skill…"
-              className="input-field pl-10 w-full text-sm"
+              placeholder="Search by name, role, skills, or experience..."
+              className="input-field pl-12 h-12 w-full text-base shadow-sm border-border/60 hover:border-primary/40 focus:border-primary/60 transition-all rounded-2xl"
             />
           </div>
-          <div className="relative">
-            <Filter className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
-              className="input-field pl-10 pr-10 w-full appearance-none text-sm">
-              <option value="">All Roles</option>
-              {availableRoles.map(r => <option key={r} value={r}>{r}</option>)}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        </div>
+
+        {/* Filters Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3">
+          <div className="lg:col-span-3 min-w-0">
+            <div className="relative h-full">
+              <Filter className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
+                className="input-field pl-10 pr-10 w-full appearance-none text-sm h-full truncate">
+                <option value="">All Roles</option>
+                {availableRoles.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            </div>
           </div>
-          <div className="relative">
-            <Filter className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <select value={cityFilter} onChange={e => setCityFilter(e.target.value)}
-              className="input-field pl-10 pr-10 w-full appearance-none text-sm">
-              <option value="">All Cities</option>
-              {availableCities.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <div className="lg:col-span-3 min-w-0">
+            <CitySelect
+              value={cityFilter}
+              onChange={(cityId) => setCityFilter(cityId)}
+              placeholder="All Cities"
+              className="h-full"
+            />
           </div>
-          <div className="relative">
-            <Filter className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <select value={availabilityFilter} onChange={e => setAvailabilityFilter(e.target.value)}
-              className="input-field pl-10 pr-10 w-full appearance-none text-sm">
-              <option value="all">All Availability</option>
-              <option value="available">Available Only</option>
-              <option value="busy">In Teams / Leading</option>
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <div className="lg:col-span-3 min-w-0">
+            <InstitutionSelect
+              value={collegeFilter}
+              onChange={(collegeId) => setCollegeFilter(collegeId)}
+              placeholder="All Colleges"
+              className="h-full"
+            />
+          </div>
+          <div className="lg:col-span-3 min-w-0">
+            <div className="relative h-full">
+              <Filter className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <select value={availabilityFilter} onChange={e => setAvailabilityFilter(e.target.value)}
+                className="input-field pl-10 pr-10 w-full appearance-none text-sm h-full truncate">
+                <option value="all">All Availability</option>
+                <option value="available">Available Only</option>
+                <option value="busy">In Teams / Leading</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            </div>
           </div>
         </div>
       </div>
@@ -955,9 +978,9 @@ const DiscoverPeople = ({ onViewProfile, openAuth }: DiscoverPeopleProps) => {
               </p>
               {(connected.length > 0 || skipped.length > 0) && (
                 <button
-                  onClick={() => { 
-                    setConnected([]); 
-                    setSkipped([]); 
+                  onClick={() => {
+                    setConnected([]);
+                    setSkipped([]);
                     sessionStorage.removeItem("teamup:swiped_right"); // ✅ Clear storage
                     sessionStorage.removeItem("teamup:swiped_left");  // ✅ Clear storage
                   }}

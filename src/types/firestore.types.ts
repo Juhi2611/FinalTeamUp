@@ -127,6 +127,7 @@ export interface Team {
   name: string;
   description: string;
   city: string;
+  college?: string;
   hackathon?: string | null;
   leaderId: string;
   leaderName?: string;

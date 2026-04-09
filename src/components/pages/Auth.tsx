@@ -399,34 +399,6 @@ const handleForgotPassword = async () => {
             </div>
           )}
 
-          <div className="flex items-start gap-2 text-sm mt-4">
-            <input
-              type="checkbox"
-              id="terms"
-              checked={acceptedTerms}
-              onChange={(e) => setAcceptedTerms(e.target.checked)}
-              className="mt-1"
-              required
-            />
-            <label htmlFor="terms" className="text-muted-foreground">
-              I agree to the{' '}
-              <button
-                type="button"
-                onClick={() => setShowTerms(true)}
-                className="text-primary hover:underline"
-              >
-                Terms & Conditions
-              </button>
-              {' '}and{' '}
-              <button
-                type="button"
-                onClick={() => setShowPrivacy(true)}
-                className="text-primary hover:underline"
-              >
-                Privacy Policy
-              </button>
-            </label>
-          </div>
           {!isLogin && (
             <div className="flex items-start gap-2 text-sm mt-4">
               <input

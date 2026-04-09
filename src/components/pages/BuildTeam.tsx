@@ -5,6 +5,8 @@ import { createTeam, getProfile, createFeedPost } from '@/services/firestore';
 import { isFirebaseConfigured } from '@/lib/firebase';
 import { toast } from 'sonner';
 import DemoLockModal from "@/components/DemoLockModal";
+import CitySelect from "@/components/ui/CitySelect";
+import InstitutionSelect from "@/components/ui/InstitutionSelect";
 
 interface BuildTeamProps {
   onNavigate: (page: string) => void;
@@ -22,6 +24,7 @@ const BuildTeam = ({ onNavigate, openAuth }: BuildTeamProps) => {
   const [maxMembers, setMaxMembers] = useState(4);
   const [loading, setLoading] = useState(false);
   const [city, setCity] = useState('');
+  const [college, setCollege] = useState('');
 
 
   // ✅ Custom role state
@@ -99,6 +102,7 @@ const BuildTeam = ({ onNavigate, openAuth }: BuildTeamProps) => {
         name: teamName,
         description,
         city: city.trim(),
+        college: college.trim() || undefined,
         hackathon: hackathon.trim() || null,
         leaderId: user.uid,
         status: 'forming',
@@ -186,6 +190,23 @@ const BuildTeam = ({ onNavigate, openAuth }: BuildTeamProps) => {
             onChange={(e) => setCity(e.target.value)}
             placeholder="e.g., Mumbai, Bangalore, Delhi"
             className="input-field"
+          />
+          <CitySelect
+            value={city}
+            onChange={(cityId) => setCity(cityId)}
+            placeholder="Select your city in India"
+          />
+        </div>
+
+        {/* College (Optional) */}
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">
+            College / University (Optional)
+          </label>
+          <InstitutionSelect
+            value={college}
+            onChange={(collegeId) => setCollege(collegeId)}
+            placeholder="Select a college"
           />
         </div>
 

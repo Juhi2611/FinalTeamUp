@@ -45,6 +45,7 @@ import { rateMember } from '@/services/firestore';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Timestamp } from 'firebase/firestore';
+import { getCityById } from '@/utils/cityData';
 
 interface MyTeamsProps {
   onNavigate: (page: string) => void;
@@ -443,7 +444,10 @@ if (editingTeamId) {
                     <p className="text-sm text-primary mt-1">🎯 {team.hackathon}</p>
                   )}
                   {team.city && (
-                    <p className="text-sm text-muted-foreground mt-1">📍 {team.city}</p>
+                    <>
+                      <p className="text-sm text-muted-foreground mt-1">📍 {team.city}</p>
+                      <p className="text-sm text-muted-foreground mt-1">📍 {getCityById(team.city)?.name || team.city}</p>
+                    </>
                   )}
                 </div>
                 <div className="relative">

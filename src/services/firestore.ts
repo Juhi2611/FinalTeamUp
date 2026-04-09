@@ -1217,13 +1217,23 @@ if (isJoinRequest) {
 
   export const getTeamTasks = async (teamId: string): Promise<TeamTask[]> => {
     if (!isFirebaseConfigured()) return [];
+    
+    // We remove the database-level orderBy to avoid requiring a composite index
+    // which many users haven't created. Instead, we sort in memory.
     const q = query(
       collection(db, 'teamTasks'),
-      where('teamId', '==', teamId),
-      orderBy('createdAt', 'desc')
+      where('teamId', '==', teamId)
     );
+    
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TeamTask));
+    const tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TeamTask));
+    
+    // Sort in memory by createdAt desc
+    return tasks.sort((a, b) => {
+      const timeA = a.createdAt?.toMillis() || 0;
+      const timeB = b.createdAt?.toMillis() || 0;
+      return timeB - timeA;
+    });
   };
   export const updateTeamTask = async (
     taskId: string,

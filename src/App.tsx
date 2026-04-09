@@ -17,6 +17,8 @@ import AdminLogin from "@/components/pages/AdminLogin";
 import AdminPanel from "./components/pages/AdminPanel";
 import ProtectedAdmin from "./components/ProtectedAdmin";
 import SitemapVisualizer from "./pages/SitemapVisualizer";
+import VerifyCertificate from "./pages/VerifyCertificate";
+
 
 const queryClient = new QueryClient();
 
@@ -64,6 +66,46 @@ const App = () => (
           </UserProfileProvider>
         </TooltipProvider>
       </BlockProvider>
+        <BlockProvider>
+          <TooltipProvider>
+            <UserProfileProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/build" element={<Index />} />
+                  <Route path="/discover" element={<Index />} />
+                  <Route path="/teams" element={<Index />} />
+                  <Route path="/notifications" element={<Index />} />
+                  <Route path="/interviews" element={<Index />} />
+                  <Route path="/profile" element={<Index />} />
+                  <Route path="/messages" element={<Index />} />
+                  <Route path="/admin-login" element={<AdminLogin />} />
+
+                  <Route
+                    path="/admin"
+                    element={
+                      <ProtectedAdmin>
+                        <AdminPanel />
+                      </ProtectedAdmin>
+                    }
+                  />
+                  <Route path="/upload" element={<UploadPage />} />
+
+                  <Route path="/profile/:userId" element={<ProfilePage />} />
+                  <Route path="/teams/:teamId/files" element={<TeamFiles openAuth={function (): void {
+                    throw new Error("Function not implemented.");
+                  }} />} />
+                  <Route path="/team/:teamId" element={<TeamDetails />} />
+                  <Route path="/verify-portfolio/:userId" element={<VerifyCertificate />} />
+
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </BrowserRouter>
+            </UserProfileProvider>
+          </TooltipProvider>
+        </BlockProvider>
       </FeedbackProvider>
     </AuthProvider>
   </QueryClientProvider>
