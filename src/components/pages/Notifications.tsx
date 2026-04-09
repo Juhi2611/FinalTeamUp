@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Bell, Check, X, Clock, Send, Loader2, Eye, CheckCheck, MessageCircle } from 'lucide-react';
+import { Bell, Check, X, Clock, Send, Loader2, Eye, CheckCheck, MessageCircle, Settings as SettingsIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useBlocks } from '@/contexts/BlockContext';
 import { Users } from 'lucide-react';
@@ -18,6 +18,7 @@ import { isFirebaseConfigured } from '@/lib/firebase';
 import { Timestamp } from 'firebase/firestore';
 import { toast } from 'sonner';
 import DemoLockModal from "@/components/DemoLockModal";
+import { cn } from '@/lib/utils';
 
 interface NotificationsProps {
   onNavigateToMessages?: (conversationId: string) => void;
@@ -165,13 +166,23 @@ const Notifications: React.FC<NotificationsProps> = ({ onNavigateToMessages, onV
     }
   };
 
+  const getNotificationBarClass = (type: NotificationType['type']) => {
+    switch (type) {
+      case 'MESSAGE': return 'message';
+      case 'INVITE': return 'invite';
+      case 'ACCEPTED': return 'accepted';
+      case 'REJECTED': return 'rejected';
+      default: return 'default';
+    }
+  };
+
   const getNotificationIcon = (type: NotificationType['type']) => {
     switch (type) {
-      case 'MESSAGE': return <MessageCircle className="w-4 h-4" />;
-      case 'INVITE': return <Send className="w-4 h-4" />;
-      case 'ACCEPTED': return <CheckCheck className="w-4 h-4" />;
-      case 'REJECTED': return <X className="w-4 h-4" />;
-      default: return <Bell className="w-4 h-4" />;
+      case 'MESSAGE': return <MessageCircle className="w-4 h-4 text-primary" />;
+      case 'INVITE': return <Send className="w-4 h-4 text-accent" />;
+      case 'ACCEPTED': return <CheckCheck className="w-4 h-4 text-skill-mobile" />;
+      case 'REJECTED': return <X className="w-4 h-4 text-destructive" />;
+      default: return <Bell className="w-4 h-4 text-muted-foreground" />;
     }
   };
 
@@ -191,25 +202,30 @@ const Notifications: React.FC<NotificationsProps> = ({ onNavigateToMessages, onV
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;
-  const messageNotifications = notifications.filter(n => n.type === 'MESSAGE');
-  const unreadMessages = messageNotifications.filter(n => !n.read).length;
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center p-4">
-        <Loader2 className="animate-spin h-6 w-6 text-gray-500" />
+      <div className="flex justify-center items-center p-12">
+        <Loader2 className="animate-spin h-8 w-8 text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-5">
+      {/* ═══════════════════════════════════════════
+          HEADER
+         ═══════════════════════════════════════════ */}
       <div className="card-base p-6">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-5">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-primary/10">
+            <div className="p-2.5 rounded-xl bg-primary/10 relative">
               <Bell className="w-6 h-6 text-primary" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-accent text-white text-[10px] font-bold flex items-center justify-center">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
             </div>
             <div>
               <h2 className="font-display font-bold text-2xl text-foreground">Notifications</h2>
@@ -222,217 +238,122 @@ const Notifications: React.FC<NotificationsProps> = ({ onNavigateToMessages, onV
           </div>
           {unreadCount > 0 && (
             <button
-              className="btn-secondary text-sm"
+              className="btn-secondary text-xs flex items-center gap-1.5"
               onClick={handleMarkAllAsRead}
             >
+              <CheckCheck className="w-3.5 h-3.5" />
               Mark all read
             </button>
           )}
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-2">
+        {/* ── Segment Control Tabs ── */}
+        <div className="segment-control">
           <button
             onClick={() => setActiveTab('invitations')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              activeTab === 'invitations'
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-secondary text-muted-foreground hover:text-foreground'
-            }`}
+            className={cn("segment-control-item", activeTab === 'invitations' && 'active')}
           >
-            Invitations ({incoming.length})
+            Invitations
+            {incoming.length > 0 && (
+              <span className={cn(
+                "ml-1.5 text-[11px] px-1.5 py-0.5 rounded-full",
+                activeTab === 'invitations' ? "bg-primary/15 text-primary" : "bg-accent/15 text-accent"
+              )}>
+                {incoming.length}
+              </span>
+            )}
           </button>
           <button
             onClick={() => setActiveTab('all')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              activeTab === 'all'
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-secondary text-muted-foreground hover:text-foreground'
-            }`}
+            className={cn("segment-control-item", activeTab === 'all' && 'active')}
           >
-            All ({notifications.length})
+            All Notifications
+            {notifications.length > 0 && (
+              <span className={cn(
+                "ml-1.5 text-[11px] px-1.5 py-0.5 rounded-full",
+                activeTab === 'all' ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+              )}>
+                {notifications.length}
+              </span>
+            )}
           </button>
         </div>
       </div>
 
-      {/* Invitations Tab */}
+      {/* ═══════════════════════════════════════════
+          INVITATIONS TAB
+         ═══════════════════════════════════════════ */}
       {activeTab === 'invitations' && (
         <div className="space-y-3">
           {incoming.length === 0 ? (
-            <div className="card-base p-8 text-center">
-              <Send className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-50" />
-              <p className="text-muted-foreground">No pending invitations</p>
+            <div className="card-base p-10 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                <Send className="w-7 h-7 text-primary/40" />
+              </div>
+              <p className="text-muted-foreground font-medium">No pending invitations</p>
+              <p className="text-sm text-muted-foreground/60 mt-1">When someone invites you to a team, it'll appear here.</p>
             </div>
           ) : (
             incoming.map((inv) => (
-  <div key={inv.id} className="card-base p-4">
-    <div className="flex items-start gap-3">
-      
-      {/* Sender Avatar — CLICKABLE */}
-      <img
-  src={
-  userProfiles[inv.fromUserId]?.avatar ||
-  `https://api.dicebear.com/7.x/initials/svg?seed=${inv.fromUserName}`
-}
-  alt={inv.fromUserName}
-  className="w-10 h-10 rounded-full object-cover cursor-pointer hover:opacity-80 transition"
-  onClick={(e) => {
-  e.stopPropagation();
-  if (onViewProfile) {
-    if (wasBlockedByThem(inv.fromUserId)) {
-      toast.error('User not found');
-      return;
-    }
-    onViewProfile(inv.fromUserId);
-  }
-}}
-/>
+              <div key={inv.id} className="notification-item">
+                {/* Left accent bar */}
+                <div className="notification-bar invite" />
 
-      <div className="flex-1 min-w-0">
+                {/* Avatar */}
+                <img
+                  src={
+                    userProfiles[inv.fromUserId]?.avatar ||
+                    `https://api.dicebear.com/7.x/initials/svg?seed=${inv.fromUserName}`
+                  }
+                  alt={inv.fromUserName}
+                  className="w-11 h-11 rounded-full object-cover cursor-pointer hover:opacity-80 transition flex-shrink-0 ml-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onViewProfile) {
+                      if (wasBlockedByThem(inv.fromUserId)) {
+                        toast.error('User not found');
+                        return;
+                      }
+                      onViewProfile(inv.fromUserId);
+                    }
+                  }}
+                />
 
-        {/* Sender Name — CLICKABLE */}
-        <p className="text-foreground mb-1">
-  <span className="font-semibold">{inv.fromUserName}</span> invited you to join{' '}
-  <span className="font-semibold">{inv.teamName}</span>
-</p>
-{inv.teamDescription && (
-  <p className="text-sm text-muted-foreground mb-2">
-    {inv.teamDescription}
-  </p>
-)}
+                <div className="flex-1 min-w-0">
+                  <p className="text-foreground text-sm mb-1">
+                    <span className="font-semibold">{inv.fromUserName}</span> invited you to join{' '}
+                    <span className="font-semibold text-primary">{inv.teamName}</span>
+                  </p>
+                  {inv.teamDescription && (
+                    <p className="text-xs text-muted-foreground mb-1.5 line-clamp-1">{inv.teamDescription}</p>
+                  )}
+                  {inv.message && (
+                    <p className="text-xs text-muted-foreground italic mb-2">"{inv.message}"</p>
+                  )}
 
-
-
-
-        {inv.message && (
-          <p className="text-sm text-muted-foreground italic mb-2">
-            "{inv.message}"
-          </p>
-        )}
-
-        <p className="text-xs text-muted-foreground mb-3">
-          {formatTimestamp(inv.createdAt)}
-        </p>
-
-        <div className="flex gap-2">
-          <button
-            onClick={() => handleRespond(inv, true)}
-            disabled={processingId === inv.id}
-            className="btn-primary text-sm flex items-center gap-1.5"
-          >
-            {processingId === inv.id ? (
-              <Loader2 className="animate-spin h-4 w-4" />
-            ) : (
-              <Check className="w-4 h-4" />
-            )}
-            Accept
-          </button>
-
-          <button
-            onClick={() => handleRespond(inv, false)}
-            disabled={processingId === inv.id}
-            className="btn-secondary text-sm flex items-center gap-1.5"
-          >
-            <X className="w-4 h-4" />
-            Reject
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-))
-
-          )}
-        </div>
-      )}
-
-      {/* All Notifications Tab */}
-      {activeTab === 'all' && (
-        <div className="space-y-3">
-          {notifications.length === 0 ? (
-            <div className="card-base p-8 text-center">
-              <Bell className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-50" />
-              <p className="text-muted-foreground">No notifications</p>
-            </div>
-          ) : (
-            notifications.map((notif) => (
-              <div
-                key={notif.id}
-                onClick={() => handleNotificationClick(notif)}
-                className={`card-base p-4 cursor-pointer transition-colors ${
-                  !notif.read ? 'bg-primary/5 border-primary/20' : 'hover:bg-secondary/50'
-                }`}
-              >
-                <div className="flex items-start gap-3">
-  <img
-    src={
-  userProfiles[notif.fromUserId]?.avatar ||
-  `https://api.dicebear.com/7.x/initials/svg?seed=${notif.fromUserName}`
-}
-    alt={notif.fromUserName}
-    className="w-10 h-10 rounded-full object-cover cursor-pointer hover:opacity-80 transition flex-shrink-0"
-    onClick={(e) => {
-  e.stopPropagation();
-  if (onViewProfile) {
-    // Check if user is blocked before navigating
-    if (wasBlockedByThem(notif.fromUserId)) {
-      toast.error('User not found');
-      return;
-    }
-    onViewProfile(notif.fromUserId);
-  }
-}}
-  />
-                  <div className="flex-1 min-w-0">
-                    {notif.type === 'MESSAGE' ? (
-                      <>
-                        <p className="text-foreground mb-1">
-                          <strong>{notif.fromUserName}</strong> sent you a message
-                        </p>
-                        {notif.message && (
-                          <p className="text-sm text-muted-foreground mb-2">"{notif.message}"</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-muted-foreground/60">{formatTimestamp(inv.createdAt)}</span>
+                    <div className="flex gap-2 ml-auto">
+                      <button
+                        onClick={() => handleRespond(inv, true)}
+                        disabled={processingId === inv.id}
+                        className="btn-primary text-xs py-1.5 px-3 flex items-center gap-1"
+                      >
+                        {processingId === inv.id ? (
+                          <Loader2 className="animate-spin h-3.5 w-3.5" />
+                        ) : (
+                          <Check className="w-3.5 h-3.5" />
                         )}
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-foreground mb-1">
-                          {notif.type === 'ACCEPTED' && (
-                            <>
-                              <strong>{notif.fromUserName}</strong> accepted your invitation to{' '}
-                              <strong>{notif.teamName}</strong>
-                            </>
-                          )}
-                          {notif.type === 'REJECTED' && (
-                            <>
-                              <strong>{notif.fromUserName}</strong> declined your invitation to{' '}
-                              <strong>{notif.teamName}</strong>
-                            </>
-                          )}
-                          {notif.type === 'JOIN_REQUEST' && (
-                            <>
-                              <strong>{notif.fromUserName}</strong> requested to join{' '}
-                              <strong>{notif.teamName}</strong>
-                            </>
-                          )}
-                          {notif.type === 'INVITE' && (
-                            <>
-                              <strong>{notif.fromUserName}</strong> invited you to{' '}
-                              <strong>{notif.teamName}</strong>
-                            </>
-                          )}
-                        </p>
-                        {notif.message && (
-                          <p className="text-sm text-muted-foreground mb-2">"{notif.message}"</p>
-                        )}
-                      </>
-                    )}
-                    <div className="flex items-center gap-2">
-                      <p className="text-xs text-muted-foreground">
-                        {formatTimestamp(notif.createdAt)}
-                      </p>
-                      {!notif.read && (
-                        <span className="w-2 h-2 rounded-full bg-primary" />
-                      )}
+                        Accept
+                      </button>
+                      <button
+                        onClick={() => handleRespond(inv, false)}
+                        disabled={processingId === inv.id}
+                        className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        Reject
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -441,6 +362,95 @@ const Notifications: React.FC<NotificationsProps> = ({ onNavigateToMessages, onV
           )}
         </div>
       )}
+
+      {/* ═══════════════════════════════════════════
+          ALL NOTIFICATIONS TAB
+         ═══════════════════════════════════════════ */}
+      {activeTab === 'all' && (
+        <div className="space-y-2">
+          {notifications.length === 0 ? (
+            <div className="card-base p-10 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                <Bell className="w-7 h-7 text-primary/40" />
+              </div>
+              <p className="text-muted-foreground font-medium">No notifications yet</p>
+              <p className="text-sm text-muted-foreground/60 mt-1">Activity updates will show up here.</p>
+            </div>
+          ) : (
+            notifications.map((notif) => (
+              <div
+                key={notif.id}
+                onClick={() => handleNotificationClick(notif)}
+                className={cn("notification-item", !notif.read && 'unread')}
+              >
+                {/* Left accent bar */}
+                <div className={cn("notification-bar", getNotificationBarClass(notif.type))} />
+
+                {/* Avatar */}
+                <img
+                  src={
+                    userProfiles[notif.fromUserId]?.avatar ||
+                    `https://api.dicebear.com/7.x/initials/svg?seed=${notif.fromUserName}`
+                  }
+                  alt={notif.fromUserName}
+                  className="w-10 h-10 rounded-full object-cover cursor-pointer hover:opacity-80 transition flex-shrink-0 ml-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onViewProfile) {
+                      if (wasBlockedByThem(notif.fromUserId)) {
+                        toast.error('User not found');
+                        return;
+                      }
+                      onViewProfile(notif.fromUserId);
+                    }
+                  }}
+                />
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  {notif.type === 'MESSAGE' ? (
+                    <p className="text-sm text-foreground">
+                      <strong>{notif.fromUserName}</strong> sent you a message
+                    </p>
+                  ) : (
+                    <p className="text-sm text-foreground">
+                      {notif.type === 'ACCEPTED' && (
+                        <><strong>{notif.fromUserName}</strong> accepted your invitation to <strong className="text-primary">{notif.teamName}</strong></>
+                      )}
+                      {notif.type === 'REJECTED' && (
+                        <><strong>{notif.fromUserName}</strong> declined your invitation to <strong>{notif.teamName}</strong></>
+                      )}
+                      {notif.type === 'JOIN_REQUEST' && (
+                        <><strong>{notif.fromUserName}</strong> requested to join <strong className="text-primary">{notif.teamName}</strong></>
+                      )}
+                      {notif.type === 'INVITE' && (
+                        <><strong>{notif.fromUserName}</strong> invited you to <strong className="text-primary">{notif.teamName}</strong></>
+                      )}
+                    </p>
+                  )}
+                  {notif.message && (
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">"{notif.message}"</p>
+                  )}
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span className="text-[11px] text-muted-foreground/60">{formatTimestamp(notif.createdAt)}</span>
+                    <div className="flex items-center gap-1">
+                      {getNotificationIcon(notif.type)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Unread dot */}
+                {!notif.read && (
+                  <div className="flex-shrink-0">
+                    <span className="w-2.5 h-2.5 rounded-full bg-primary block" />
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
       <DemoLockModal
         open={showDemoLock}
         onClose={() => setShowDemoLock(false)}

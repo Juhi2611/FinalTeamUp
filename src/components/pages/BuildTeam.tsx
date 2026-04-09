@@ -7,6 +7,8 @@ import { toast } from 'sonner';
 import DemoLockModal from "@/components/DemoLockModal";
 import CitySelect from "@/components/ui/CitySelect";
 import InstitutionSelect from "@/components/ui/InstitutionSelect";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 interface BuildTeamProps {
   onNavigate: (page: string) => void;
@@ -108,6 +110,11 @@ const BuildTeam = ({ onNavigate, openAuth }: BuildTeamProps) => {
         status: 'forming',
         rolesNeeded,
         maxMembers
+      });
+      await addDoc(collection(db, "activity"), {
+        userId: user.uid,
+        type: "team_created",
+        createdAt: serverTimestamp()
       });
 
       toast.success('Team created successfully!');

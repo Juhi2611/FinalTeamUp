@@ -302,6 +302,8 @@ export interface Conversation {
   participantNames: Record<string, string>;
   participantAvatars: Record<string, string>;
   lastMessage?: {
+    read: any;
+    createdAt: any;
     text: string;
     senderId: string;
     sentAt: Timestamp;

@@ -1,4 +1,4 @@
-import { Heart, MessageCircle, Rocket, Search, Target, Sparkles } from 'lucide-react';
+import { Heart, MessageCircle, Rocket, Search, Target, Sparkles, Share2, Bookmark, ChevronRight } from 'lucide-react';
 import { FeedPost as FeedPostType, getSkillClass } from '../data/mockData';
 
 interface FeedPostProps {
@@ -12,11 +12,11 @@ const FeedPost = ({ post, onPitch, onInvite, onViewProfile }: FeedPostProps) => 
   const getTypeIcon = () => {
     switch (post.type) {
       case 'building':
-        return <Rocket className="w-4 h-4" />;
+        return <Rocket className="w-3.5 h-3.5" />;
       case 'looking':
-        return <Search className="w-4 h-4" />;
+        return <Search className="w-3.5 h-3.5" />;
       case 'open':
-        return <Target className="w-4 h-4" />;
+        return <Target className="w-3.5 h-3.5" />;
     }
   };
 
@@ -38,113 +38,118 @@ const FeedPost = ({ post, onPitch, onInvite, onViewProfile }: FeedPostProps) => 
       case 'looking':
         return 'bg-accent/10 text-accent';
       case 'open':
-        return 'bg-skill-mobile/10 text-skill-mobile';
+        return 'bg-emerald-500/10 text-emerald-600';
     }
   };
 
   return (
-    <article className="feed-post card-interactive animate-fade-in">
+    <article className="card-base overflow-hidden animate-fade-in">
       {/* Header */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-3">
+      <div className="p-5 pb-0">
+        <div className="flex items-start gap-3 mb-3">
           <img
             src={post.user.avatar}
             alt={post.user.name}
-            className="avatar w-12 h-12 cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
+            className="w-11 h-11 rounded-full object-cover cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all flex-shrink-0"
             onClick={onViewProfile}
           />
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 
-                className="font-semibold text-foreground hover:text-primary cursor-pointer transition-colors"
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3
+                className="font-semibold text-foreground hover:text-primary cursor-pointer transition-colors text-[15px]"
                 onClick={onViewProfile}
               >
                 {post.user.name}
               </h3>
-              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${getTypeColor()}`}>
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${getTypeColor()}`}>
                 {getTypeIcon()}
                 {getTypeLabel()}
               </span>
             </div>
-            <p className="text-sm text-muted-foreground">{post.user.role} • {post.timestamp}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{post.user.role} • {post.timestamp}</p>
           </div>
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="mb-4">
-        <h4 className="font-display font-bold text-lg text-foreground mb-2">{post.title}</h4>
-        <p className="text-muted-foreground leading-relaxed">{post.description}</p>
-      </div>
+        {/* Content */}
+        <div className="mb-3">
+          <h4 className="font-display font-bold text-[15px] text-foreground mb-1.5">{post.title}</h4>
+          <p className="text-muted-foreground text-sm leading-relaxed">{post.description}</p>
+        </div>
 
-      {/* Skills or Roles */}
-      <div className="mb-4">
-        {post.rolesNeeded && (
-          <div>
-            <p className="text-xs font-medium text-muted-foreground mb-2">Looking for:</p>
-            <div className="flex flex-wrap gap-2">
-              {post.rolesNeeded.map((role: string) => (
-                <span key={role} className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-sm font-medium">
-                  {role}
-                </span>
-              ))}
+        {/* Skills or Roles */}
+        <div className="mb-3">
+          {post.rolesNeeded && (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Looking for:</p>
+              <div className="flex flex-wrap gap-1.5">
+                {post.rolesNeeded.map((role: string) => (
+                  <span key={role} className="px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
+                    {role}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {post.skills && (
+            <div className="mt-2">
+              <div className="flex flex-wrap gap-1.5">
+                {post.skills.map((skill: string) => (
+                  <span key={skill} className={`skill-tag ${getSkillClass(skill)}`}>
+                    {skill}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* AI Match Indicator */}
+        {Math.random() > 0.5 && (
+          <div className="mb-3 p-3 rounded-xl bg-gradient-to-r from-primary/5 to-accent/5 border border-primary/10">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-primary" />
+              <span className="text-sm text-primary font-medium">AI Match: Your skills align with this team's needs</span>
             </div>
           </div>
         )}
-        {post.skills && (
-          <div>
-            <p className="text-xs font-medium text-muted-foreground mb-2">Skills:</p>
-            <div className="flex flex-wrap gap-2">
-              {post.skills.map((skill: string) => (
-                <span key={skill} className={`skill-tag ${getSkillClass(skill)}`}>
-                  {skill}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
-
-      {/* AI Match Indicator (placeholder) */}
-      {Math.random() > 0.5 && (
-        <div className="mb-4 p-3 rounded-lg bg-gradient-to-r from-primary/5 to-accent/5 border border-primary/10">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-primary" />
-            <span className="text-sm text-primary font-medium">AI Match: Your skills align with this team's needs</span>
-          </div>
-        </div>
-      )}
 
       {/* Footer */}
-      <div className="flex items-center justify-between pt-4 border-t border-border">
-        <div className="flex items-center gap-4">
-          <button className="btn-ghost flex items-center gap-1.5">
-            <Heart className="w-4 h-4" />
+      <div className="px-5 py-3 border-t border-border/50 flex items-center justify-between">
+        <div className="flex items-center gap-1">
+          <button className="post-interaction-btn">
+            <Heart className="w-[18px] h-[18px]" />
             <span>{post.likes}</span>
           </button>
-          <button className="btn-ghost flex items-center gap-1.5">
-            <MessageCircle className="w-4 h-4" />
+          <button className="post-interaction-btn">
+            <MessageCircle className="w-[18px] h-[18px]" />
             <span>{post.comments}</span>
+          </button>
+          <button className="post-interaction-btn">
+            <Bookmark className="w-[18px] h-[18px]" />
+          </button>
+          <button className="post-interaction-btn">
+            <Share2 className="w-[18px] h-[18px]" />
           </button>
         </div>
         <div className="flex items-center gap-2">
           {post.type === 'building' && (
-            <button onClick={onPitch} className="btn-primary text-sm">
-              Pitch Yourself
+            <button onClick={onPitch} className="btn-primary text-sm px-4 py-1.5">
+              Pitch Yourself <ChevronRight className="w-3.5 h-3.5 ml-1" />
             </button>
           )}
           {post.type === 'looking' && (
-            <button onClick={onInvite} className="btn-primary text-sm">
-              Invite to Team
+            <button onClick={onInvite} className="btn-primary text-sm px-4 py-1.5">
+              Invite to Team <ChevronRight className="w-3.5 h-3.5 ml-1" />
             </button>
           )}
           {post.type === 'open' && (
-            <button onClick={onInvite} className="btn-primary text-sm">
-              Pitch Your Team
+            <button onClick={onInvite} className="btn-primary text-sm px-4 py-1.5">
+              Pitch Your Team <ChevronRight className="w-3.5 h-3.5 ml-1" />
             </button>
           )}
-          <button onClick={onViewProfile} className="btn-secondary text-sm">
-            View Profile
+          <button onClick={onViewProfile} className="text-sm font-semibold text-primary hover:text-primary/80 transition-colors flex items-center gap-0.5">
+            Profile <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>

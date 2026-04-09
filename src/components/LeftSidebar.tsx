@@ -1,7 +1,7 @@
-import { Home, Users, UserPlus, FolderKanban, User, Bell, Sparkles, Crown, Search, ChevronLeft, ChevronRight, MessageCircle, Settings, Video } from 'lucide-react';
+import { Home, Users, Search, FolderKanban, MessageCircle, Bell, Video } from 'lucide-react';
 import { UserProfile } from '../services/firestore';
 import { cn } from '@/lib/utils';
-
+import { useActivityHeatmap } from '@/hooks/useActivityHeatmap';
 
 interface LeftSidebarProps {
   currentPage: string;
@@ -11,94 +11,184 @@ interface LeftSidebarProps {
   onToggleCollapse?: () => void;
 }
 
-const LeftSidebar = ({ currentPage, onNavigate, userProfile, collapsed = false, onToggleCollapse }: LeftSidebarProps) => {
-  const navItems = [
-    { id: 'feed', label: 'Home Feed', icon: Home },
-    { id: 'discover', label: 'Discover People', icon: Users },
-    { id: 'discover-teams', label: 'Discover Teams', icon: Search },
-    // { id: 'build', label: 'Build a Team', icon: UserPlus },
-    { id: 'teams', label: 'My Teams', icon: FolderKanban },
-    { id: 'messages', label: 'Messages', icon: MessageCircle },
-    // { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'interviews', label: 'Interviews', icon: Video },
-    // { id: 'profile', label: 'My Profile', icon: User },
-    // { id: 'settings', label: 'Settings', icon: Settings },
+/* ─── Compact Activity Heatmap ─── */
+function ActivityHeatmap({ userId }: { userId?: string }) {
+  const { cells, loading } = useActivityHeatmap(userId);
 
+  const colors = [
+    'bg-muted/60',
+    'bg-primary/20',
+    'bg-primary/40',
+    'bg-primary/60',
+    'bg-primary',
   ];
 
-  const displayName = userProfile?.fullName || 'User';
-  const displayRole = userProfile?.primaryRole || 'Team Member';
-  const displayAvatar = userProfile?.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(displayName)}`;
+  // 1. Generate Dynamic Month Labels for the X-axis
+  const getMonthLabels = () => {
+    const labels = [];
+    const now = new Date();
+    for (let i = 0; i < 3; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - (2 - i), 1);
+      labels.push(d.toLocaleString('default', { month: 'short' }));
+    }
+    return labels;
+  };
+
+  if (loading) return <div className="text-[10px] animate-pulse">Loading Activity...</div>;
 
   return (
-    <aside className={cn(
-      "flex-shrink-0 transition-all duration-300 max-h-[calc(100vh-6rem)] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent",
-      collapsed ? "w-16" : "w-72"
-    )}>
-      <div className="space-y-4 pb-4">
-        {/* Collapse Toggle Button */}
-        {onToggleCollapse && (
-          <button
-            onClick={onToggleCollapse}
-            className={cn(
-              "w-full flex items-center justify-center p-4 rounded-lg transition-all duration-200 sticky top-0 z-10",
-              "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50",
-              "shadow-sm text-2xl font-bold"
-            )}
-            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {collapsed ? "->" : "<-"}
-          </button>
-        )}
+    <div className="space-y-2">
+      {/* X-AXIS: Dynamic Months */}
+      <div className="flex justify-between px-7 text-[9px] font-medium text-muted-foreground/60 -mt-1">
+        {getMonthLabels().map((month) => (
+          <span key={month}>{month}</span>
+        ))}
+      </div>
 
-        {/* Profile Card */}
-        <div className="card-base overflow-hidden">
-          <div className={cn("bg-gradient-to-r from-primary to-primary/80", collapsed ? "h-8" : "h-16")} />
-          <div className={cn("px-4 pb-4", collapsed && "px-2 pb-2")}>
-            <div className={cn("-mt-8 flex flex-col items-center", collapsed && "-mt-4")}>
-              <img
-                src={
-                  userProfile?.avatar
-                    ? `${userProfile.avatar}?t=${Date.now()}`
-                    : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
-                      userProfile?.fullName || 'User'
-                    )}`
-                }
-                alt={displayName}
-                className={cn(
-                  "avatar border-4 border-card transition-all",
-                  collapsed ? "w-10 h-10" : "w-16 h-16"
-                )}
-              />
-              {!collapsed && (
-                <>
-                  <h3 className="mt-2 font-display font-bold text-foreground">{displayName}</h3>
-                  <p className="text-sm text-muted-foreground">{displayRole}</p>
-                </>
-              )}
-            </div>
-          </div>
+      <div className="flex gap-1.5">
+        {/* Y-AXIS: Fixed Day Labels */}
+        <div className="flex flex-col justify-between text-[8px] font-medium text-muted-foreground/40 leading-none py-0.5 -ml-3">
+          <span style={{ transform: 'rotate(-90deg)' }}>Mon</span>
+          <span style={{ transform: 'rotate(-90deg)' }}>Wed</span>
+          <span style={{ transform: 'rotate(-90deg)' }}>Fri</span>
         </div>
 
-        {/* Navigation */}
-        <nav className={cn("card-base", collapsed ? "p-1" : "p-2")}>
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              id={`tour-nav-${item.id}`}
-              onClick={() => onNavigate(item.id)}
+        {/* THE GRID */}
+        <div 
+          className="grid gap-[2.5px] -ml-1 -mt-1" 
+          style={{ 
+            gridTemplateRows: 'repeat(7, 1fr)', 
+            gridAutoFlow: 'column' 
+          }}
+        >
+          {cells.map((level, i) => (
+            <div
+              key={i}
               className={cn(
-                "nav-item w-full",
-                currentPage === item.id && 'nav-item-active',
-                collapsed && 'justify-center px-2'
+                'w-[14px] h-[15px] rounded-[1.5px] transition-all duration-300 hover:ring-1 hover:ring-primary/50', 
+                colors[level]
               )}
-              title={collapsed ? item.label : undefined}
-            >
-              <item.icon className="w-5 h-5 flex-shrink-0" />
-              {!collapsed && <span>{item.label}</span>}
-            </button>
+              title={`Level ${level} activity`}
+            />
           ))}
+        </div>
+      </div>
+
+      {/* FOOTER: Legend */}
+      <div className="flex items-center justify-between mt-1">
+        <span className="text-[9px] text-muted-foreground/40 italic">90d scroll</span>
+        <div className="flex items-center gap-1">
+          <span className="text-[8px] text-muted-foreground/50">Less</span>
+          {colors.map((c, i) => (
+            <div key={i} className={cn('w-2 h-2 rounded-[1px]', c)} />
+          ))}
+          <span className="text-[8px] text-muted-foreground/50">More</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good Morning';
+  if (hour < 17) return 'Good Afternoon';
+  return 'Good Evening';
+}
+
+const LeftSidebar = ({ currentPage, onNavigate, userProfile, collapsed = false }: LeftSidebarProps) => {
+  const navItems = [
+    { id: 'feed', label: 'Home', icon: Home },
+    { id: 'discover', label: 'My Network', icon: Users },
+    { id: 'messages', label: 'Messages', icon: MessageCircle },
+    { id: 'notifications', label: 'Notifications', icon: Bell },
+    { id: 'discover-teams', label: 'Discover Teams', icon: Search },
+    { id: 'teams', label: 'My Teams', icon: FolderKanban },
+    { id: 'interviews', label: 'Interviews', icon: Video },
+  ];
+
+  const displayName = userProfile?.fullName?.split(' ')[0] || 'User';
+  const userId = (userProfile as any)?.id || undefined;
+
+  if (collapsed) {
+    return (
+      <aside className="flex-shrink-0 w-14 h-[calc(100vh-5rem)] flex flex-col transition-all duration-300">
+        <nav className="space-y-0.5 flex-1">
+          {navItems.map((item) => {
+            const isActive = currentPage === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => onNavigate(item.id)}
+                className={cn('nav-item w-full justify-center px-2', isActive && 'nav-item-active')}
+                title={item.label}
+              >
+                <item.icon className="w-5 h-5 flex-shrink-0" />
+              </button>
+            );
+          })}
         </nav>
+      </aside>
+    );
+  }
+
+  return (
+    /* Fixed height, no overflow scroll */
+    <aside className="flex-shrink-0 w-60 h-[calc(100vh-5rem)] flex flex-col transition-all duration-300 gap-2.5">
+
+      {/* ── Greeting + Profile Card ── */}
+      <div className="card-base px-3 py-3 flex-shrink-0">
+        <div className="flex items-center gap-2.5">
+          <img
+            src={
+              userProfile?.avatar
+                ? `${userProfile.avatar}?t=${Date.now()}`
+                : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(displayName)}`
+            }
+            alt={displayName}
+            className="w-8 h-8 rounded-full object-cover ring-2 ring-primary/15 flex-shrink-0"
+          />
+          <div className="min-w-0">
+            <p className="text-[10px] text-muted-foreground">{getGreeting()} 👋</p>
+            <p className="text-sm font-bold text-foreground truncate leading-tight">{displayName}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Navigation ── */}
+      <div className="sidebar-nav-box flex-shrink-0">
+        <p className="text-[9px] font-semibold text-muted-foreground/60 uppercase tracking-wider px-3 py-1.5">
+          Menu · {navItems.length}
+        </p>
+        <nav className="space-y-0.5">
+          {navItems.map((item) => {
+            const isActive = currentPage === item.id;
+            return (
+              <button
+                key={item.id}
+                id={`tour-nav-${item.id}`}
+                onClick={() => onNavigate(item.id)}
+                className={cn('nav-item w-full group relative', isActive && 'nav-item-active')}
+              >
+                <item.icon className={cn(
+                  'w-[18px] h-[18px] flex-shrink-0 transition-colors',
+                  isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
+                )} />
+                <span className={cn(
+                  'text-[12px] transition-colors',
+                  isActive ? 'text-primary font-semibold' : 'text-muted-foreground group-hover:text-foreground'
+                )}>
+                  {item.label}
+                </span>
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* ── Compact Activity Heatmap ── */}
+      <div className="card-base px-3 py-2.5 flex-shrink-0">
+        <ActivityHeatmap userId={userId} />
       </div>
     </aside>
   );

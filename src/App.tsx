@@ -19,6 +19,7 @@ import ProtectedAdmin from "./components/ProtectedAdmin";
 import SitemapVisualizer from "./pages/SitemapVisualizer";
 import VerifyCertificate from "./pages/VerifyCertificate";
 
+import TeamDashboard from "@/components/pages/TeamDashboard";
 
 const queryClient = new QueryClient();
 
@@ -26,46 +27,6 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <FeedbackProvider>
-      <BlockProvider>
-        <TooltipProvider>
-          <UserProfileProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-<Routes>
-  <Route path="/" element={<Index />} />
-  <Route path="/build" element={<Index />} />
-  <Route path="/discover" element={<Index />} />
-  <Route path="/teams" element={<Index />} />
-  <Route path="/notifications" element={<Index />} />
-  <Route path="/interviews" element={<Index />} />
-  <Route path="/profile" element={<Index />} />
-  <Route path="/messages" element={<Index />} />
-  <Route path="/admin-login" element={<AdminLogin />} />
-  <Route path="/sitemap" element={<SitemapVisualizer />} />
-
-<Route
-  path="/admin"
-  element={
-    <ProtectedAdmin>
-      <AdminPanel />
-    </ProtectedAdmin>
-  }
-/>
-<Route path="/upload" element={<UploadPage />} />
-
-  <Route path="/profile/:userId" element={<ProfilePage />} />
-  <Route path="/teams/:teamId/files" element={<TeamFiles openAuth={function (): void {
-                  throw new Error("Function not implemented.");
-                } } />} />
-  <Route path="/team/:teamId" element={<TeamDetails />} />
-
-  <Route path="*" element={<NotFound />} />
-</Routes>
-          </BrowserRouter>
-          </UserProfileProvider>
-        </TooltipProvider>
-      </BlockProvider>
         <BlockProvider>
           <TooltipProvider>
             <UserProfileProvider>
@@ -82,7 +43,8 @@ const App = () => (
                   <Route path="/profile" element={<Index />} />
                   <Route path="/messages" element={<Index />} />
                   <Route path="/admin-login" element={<AdminLogin />} />
-
+                  <Route path="/sitemap" element={<SitemapVisualizer />} />
+                  <Route path="/team/:teamId/dashboard" element={<Index />} />
                   <Route
                     path="/admin"
                     element={

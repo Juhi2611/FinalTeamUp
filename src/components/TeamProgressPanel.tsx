@@ -24,6 +24,8 @@ import {
   notifyVerifiedEmail,
   notifyPendingReminderEmail,
 } from '@/services/emailService';
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 /* ─────────────────────────────────────────────────────────────
    Types
@@ -433,6 +435,13 @@ const TeamProgressPanel = ({ teamId, members, isLeader, onClose }: TeamProgressP
       isUrgent: newTaskUrgent,
       perkValue: newTaskPerkValue,
     });
+    selectedMembers.forEach(async (uid) => {
+    await addDoc(collection(db, "activity"), {
+        userId: uid,
+        type: "task_assigned",
+        createdAt: serverTimestamp()
+      });
+    });
       // Notify each assigned member via email
       const results = await Promise.allSettled(
         selectedMembers.map(uid =>
@@ -472,6 +481,11 @@ const TeamProgressPanel = ({ teamId, members, isLeader, onClose }: TeamProgressP
   const handleSubmitProof = async (proof: { type: ProofType; value: string; fileName?: string }) => {
     if (!proofTask || !user) return;
     await submitTaskProof(proofTask.id, user.uid, proof);
+    await addDoc(collection(db, "activity"), {
+      userId: user.uid,
+      type: "task_submitted",
+      createdAt: serverTimestamp()
+    });
     toast.success('Proof submitted! Waiting for leader verification.');
   };
 
@@ -480,6 +494,11 @@ const TeamProgressPanel = ({ teamId, members, isLeader, onClose }: TeamProgressP
     setVerifying(task.id);
     try {
       await verifyTask(task.id, user.uid);
+      await addDoc(collection(db, "activity"), {
+        userId: user.uid,
+        type: "task_verified",
+        createdAt: serverTimestamp()
+      });
       // Notify all assigned members
       const assigned = task.assignedTo || [];
       const results = await Promise.allSettled(

@@ -10,7 +10,9 @@
       ]
     },
     "skipLibCheck": true,
-    "strictNullChecks": false
+    "strictNullChecks": false,
+    "moduleResolution": "node",
+    "module": "ESNext"
   },
   "files": [],
   "references": [

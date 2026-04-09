@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Zap, Menu, X, Bell } from "lucide-react";
+import { Zap, Menu, X, Bell, Search, ChevronDown } from "lucide-react";
 import LeftSidebar from "../components/LeftSidebar";
 import RightSidebar from "../components/RightSidebar";
 import HomeFeed from "../components/pages/HomeFeed";
@@ -26,8 +26,9 @@ import { PerksBadge } from '@/components/PerksBadge';
 import PerksStatusCard from '@/components/PerksStatusCard';
 import LeaderboardPage from '@/components/pages/LeaderboardPage';
 import { Trophy } from "lucide-react"; // For the sidebar icon later
-
 import AdminPanel from "@/components/pages/AdminPanel";
+import { useLocation, useParams } from "react-router-dom";
+import TeamDashboard from "@/components/pages/TeamDashboard";
 import {
   getProfile,
   subscribeToNotifications,
@@ -37,7 +38,7 @@ import {
 } from "../services/firestore";
 import UploadPage from "@/components/pages/UploadPage";
 import { isFirebaseConfigured } from "../lib/firebase";
-import { useSidebarState } from "../hooks/useSidebarState";
+// sidebar collapse removed — fixed-width layout
 import Header from "@/components/landing/Header";
 import Hero from "@/components/landing/Hero";
 import LogoBar from "@/components/landing/LogoBar";
@@ -67,6 +68,9 @@ const Index = () => {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const location = useLocation();
+
+  const isDashboard = location.pathname.includes("/dashboard");
   const [activeConversationId, setActiveConversationId] = useState<string | null>(
     null
   );
@@ -81,9 +85,6 @@ const Index = () => {
     setShowEntry(false);
     setForceAuth(true);
   };
-  
-  const { leftCollapsed, rightCollapsed, toggleLeft, toggleRight } =
-    useSidebarState();
 
   useEffect(() => {
     let hasInteracted = false;
@@ -381,35 +382,6 @@ const handleNavigate = (page: string) => {
   //   return <Auth onAuthSuccess={() => {}} />;
   // }
 
-  // Show loading
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="p-2 rounded-lg bg-gradient-to-br from-primary to-primary/80 w-fit mx-auto mb-4">
-            <Zap className="w-6 h-6 text-primary-foreground" />
-          </div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show profile setup if needed
-  if ((needsProfileSetup || editingProfile) && user) {
-    return (
-      <ProfileSetup
-        existingProfile={editingProfile ? profile : null}
-        onComplete={() => {
-          setNeedsProfileSetup(false);
-          setEditingProfile(false);
-          checkProfile();
-        }}
-        onOpenVerification={handleOpenVerification}
-      />
-    );
-  }
-
   const renderContent = () => {
     switch (currentPage) {
       case "feed":
@@ -425,6 +397,7 @@ const handleNavigate = (page: string) => {
               onNavigate={handleNavigate}
               onViewProfile={handleViewProfile}
               openAuth={openAuth}
+              profile={profile} 
             />
           </div>
         );
@@ -451,7 +424,6 @@ const handleNavigate = (page: string) => {
               );
 
       case "discover":
-        case "discover":
           return (
             <DiscoverPeople 
               onViewProfile={handleViewProfile}
@@ -552,6 +524,7 @@ const handleNavigate = (page: string) => {
             onNavigate={handleNavigate}
             onViewProfile={handleViewProfile}
             openAuth={openAuth}
+            profile={profile} 
           />
         );
     }
@@ -559,27 +532,35 @@ const handleNavigate = (page: string) => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-card border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+      {/* ═══════════════════════════════════════════
+          HEADER — Redesigned with centered search
+         ═══════════════════════════════════════════ */}
+      <header className="app-header">
+        <div className="max-w-[1400px] mx-auto px-5 h-[64px] flex items-center gap-4">
+          {/* Logo */}
           <div
             onClick={() => handleNavigate("feed")}
-            className="flex items-center gap-1.5 cursor-pointer select-none hover:opacity-80 transition"
+            className="flex items-center gap-2 cursor-pointer select-none hover:opacity-80 transition-opacity flex-shrink-0"
           >
             <img
               src="/logo.png"
               alt="TeamUp"
-              className="h-12 w-auto object-contain"
+              className="h-10 w-auto object-contain"
             />
-            <span className="font-display font-bold text-xl text-foreground">
+            <span className="font-display font-extrabold text-xl text-foreground hidden sm:inline">
               TeamUp
             </span>
           </div>
 
-          <div className="hidden md:flex flex-1 max-w-md mx-8"></div>
+          {/* Centered Search Bar */}
+          <div className="hidden md:flex flex-1 max-w-lg mx-auto">
+            <div className="relative w-full">
+            </div>
+          </div>
 
-          <div className="flex items-center gap-3">
-            {/* NEW: Perks Badge */}
+          {/* Right Actions */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Perks Badge */}
             {user && profile && (
               <PerksBadge
                 perks={profile.perks ?? 0}
@@ -588,27 +569,32 @@ const handleNavigate = (page: string) => {
               />
             )}
 
+            {/* Notifications */}
             <button
               onClick={() => handleNavigate("notifications")}
-              className="p-2 rounded-lg hover:bg-secondary transition-colors relative"
+              className="p-2 rounded-xl hover:bg-secondary transition-colors relative"
             >
               <Bell className="w-5 h-5 text-muted-foreground" />
               {unreadCount > 0 && (
-                <span className="absolute top-0.5 right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-accent text-accent-foreground text-xs font-bold flex items-center justify-center">
+                <span className="absolute top-0.5 right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-accent text-accent-foreground text-[11px] font-bold flex items-center justify-center animate-pulse">
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               )}
             </button>
+
+            {/* Settings */}
             <button
               onClick={() => handleNavigate("settings")}
-              className="p-2 rounded-lg hover:bg-secondary transition-colors"
+              className="p-2 rounded-xl hover:bg-secondary transition-colors"
             >
               <Settings className="w-5 h-5 text-muted-foreground" />
             </button>
+
+            {/* Profile + Name */}
             <button
               id="tour-header-profile"
               onClick={() => handleNavigate("profile")}
-              className="p-1 rounded-full hover:bg-secondary transition-colors"
+              className="hidden sm:flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl hover:bg-secondary transition-colors"
             >
               <img
                 src={
@@ -619,107 +605,145 @@ const handleNavigate = (page: string) => {
                       )}`
                 }
                 alt="Profile"
-                className="w-8 h-8 rounded-full object-cover border"
+                className="w-8 h-8 rounded-full object-cover ring-2 ring-primary/10"
+              />
+              <span className="text-sm font-medium text-foreground max-w-[100px] truncate">
+                {profile?.fullName?.split(' ')[0] || 'Profile'}
+              </span>
+            </button>
+
+            {/* Mobile-only profile (no name) */}
+            <button
+              onClick={() => handleNavigate("profile")}
+              className="sm:hidden p-1 rounded-full hover:bg-secondary transition-colors"
+            >
+              <img
+                src={
+                  profile?.avatar
+                    ? `${profile.avatar}?t=${Date.now()}`
+                    : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+                        profile?.fullName || "User"
+                      )}`
+                }
+                alt="Profile"
+                className="w-8 h-8 rounded-full object-cover"
               />
             </button>
+
+            {/* Mobile Menu Toggle */}
             <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 rounded-lg hover:bg-secondary transition-colors"
-            aria-label="Toggle Menu"
-          >
-            {mobileMenuOpen ? (
-              <X className="w-5 h-5 text-foreground" />
-            ) : (
-              <Menu className="w-5 h-5 text-foreground" />
-            )}
-          </button>
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-2 rounded-xl hover:bg-secondary transition-colors"
+              aria-label="Toggle Menu"
+            >
+              {mobileMenuOpen ? (
+                <X className="w-5 h-5 text-foreground" />
+              ) : (
+                <Menu className="w-5 h-5 text-foreground" />
+              )}
+            </button>
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
 
-    <AnimatePresence>
-      {mobileMenuOpen && (
-        <div key="mobile-sidebar-container">
-          {/* Background Backdrop */}
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setMobileMenuOpen(false)}
-            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
-          />
-          
-          {/* Sidebar Drawer */}
-          <motion.div 
-            initial={{ x: "-100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "-100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed inset-y-0 left-0 z-50 w-72 bg-card border-r border-border md:hidden shadow-2xl"
-          >
-            <div className="flex flex-col h-full p-4">
-              <div className="flex items-center justify-between mb-8 px-2">
-                <span className="font-display font-bold text-xl">Menu</span>
-                <button onClick={() => setMobileMenuOpen(false)}>
-                  <X className="w-5 h-5" />
-                </button>
+      {/* ═══════════════════════════════════════════
+          MOBILE SIDEBAR DRAWER
+         ═══════════════════════════════════════════ */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <div key="mobile-sidebar-container">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileMenuOpen(false)}
+              className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
+            />
+            <motion.div
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed inset-y-0 left-0 z-50 w-72 bg-card border-r border-border/60 md:hidden"
+              style={{ boxShadow: 'var(--shadow-modal)' }}
+            >
+              <div className="flex flex-col h-full p-5">
+                <div className="flex items-center justify-between mb-6 px-1">
+                  <div className="flex items-center gap-2">
+                    <img src="/logo.png" alt="TeamUp" className="h-8 w-auto" />
+                    <span className="font-display font-bold text-lg">TeamUp</span>
+                  </div>
+                  <button
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="p-1.5 rounded-lg hover:bg-secondary transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <LeftSidebar
+                  currentPage={currentPage}
+                  onNavigate={(page) => {
+                    handleNavigate(page);
+                    setMobileMenuOpen(false);
+                  }}
+                  userProfile={profile}
+                />
               </div>
-              
-              <LeftSidebar
-                currentPage={currentPage}
-                onNavigate={(page) => {
-                  handleNavigate(page);
-                  setMobileMenuOpen(false); // ✅ Auto-close on click
-                }}
-                userProfile={profile}
-              />
-            </div>
-          </motion.div>
-        </div>
-      )}
-    </AnimatePresence>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
-      <div className="flex-1 max-w-screen-2xl mx-auto px-4 py-6 w-full">
+      {/* ═══════════════════════════════════════════
+          MAIN CONTENT AREA — 3 column layout
+         ═══════════════════════════════════════════ */}
+      <div className="flex-1 max-w-[1400px] mx-auto px-5 py-6 w-full">
         <div className="flex gap-6">
+          {/* Left Sidebar — fixed width, sticky */}
           <div className="hidden md:block">
-            <div className="sticky top-24">
+            <div className="sticky top-[88px]">
               <LeftSidebar
                 currentPage={currentPage}
                 onNavigate={handleNavigate}
                 userProfile={profile}
-                collapsed={leftCollapsed}
-                onToggleCollapse={toggleLeft}
               />
             </div>
           </div>
 
-          <main className="flex-1 min-w-0 overflow-y-auto">
+          {/* Main Feed */}
+          <main className="flex-1 min-w-0">
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentPage}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.18, ease: "easeOut" }}
-                className="h-full"
+                transition={{ duration: 0.2, ease: "easeOut" }}
               >
-                {renderContent()}
+                {isDashboard ? (
+                    <TeamDashboard />
+                  ) : (
+                    renderContent()
+                  )}
               </motion.div>
             </AnimatePresence>
           </main>
 
+          {/* Right Sidebar — fixed width, sticky */}
           <div className="hidden lg:block">
-            <div className="sticky top-24">
+            <div className="sticky top-[88px]">
               <RightSidebar
                 onViewProfile={handleViewProfile}
                 onNavigate={handleNavigate}
-                collapsed={rightCollapsed}
-                onToggleCollapse={toggleRight}
               />
             </div>
           </div>
         </div>
       </div>
+
+      {/* ═══════════════════════════════════════════
+          MODALS + OVERLAYS (all preserved)
+         ═══════════════════════════════════════════ */}
 
       {/* Skill Verification Modal */}
       {showVerificationModal && user && profile && (
@@ -737,12 +761,12 @@ const handleNavigate = (page: string) => {
           request={activeInterview}
           onEnd={() => {
             setActiveInterview(null);
-            // Dispatch feedback trigger
             window.dispatchEvent(new CustomEvent('teamup:feedback_trigger', { detail: { type: 'interview_completed' } }));
           }}
         />
       )}
 
+      {/* Logout Confirmation */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <motion.div
@@ -750,24 +774,22 @@ const handleNavigate = (page: string) => {
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
             transition={{ duration: 0.18, ease: "easeOut" }}
-            className="bg-card rounded-xl shadow-lg w-full max-w-sm p-6"
+            className="bg-card rounded-2xl w-full max-w-sm p-6 border border-border/60"
+            style={{ boxShadow: 'var(--shadow-modal)' }}
           >
-            <h2 className="text-lg font-semibold text-foreground mb-2">
+            <h2 className="text-lg font-semibold text-foreground mb-2 font-display">
               Confirm Logout
             </h2>
-
             <p className="text-sm text-muted-foreground mb-6">
               Do you really want to exit TeamUp?
             </p>
-
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setShowLogoutConfirm(false)}
-                className="px-4 py-2 rounded-lg text-sm bg-secondary text-foreground hover:bg-secondary/80 transition"
+                className="px-4 py-2 rounded-xl text-sm bg-secondary text-foreground hover:bg-secondary/80 transition font-medium"
               >
                 Cancel
               </button>
-
               <button
                 onClick={async () => {
                   try {
@@ -781,15 +803,17 @@ const handleNavigate = (page: string) => {
                     toast.error("Failed to logout");
                   }
                 }}
-                className="px-4 py-2 rounded-lg text-sm bg-destructive text-destructive-foreground hover:bg-destructive/90 transition"
+                className="px-4 py-2 rounded-xl text-sm bg-destructive text-destructive-foreground hover:bg-destructive/90 transition font-medium"
               >
-                {/* Logout */}
+                Logout
               </button>
             </div>
           </motion.div>
         </div>
       )}
-      <footer className="w-full border-t border-border bg-background/80 backdrop-blur text-center py-4 text-sm text-muted-foreground mt-8">
+
+      {/* Footer */}
+      <footer className="w-full border-t border-border/60 bg-card/50 backdrop-blur-sm text-center py-4 text-sm text-muted-foreground mt-auto">
         <button
           onClick={() => setShowLegal(true)}
           className="hover:text-foreground transition underline-offset-4 hover:underline"
@@ -797,6 +821,7 @@ const handleNavigate = (page: string) => {
           TeamUp © 2026 · All rights reserved
         </button>
       </footer>
+
       {showLegal && (
         <LegalModal onClose={() => setShowLegal(false)} />
       )}
@@ -805,7 +830,7 @@ const handleNavigate = (page: string) => {
       <FeedbackPopup />
 
       {showWalkthrough && user && (
-        <ProductWalkthrough 
+        <ProductWalkthrough
           onComplete={() => {
             setShowWalkthrough(false);
             localStorage.setItem(`teamup:walkthrough_${user.uid}`, 'true');
