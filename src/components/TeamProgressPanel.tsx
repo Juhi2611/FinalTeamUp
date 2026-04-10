@@ -739,6 +739,25 @@ const TeamProgressPanel = ({ teamId, members, isLeader, onClose }: TeamProgressP
               {isAssignedToMe && <span className="ml-1 text-primary font-medium">(You)</span>}
             </p>
 
+            {/* Deadline Display */}
+            {task.deadline && (
+              <div className="flex items-center gap-1.5 mt-1">
+                <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className={`text-[10px] uppercase tracking-wider font-bold ${
+                  new Date(task.deadline.toDate()) < new Date() && tab !== 'verified' 
+                    ? 'text-red-500' 
+                    : 'text-muted-foreground'
+                }`}>
+                  Due: {task.deadline.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </span>
+                {new Date(task.deadline.toDate()) < new Date() && tab !== 'verified' && !task.completed && (
+                  <span className="text-[10px] text-red-600 font-black animate-pulse bg-red-100 px-1 rounded flex items-center gap-0.5">
+                    <AlertOctagon className="w-2.5 h-2.5" /> LATE
+                  </span>
+                )}
+              </div>
+            )}
+
             {/* Replace the "Potential Reward Display" section with this: */}
             {tab !== 'verified' && (
               <div className="mt-1 flex items-center gap-2">
