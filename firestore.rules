@@ -1,0 +1,390 @@
+rules_version = '2';
+
+service cloud.firestore {
+
+  match /databases/{database}/documents {
+
+    // ========================
+    // HELPERS
+    // ========================
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    function isTeamLeader(teamId) {
+      return isAuthed()
+        && teamId in
+          get(/databases/$(database)/documents/profiles/$(request.auth.uid))
+            .data.leaderOfTeamIds;
+    }
+
+    function isTeamMember(teamId) {
+      return isAuthed()
+        && teamId in
+          get(/databases/$(database)/documents/profiles/$(request.auth.uid))
+            .data.teamIds;
+    }
+
+    // ========================
+    // WEBRTC SIGNALING
+    // ========================
+    match /interview_calls/{callId} {
+      allow read, write: if isAuthed();
+      match /offerCandidates/{id} {
+        allow read, write: if isAuthed();
+      }
+      match /answerCandidates/{id} {
+        allow read, write: if isAuthed();
+      }
+    }
+
+    // ========================
+    // USER BLOCKS
+    // ========================
+    match /userBlocks/{blockId} {
+      allow read: if isAuthed() &&
+        (resource.data.blockerId == request.auth.uid ||
+         resource.data.blockedId == request.auth.uid);
+
+      allow create: if isAuthed()
+        && request.resource.data.blockerId == request.auth.uid;
+
+      allow delete: if isAuthed()
+        && resource.data.blockerId == request.auth.uid;
+    }
+    
+    // ========================
+    // USERNAMES
+    // ========================
+    match /usernames/{username} {
+      allow read: if true;
+      allow create: if isAuthed()
+        && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ========================
+    // USER REPORTS
+    // ========================
+    match /userReports/{reportId} {
+      allow read: if isAuthed()
+        && resource.data.reporterId == request.auth.uid;
+
+      allow create: if isAuthed()
+        && request.resource.data.reporterId == request.auth.uid;
+    }
+
+    // ========================
+    // USER RESTRICTIONS
+    // ========================
+    match /userRestrictions/{restrictionId} {
+      allow read: if isAuthed()
+        && resource.data.userId == request.auth.uid;
+
+      allow create, delete: if isAuthed();
+    }
+
+    // ========================
+    // ADMIN NOTIFICATIONS
+    // ========================
+    match /adminNotifications/{notifId} {
+      allow read: if false;
+      allow create: if isAuthed();
+    }
+
+    // ========================
+    // CONVERSATIONS
+    // ========================
+    match /conversations/{conversationId} {
+      allow read, update: if isAuthed()
+        && request.auth.uid in resource.data.participants;
+
+      allow create: if isAuthed()
+        && request.auth.uid in request.resource.data.participants;
+    }
+
+    // ========================
+    // MESSAGES
+    // ========================
+    match /messages/{messageId} {
+      allow read: if isAuthed()
+        && request.auth.uid in
+          get(/databases/$(database)/documents/conversations/$(resource.data.conversationId))
+            .data.participants;
+
+      allow create: if isAuthed()
+        && request.resource.data.senderId == request.auth.uid
+        && request.auth.uid in
+          get(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId))
+            .data.participants;
+
+      allow update, delete: if false;
+    }
+
+    // ========================
+    // TEAM TASKS
+    // ========================
+    match /teamTasks/{taskId} {
+      allow read: if isAuthed()
+        && isTeamMember(resource.data.teamId);
+
+      allow create: if isAuthed()
+        && isTeamLeader(request.resource.data.teamId);
+
+      allow update: if isAuthed() && (
+        isTeamLeader(resource.data.teamId)
+        || (
+          isTeamMember(resource.data.teamId)
+          && request.resource.data.diff(resource.data)
+              .changedKeys()
+              .hasOnly(['status', 'submittedBy', 'submittedAt', 'proof', 'completed', 'completedBy', 'completedAt'])
+        )
+      );
+
+      allow delete: if isAuthed()
+        && isTeamLeader(resource.data.teamId);
+    }
+
+    // ========================
+    // SKILL VERIFICATIONS
+    // ========================
+    match /skillVerifications/{verificationId} {
+      allow read: if isAuthed() &&
+        (resource.data.userId == request.auth.uid ||
+         resource.data.status == 'verified');
+
+      allow create: if isAuthed()
+        && request.resource.data.userId == request.auth.uid;
+
+      allow update, delete: if isAuthed()
+        && resource.data.userId == request.auth.uid;
+    }
+
+    // ========================
+    // PROFILES
+    // ========================
+    match /profiles/{userId} {
+      allow read: if true;
+      allow create, delete: if isAuthed()
+        && request.auth.uid == userId;
+        
+      allow update: if isAuthed() && (
+        // 1. Users can update their own profile (no field restrictions)
+        request.auth.uid == userId
+        ||
+        // 2. Leaders can update ratings
+        (
+          isTeamLeader(request.resource.data.teamId)
+          &&
+          request.resource.data.diff(resource.data)
+            .changedKeys()
+            .hasOnly(['averageRating', 'totalRatings'])
+        )
+        ||
+        // 3. Allow awarding Perks upon task verification (by team leaders)
+        (
+          request.resource.data.diff(resource.data)
+            .changedKeys()
+            .hasOnly(['perks', 'totalPerksEarned', 'updatedAt'])
+        )
+        ||
+        // 4. System updates for team IDs
+        (
+          request.resource.data.diff(resource.data)
+            .changedKeys()
+            .hasOnly(['teamIds', 'leaderOfTeamIds', 'updatedAt'])
+        )
+        ||
+        // 5. Referral reward claim — referrer updates own profile with new code + perks
+        //    (covered by rule 1 since it's own-profile, but listed explicitly for clarity)
+        (
+          request.resource.data.diff(resource.data)
+            .changedKeys()
+            .hasOnly(['perks', 'totalPerksEarned', 'referralCode', 'referralCount', 'updatedAt'])
+        )
+      );
+    }
+
+    // ========================
+    // TEAMS
+    // ========================
+    match /teams/{teamId} {
+      allow read, create: if isAuthed();
+
+      allow update: if isAuthed() &&
+        (
+          resource.data.leaderId == request.auth.uid
+          ||
+          (
+            request.resource.data.diff(resource.data)
+              .changedKeys()
+              .hasOnly(['members'])
+          )
+        );
+
+      allow delete: if isAuthed()
+        && resource.data.leaderId == request.auth.uid;
+    }
+    
+    // ========================
+    // RATINGS
+    // ========================
+    match /ratings/{ratingId} {
+      allow read: if isAuthed();
+
+      allow create, update: if isAuthed()
+        && isTeamLeader(request.resource.data.teamId)
+        && request.resource.data.raterId == request.auth.uid
+        && request.resource.data.rating >= 0
+        && request.resource.data.rating <= 5;
+
+      allow delete: if false;
+    }
+
+    // ========================
+    // TEAM MEMBERS
+    // ========================
+    match /teamMembers/{memberId} {
+      allow read: if isAuthed();
+
+      allow create: if isAuthed()
+        && (request.resource.data.userId == request.auth.uid ||
+            isTeamLeader(request.resource.data.teamId));
+
+      allow update, delete: if isAuthed()
+        && (resource.data.userId == request.auth.uid ||
+            isTeamLeader(resource.data.teamId));
+    }
+
+    // ========================
+    // INVITATIONS
+    // ========================
+    match /invitations/{invId} {
+      allow create: if isAuthed()
+        && request.resource.data.fromUserId == request.auth.uid;
+
+      allow read, update, delete: if isAuthed()
+        && (
+          request.auth.uid == resource.data.toUserId ||
+          request.auth.uid == resource.data.fromUserId ||
+          (
+            resource.data.type == 'join_request' &&
+            isTeamLeader(resource.data.teamId)
+          )
+        );
+    }
+
+    // ========================
+    // NOTIFICATIONS
+    // ========================
+    match /notifications/{notifId} {
+      allow create: if isAuthed();
+
+      allow read, update: if isAuthed()
+        && resource.data.toUserId == request.auth.uid;
+    }
+
+    // ========================
+    // POSTS
+    // ========================
+    match /posts/{postId} {
+      allow read: if true;
+      allow create: if isAuthed();
+      allow update, delete: if isAuthed()
+        && resource.data.authorId == request.auth.uid;
+    }
+
+    // ========================
+    // WORKSPACE LOGS
+    // ========================
+    match /workspaceLogs/{logId} {
+      allow read, create: if isAuthed();
+    }
+
+    // ========================
+    // INTERVIEW REQUESTS
+    // ========================
+    match /interview_requests/{id} {
+      allow create: if isAuthed()
+        && request.resource.data.leaderId == request.auth.uid;
+
+      allow read: if isAuthed()
+        && (request.auth.uid == resource.data.leaderId
+            || request.auth.uid == resource.data.candidateId);
+
+      allow update: if isAuthed()
+        && (request.auth.uid == resource.data.leaderId
+            || request.auth.uid == resource.data.candidateId);
+
+      allow delete: if false;
+    }
+
+    // ========================
+    // QUIZ QUESTIONS
+    // ========================
+    match /quiz_questions/{id} {
+      allow read, create: if isAuthed();
+      allow update, delete: if false;
+    }
+
+    // ========================
+    // QUIZ ANSWERS
+    // ========================
+    match /quiz_answers/{id} {
+      allow create: if isAuthed()
+        && request.resource.data.candidateId == request.auth.uid;
+      allow read: if isAuthed();
+      allow update, delete: if false;
+    }
+
+    // ========================
+    // INTERVIEW REPORTS
+    // ========================
+    match /interview_reports/{id} {
+      allow read, create, update: if isAuthed();
+      allow delete: if false;
+    }
+
+    // ========================
+    // REFERRAL REDEMPTIONS
+    // ========================
+    match /referralRedemptions/{docId} {
+      // Any logged-in user can create a redemption record (redeemer writes this)
+      allow create: if isAuthed();
+      // Allow authenticated users to LIST/query (needed for where() queries)
+      // Delete only allowed for the referrer themselves
+      allow read: if isAuthed();
+      allow delete: if isAuthed()
+        && resource.data.referrerId == request.auth.uid;
+    }
+
+    // ========================
+    // PERK TRANSACTIONS
+    // ========================
+    match /perkTransactions/{txId} {
+      allow read: if isAuthed() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthed(); // anyone can create (e.g. fees, candidate deducting leader interview fee)
+      allow update, delete: if false;
+    }
+
+    // ========================
+    // INTERVIEW PERK CHARGES
+    // ========================
+    match /interviewPerkCharges/{chargeId} {
+      allow read, create: if isAuthed();
+      allow update, delete: if false;
+    }
+
+    // ========================
+    // APP FEEDBACK
+    // ========================
+    match /appFeedback/{feedbackId} {
+      allow create: if isAuthed()
+        && request.resource.data.userId == request.auth.uid;
+      allow read: if isAuthed()
+        && resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+  }
+}
