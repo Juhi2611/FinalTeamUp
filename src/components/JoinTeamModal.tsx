@@ -1,6 +1,9 @@
-import { X, Send, Sparkles, Loader2 } from 'lucide-react';
+import { X, Send, Sparkles, Loader2, Zap } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { Team, UserProfile } from '@/services/firestore';
+import { TEAM_JOIN_COST } from '@/types/firestore.types';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 interface JoinTeamModalProps {
   team: Team;
@@ -13,6 +16,7 @@ const JoinTeamModal = ({ team, userProfile, onClose, onSend }: JoinTeamModalProp
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [aiTip, setAiTip] = useState<string>('');
+  const [showConfirm, setShowConfirm] = useState(false);
 
   useEffect(() => {
     generateAiTip();
@@ -72,6 +76,16 @@ const JoinTeamModal = ({ team, userProfile, onClose, onSend }: JoinTeamModalProp
   };
 
   const handleSend = async () => {
+    if (userProfile && (userProfile.perks ?? 0) < TEAM_JOIN_COST) {
+      toast.error(`Insufficient Perks! You need ${TEAM_JOIN_COST} Perks to join a team, but you only have ${userProfile.perks ?? 0}.`);
+      return;
+    }
+
+    setShowConfirm(true);
+  };
+
+  const handleConfirmSend = async () => {
+    setShowConfirm(false);
     setSending(true);
     await onSend(message);
     setSending(false);
@@ -96,7 +110,7 @@ const JoinTeamModal = ({ team, userProfile, onClose, onSend }: JoinTeamModalProp
           </button>
         </div>
 
-        {/* Team Info */}
+        {/* Team Info + Cost Notice */}
         <div className="p-3 rounded-lg bg-secondary/30 border border-border mb-4">
           <div className="flex items-center justify-between mb-2">
             <span className="font-medium text-foreground">{team.name}</span>
@@ -105,7 +119,7 @@ const JoinTeamModal = ({ team, userProfile, onClose, onSend }: JoinTeamModalProp
             </span>
           </div>
           {team.rolesNeeded && team.rolesNeeded.length > 0 && (
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap gap-1 mb-2">
               {team.rolesNeeded.map((role, idx) => (
                 <span key={idx} className="px-2 py-0.5 rounded-full text-xs bg-accent/10 text-accent">
                   {role}
@@ -113,6 +127,23 @@ const JoinTeamModal = ({ team, userProfile, onClose, onSend }: JoinTeamModalProp
               ))}
             </div>
           )}
+          {/* Join cost banner */}
+          <div className="flex items-center gap-2 mt-2 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+            <Zap className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+            <p className="text-xs text-amber-700">
+              Joining costs <span className="font-bold">{TEAM_JOIN_COST} Perks</span>
+              {userProfile?.perks !== undefined && (
+                <span className="ml-1 text-amber-600">
+                  (your balance: <span className={`font-bold ${(userProfile.perks ?? 0) < TEAM_JOIN_COST ? 'text-red-600' : ''}`}>
+                    {userProfile.perks ?? 0}
+                  </span>)
+                </span>
+              )}
+              {(userProfile?.perks ?? 0) < TEAM_JOIN_COST && (
+                <span className="block mt-0.5 text-red-600 font-medium">⚠ Insufficient Perks — earn more by completing tasks.</span>
+              )}
+            </p>
+          </div>
         </div>
 
         {/* AI Tip */}
@@ -163,6 +194,16 @@ const JoinTeamModal = ({ team, userProfile, onClose, onSend }: JoinTeamModalProp
           </button>
         </div>
       </div>
+      
+      {/* Confirm Modal */}
+      {showConfirm && (
+        <ConfirmModal
+          title="Send Join Request"
+          message={`Sending this join request will deduct ${TEAM_JOIN_COST} Perks if the leader accepts. Do you wish to continue?`}
+          onConfirm={handleConfirmSend}
+          onCancel={() => setShowConfirm(false)}
+        />
+      )}
     </div>
   );
 };

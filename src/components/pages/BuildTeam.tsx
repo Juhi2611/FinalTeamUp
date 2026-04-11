@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Users, Plus, X, Sparkles, Send, Loader2 } from 'lucide-react';
+import { Users, Plus, X, Sparkles, Send, Loader2, Zap, Info } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { createTeam, getProfile, createFeedPost } from '@/services/firestore';
 import { isFirebaseConfigured } from '@/lib/firebase';
 import { toast } from 'sonner';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import DemoLockModal from "@/components/DemoLockModal";
 import CitySelect from "@/components/ui/CitySelect";
 import InstitutionSelect from "@/components/ui/InstitutionSelect";
@@ -18,6 +19,7 @@ interface BuildTeamProps {
 const BuildTeam = ({ onNavigate, openAuth }: BuildTeamProps) => {
   const { isDemoUser } = useAuth();
   const [showDemoLock, setShowDemoLock] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const { user } = useAuth();
   const [teamName, setTeamName] = useState('');
   const [description, setDescription] = useState('');
@@ -100,11 +102,31 @@ const BuildTeam = ({ onNavigate, openAuth }: BuildTeamProps) => {
     setLoading(true);
 
     try {
+      const profile = await getProfile(user.uid);
+      const currentPerks = profile?.perks ?? 0;
+      if (currentPerks < 25) {
+        toast.error(`Insufficient Perks! You need 25 Perks to create a team, but you only have ${currentPerks}. Earn more by completing tasks.`);
+        setLoading(false);
+        return;
+      }
+
+      setShowConfirm(true);
+    } catch (error: any) {
+      toast.error('Failed to check perk balance');
+      setLoading(false);
+    }
+  };
+
+  const handleConfirmPost = async () => {
+    setShowConfirm(false);
+    setLoading(true);
+
+    try {
       await createTeam({
         name: teamName,
         description,
         city: city.trim(),
-        college: college.trim() || undefined,
+        college: college.trim() || null,
         hackathon: hackathon.trim() || null,
         leaderId: user.uid,
         status: 'forming',
@@ -140,6 +162,13 @@ const BuildTeam = ({ onNavigate, openAuth }: BuildTeamProps) => {
             <h1 className="font-display font-bold text-2xl text-foreground">Build Your Team</h1>
             <p className="text-muted-foreground">Create a team and find the perfect teammates</p>
           </div>
+        </div>
+        {/* Cost Notice */}
+        <div className="mt-3 flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-2.5">
+          <Zap className="w-4 h-4 text-amber-600 shrink-0" />
+          <p className="text-xs text-amber-700 font-medium">
+            <span className="font-bold">25 Perks</span> will be deducted from your balance when you create a team.
+          </p>
         </div>
       </div>
 
@@ -354,6 +383,15 @@ const BuildTeam = ({ onNavigate, openAuth }: BuildTeamProps) => {
           openAuth();
         }}
       />
+      {/* Confirm Modal */}
+      {showConfirm && (
+        <ConfirmModal
+          title="Create Team"
+          message="Creating a team will deduct 25 Perks from your balance. Do you want to continue?"
+          onConfirm={handleConfirmPost}
+          onCancel={() => { setShowConfirm(false); setLoading(false); }}
+        />
+      )}
     </div>
   );
 };

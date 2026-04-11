@@ -174,6 +174,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         console.warn('Email verification send failed:', verifyErr);
       }
 
+      // Grant 50 initial perks for new users
+      try {
+        const { grantInitialPerks } = await import('@/services/perksService');
+        await grantInitialPerks(uid);
+      } catch (perksErr) {
+        console.warn('Initial perks grant failed:', perksErr);
+      }
+
       return { success: true };
     } catch (err: any) {
       return { error: err.message };
@@ -241,6 +249,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           authProvider: providerName,
           createdAt: serverTimestamp(),
         });
+        // Grant 50 initial perks for new OAuth users
+        try {
+          const { grantInitialPerks } = await import('@/services/perksService');
+          await grantInitialPerks(firebaseUser.uid);
+        } catch (perksErr) {
+          console.warn('Initial perks grant failed (OAuth):', perksErr);
+        }
       }
 
       return {};
@@ -249,13 +264,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         const pendingCredential = providerName === 'google'
           ? GoogleAuthProvider.credentialFromError(err)
           : GithubAuthProvider.credentialFromError(err);
-        
         const email = err.customData?.email;
         if (!email) return { error: "This email is already linked to another account." };
 
         try {
           const methods = await fetchSignInMethodsForEmail(auth, email);
-          
           let existingProvider: 'google.com' | 'github.com' | 'password' = 'google.com';
           if (methods.includes('github.com')) existingProvider = 'github.com';
           if (methods.includes('password')) existingProvider = 'password';

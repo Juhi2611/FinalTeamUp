@@ -18,7 +18,7 @@ import {
     increment,
     arrayRemove,
   } from 'firebase/firestore';
-  import { chargeJoinFee } from './perksService';
+  import { chargeJoinFee, chargeTeamCreateFee, awardPerks, applyDeadlinePenalty } from './perksService';
   import { ProjectStage } from '@/components/ProjectTimeline';
   import { supabase } from '@/lib/supabase';
   import { Timestamp } from 'firebase/firestore';
@@ -47,6 +47,20 @@ import {
   } from 'firebase/storage';
   import { storage } from '@/lib/firebase';
   export type { UserProfile, Team, TeamMember, Invitation, WorkspaceLog, Notification, FeedPost, TeamTask, Message, Conversation, SkillVerification };
+  
+  // ─────────────────────────────────────────────────────────────
+  // HELPERS
+  // ─────────────────────────────────────────────────────────────
+  
+  /** Removes undefined fields from an object to prevent Firestore errors. */
+  const cleanData = (obj: any) => {
+    const fresh: any = {};
+    Object.keys(obj).forEach(key => {
+      if (obj[key] !== undefined) fresh[key] = obj[key];
+    });
+    return fresh;
+  };
+
   // ========================
   // PROFILE FUNCTIONS
   // ========================
@@ -257,35 +271,53 @@ import {
     
     const leaderProfile = await getProfile(data.leaderId);
     const leaderName = leaderProfile?.username || leaderProfile?.fullName || "User";
+
+    // ── Charge 25-perk team creation fee ──────────────────────────────────
+    const { allowed } = await chargeTeamCreateFee(data.leaderId, undefined, data.name);
+    if (!allowed) {
+      throw new Error(
+        `Creating a team costs 25 Perks. You need more Perks — complete tasks to earn them!`
+      );
+    }
     
-    const docRef = await addDoc(collection(db, 'teams'), {
-      ...data,
-      leaderName,
-      members: [{ userId: data.leaderId, role: 'Team Leader', userName: leaderName }],
-      createdAt: serverTimestamp()
-    });
-    
-    // Update user's teamIds and leaderOfTeamIds arrays
-    await updateDoc(doc(db, 'profiles', data.leaderId), {
-      teamIds: arrayUnion(docRef.id),
-      leaderOfTeamIds: arrayUnion(docRef.id)
-    });
-    
-    // Create feed post for team creation
-    await createFeedPost({
-      authorId: data.leaderId,
-      authorName: leaderName,
-      authorAvatar: leaderProfile?.avatar,
-      authorRole: leaderProfile?.primaryRole,
-      type: 'team_created',
-      title: `🚀 Created team: ${data.name}`,
-      description: data.description,
-      teamId: docRef.id,
-      teamName: data.name,
-      rolesNeeded: data.rolesNeeded
-    });
-    
-    return docRef.id;
+    try {
+      const docRef = await addDoc(collection(db, 'teams'), cleanData({
+        ...data,
+        leaderName,
+        members: [{ userId: data.leaderId, role: 'Team Leader', userName: leaderName }],
+        createdAt: serverTimestamp()
+      }));
+      
+      // Update user's teamIds and leaderOfTeamIds arrays
+      await updateDoc(doc(db, 'profiles', data.leaderId), {
+        teamIds: arrayUnion(docRef.id),
+        leaderOfTeamIds: arrayUnion(docRef.id)
+      });
+      
+      // Create feed post for team creation
+      await createFeedPost({
+        authorId: data.leaderId,
+        authorName: leaderName,
+        authorAvatar: leaderProfile?.avatar,
+        authorRole: leaderProfile?.primaryRole,
+        type: 'team_created',
+        title: `🚀 Created team: ${data.name}`,
+        description: data.description,
+        teamId: docRef.id,
+        teamName: data.name,
+        rolesNeeded: data.rolesNeeded
+      });
+      
+      return docRef.id;
+    } catch (err) {
+      // ⚠️ ROLLBACK: If team creation fails, we should ideally refund the perks
+      // Since chargeTeamCreateFee is already logged, we manually grant them back.
+      // (This is a simplified rollback for the perk system)
+      console.error('[createTeam] Firestore error, attempting perk refund:', err);
+      const profileRef = doc(db, 'profiles', data.leaderId);
+      await updateDoc(profileRef, { perks: increment(25) });
+      throw err;
+    }
   };
   export const getTeam = async (teamId: string): Promise<Team | null> => {
     if (!isFirebaseConfigured()) return null;
@@ -956,8 +988,15 @@ if (isJoinRequest) {
   // ========================
   export const createFeedPost = async (data: Omit<FeedPost, 'id' | 'createdAt'>): Promise<string> => {
     if (!isFirebaseConfigured()) return '';
+    
+    // Filter out undefined fields to prevent Firebase errors
+    const cleanedData = Object.entries(data).reduce((acc, [key, val]) => {
+      if (val !== undefined) acc[key] = val;
+      return acc;
+    }, {} as Record<string, any>);
+
     const docRef = await addDoc(collection(db, 'posts'), {
-      ...data,
+      ...cleanedData,
       createdAt: serverTimestamp()
     });
     return docRef.id;
@@ -1202,17 +1241,43 @@ if (isJoinRequest) {
       assignedTo: string[];
       completed: boolean;
       isUrgent?: boolean;
-      perkValue?: number; // ✅ New field
+      perkValue?: number;
+      deadline?: Date | null;
     }
   ): Promise<string> => {
     if (!isFirebaseConfigured()) return '';
+
+    // Normalize deadline to end of day (23:59:59)
+    let deadlineTimestamp = null;
+    if (data.deadline) {
+      const d = new Date(data.deadline);
+      d.setHours(23, 59, 59, 999);
+      deadlineTimestamp = Timestamp.fromDate(d);
+    }
+
+    const { deadline, ...otherData } = data;
     const docRef = await addDoc(collection(db, 'teamTasks'), {
       teamId,
-      ...data,
-      perkValue: data.perkValue ?? 10, // ✅ Default to 10 if not provided
+      ...otherData,
+      perkValue: data.perkValue ?? 10,
+      deadline: deadlineTimestamp,
+      deadlinePenaltyApplied: false, // MANDATORY: Initialize to false for query matching
       createdAt: serverTimestamp(),
     });
-    return docRef.id;
+
+    const taskId = docRef.id;
+
+    // IMMEDIATE PENALTY: If deadline is already in the past, apply immediately
+    if (deadlineTimestamp && deadlineTimestamp.toDate() < new Date()) {
+      console.log(`[createTeamTask] Deadline is in the past. Applying penalty immediately.`);
+      const perkVal = data.perkValue ?? 10;
+      const assigned = data.assignedTo || [];
+      for (const uid of assigned) {
+        await applyDeadlinePenalty(uid, taskId, perkVal, data.title);
+      }
+    }
+
+    return taskId;
   };
 
   export const getTeamTasks = async (teamId: string): Promise<TeamTask[]> => {
@@ -1237,10 +1302,39 @@ if (isJoinRequest) {
   };
   export const updateTeamTask = async (
     taskId: string,
-    data: Partial<Pick<TeamTask, 'title' | 'assignedTo'>>
+    data: Partial<Omit<TeamTask, 'id' | 'teamId' | 'createdAt'>>
   ): Promise<void> => {
     if (!isFirebaseConfigured()) return;
-    await updateDoc(doc(db, 'teamTasks', taskId), data);
+    
+    const { deadline, ...otherData } = data;
+    const updateData: any = { ...otherData };
+    
+    // Normalize deadline to end of day if it's being updated
+    if (deadline && (deadline instanceof Date || (deadline as any).toDate)) {
+      const d = (deadline as any).toDate ? (deadline as any).toDate() : new Date(deadline as any);
+      d.setHours(23, 59, 59, 999);
+      updateData.deadline = Timestamp.fromDate(d);
+      updateData.deadlinePenaltyApplied = false; // Reset penalty flag if deadline changes
+    } else if (deadline === null) {
+      updateData.deadline = null;
+      updateData.deadlinePenaltyApplied = false;
+    }
+
+    await updateDoc(doc(db, 'teamTasks', taskId), updateData);
+    
+    // IMMEDIATE PENALTY: If updated deadline is now in the past, or reset and past
+    if (updateData.deadline && updateData.deadline.toDate() < new Date()) {
+      // Get latest task data to see who to penalize
+      const snap = await getDoc(doc(db, 'teamTasks', taskId));
+      if (snap.exists() && !snap.data().deadlinePenaltyApplied) {
+        const t = snap.data();
+        const perkVal = t.perkValue ?? 10;
+        const assigned = t.assignedTo || [];
+        for (const uid of assigned) {
+          await applyDeadlinePenalty(uid, taskId, perkVal, t.title);
+        }
+      }
+    }
   };
   export const subscribeToTeamTasks = (
     teamId: string,
@@ -1297,7 +1391,12 @@ if (isJoinRequest) {
   };
 
   // Verify a submitted task (leader side)
-  export const verifyTask = async (taskId: string, verifiedBy: string): Promise<void> => {
+  export const verifyTask = async (taskId: string, verifiedBy: string): Promise<{ 
+    penaltyApplied: boolean; 
+    penaltyAmount?: number;
+    deadline?: string | null;
+    finishTime?: string;
+  } | void> => {
     if (!isFirebaseConfigured()) return;
 
     const taskRef = doc(db, 'teamTasks', taskId);
@@ -1305,8 +1404,10 @@ if (isJoinRequest) {
     if (!taskSnap.exists()) return;
 
     const task = taskSnap.data();
-    const submittedBy = task.submittedBy;
-    const perkValue = task.perkValue ?? 10;
+    const submittedBy = task.submittedBy as string | undefined;
+    const perkValue = (task.perkValue as number) ?? 10;
+    const deadline = task.deadline as Timestamp | null | undefined;
+    const completedAt = (task.completedAt || task.submittedAt) as Timestamp | undefined;
 
     // 1. Mark task as verified
     await updateDoc(taskRef, {
@@ -1315,13 +1416,40 @@ if (isJoinRequest) {
       verifiedAt: serverTimestamp(),
     });
 
-    // 2. ✅ ATOMICALLY AWARD PERKS
-    if (submittedBy) {
-      await updateDoc(doc(db, 'profiles', submittedBy), {
-        perks: increment(perkValue),
-        totalPerksEarned: increment(perkValue),
-      });
+    if (!submittedBy) return;
+
+    // 2. Check if deadline was missed
+    const finishTime = completedAt ? completedAt.toDate() : new Date();
+    const deadlineDate = deadline ? deadline.toDate() : null;
+    
+    // EXPLICIT LOGGING FOR DEBUGGING (will show in leader's console if they open it)
+    console.log('[verifyTask] DEBUG:', {
+      taskId,
+      perkValue,
+      deadline: deadlineDate ? deadlineDate.toISOString() : 'none',
+      finishTime: finishTime.toISOString(),
+      isLate: deadlineDate ? (deadlineDate < finishTime) : false
+    });
+
+    const deadlineMissed =
+      deadlineDate && !task.deadlinePenaltyApplied && deadlineDate < finishTime;
+
+    let penaltyAmount = 0;
+    if (deadlineMissed) {
+      // PENALTY path — deduct 30% from balance
+      penaltyAmount = await applyDeadlinePenalty(submittedBy, taskId, perkValue, task.title as string);
+      console.log(`[verifyTask] Penalty of ${penaltyAmount} applied to ${submittedBy}`);
     }
+
+    // Always award full perks when verified (Net change for late tasks: reward - penalty)
+    await awardPerks(submittedBy, perkValue, taskId, task.title as string);
+
+    return { 
+      penaltyApplied: deadlineMissed || !!task.deadlinePenaltyApplied, 
+      penaltyAmount: penaltyAmount || (deadlineMissed ? penaltyAmount : Math.floor(perkValue * 0.3)), // estimate if already applied
+      deadline: deadlineDate ? deadlineDate.toISOString() : null,
+      finishTime: finishTime.toISOString()
+    };
   };
 
   // Update team project timeline stages

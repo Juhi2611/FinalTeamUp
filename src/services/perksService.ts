@@ -5,15 +5,22 @@
  *
  * Perk Rules
  * ----------
- * - Users earn Perks when a team leader verifies their submitted task.
- * - `perks`           → spendable balance (incremented on earn, decremented on spend)
- * - `totalPerksEarned`→ lifetime total (only incremented, never decremented)
+ * - Every new user gets 50 perks on signup (INITIAL_PERKS).
+ * - `perks`           → spendable balance (incremented on earn, decremented on spend).
+ * - `totalPerksEarned`→ lifetime total (only incremented, never decremented).
  *   This field is the source of truth for rank & leaderboard position.
  *
- * Join-Fee Logic
- * --------------
- * - Pioneer phase  (0–49 perks total earned): joining is FREE
- * - 50+ perks total earned: user must spend 50 Perks per join-request / invite-acceptance
+ * Costs
+ * -----
+ * - Join a team     : 10 perks  (TEAM_JOIN_COST)
+ * - Create a team   : 25 perks  (TEAM_CREATE_COST)
+ * - Start interview : 5  perks  (INTERVIEW_COST) — once per leader+candidate pair
+ *
+ * Penalties
+ * ---------
+ * - Miss a task deadline: −30% of task perk value (DEADLINE_PENALTY_RATE)
+ *
+ * Safeguard: perk balance NEVER goes below 0.
  */
 
 import {
@@ -29,79 +36,387 @@ import {
   increment,
   addDoc,
   deleteDoc,
-  serverTimestamp,
   setDoc,
+  serverTimestamp,
+  onSnapshot,
+  Unsubscribe,
 } from 'firebase/firestore';
 import { db, auth, isFirebaseConfigured } from '@/lib/firebase';
-import type { UserProfile, LeaderboardEntry } from '@/types/firestore.types';
-import { getPerkRank, JOIN_FEE, JOIN_FEE_THRESHOLD } from '@/types/firestore.types';
+import type { UserProfile, LeaderboardEntry, PerkTransaction, PerkTransactionType } from '@/types/firestore.types';
+import {
+  getPerkRank,
+  INITIAL_PERKS,
+  TEAM_JOIN_COST,
+  TEAM_CREATE_COST,
+  INTERVIEW_COST,
+  DEADLINE_PENALTY_RATE,
+} from '@/types/firestore.types';
+
 // ========================
-// AWARD PERKS (called by verifyTask)
+// INTERNAL HELPERS
+// ========================
+
+/**
+ * Reads the current perk balance for a user.
+ * Returns 0 if the profile doesn't exist.
+ */
+const getCurrentBalance = async (userId: string): Promise<number> => {
+  const snap = await getDoc(doc(db, 'profiles', userId));
+  if (!snap.exists()) return 0;
+  return (snap.data().perks as number) ?? 0;
+};
+
+/**
+ * Writes a perk transaction log entry to Firestore.
+ * Fires and forgets — does NOT throw if it fails (non-critical).
+ */
+export const logPerkTransaction = async (
+  userId: string,
+  amount: number,
+  type: PerkTransactionType,
+  description: string,
+  balanceAfter: number,
+  relatedId?: string
+): Promise<void> => {
+  if (!isFirebaseConfigured()) return;
+  try {
+    const entry: Omit<PerkTransaction, 'id'> = {
+      userId,
+      amount,
+      type,
+      description,
+      balanceAfter,
+      createdAt: serverTimestamp() as any,
+      ...(relatedId ? { relatedId } : {}),
+    };
+    await addDoc(collection(db, 'perkTransactions'), entry);
+  } catch (err) {
+    console.warn('[logPerkTransaction] Failed to log:', err);
+  }
+};
+
+// ========================
+// INITIAL PERKS (SIGNUP)
+// ========================
+
+/**
+ * Grants INITIAL_PERKS (50) to a user on account creation.
+ * Idempotent — will not double-grant if called more than once
+ * (checks the `initialPerksGranted` flag on the profile).
+ */
+export const grantInitialPerks = async (userId: string): Promise<void> => {
+  if (!isFirebaseConfigured()) return;
+  try {
+    const profileRef = doc(db, 'profiles', userId);
+    const snap = await getDoc(profileRef);
+    if (!snap.exists()) return;
+
+    const data = snap.data();
+    // Idempotency guard
+    if (data.initialPerksGranted) return;
+
+    const newBalance = (data.perks ?? 0) + INITIAL_PERKS;
+    const newTotalEarned = (data.totalPerksEarned ?? 0) + INITIAL_PERKS;
+
+    await updateDoc(profileRef, {
+      perks: newBalance,
+      totalPerksEarned: newTotalEarned,
+      initialPerksGranted: true,
+    });
+
+    await logPerkTransaction(
+      userId,
+      INITIAL_PERKS,
+      'signup_bonus',
+      '🎉 Welcome to TeamUp! Here are your starter perks.',
+      newBalance
+    );
+  } catch (err) {
+    console.error('[grantInitialPerks] Error:', err);
+  }
+};
+
+// ========================
+// AWARD PERKS (task reward)
 // ========================
 
 /**
  * Awards perkValue perks to a user when a task is verified.
- * Uses Firestore `increment` so it is safe to call concurrently.
+ * Also logs a transaction entry.
  */
 export const awardPerks = async (
   userId: string,
-  perkValue: number
+  perkValue: number,
+  taskId?: string,
+  taskTitle?: string
 ): Promise<void> => {
   if (!isFirebaseConfigured() || perkValue <= 0) return;
+
   const profileRef = doc(db, 'profiles', userId);
+  const snap = await getDoc(profileRef);
+  if (!snap.exists()) return;
+
+  const currentBalance = (snap.data().perks ?? 0) as number;
+  const newBalance = currentBalance + perkValue;
+
   await updateDoc(profileRef, {
     perks: increment(perkValue),
     totalPerksEarned: increment(perkValue),
   });
+
+  await logPerkTransaction(
+    userId,
+    perkValue,
+    'task_reward',
+    `✅ Task "${taskTitle || 'Task'}" verified — perks awarded!`,
+    newBalance,
+    taskId
+  );
 };
 
 // ========================
-// SPEND PERKS (join fee)
+// TEAM JOIN FEE (10 perks)
 // ========================
 
 /**
- * Checks whether the user must pay a join fee and, if so, deducts it.
+ * Deducts TEAM_JOIN_COST (10) perks from the user when joining a team.
+ * Flat cost — no pioneer threshold.
  *
- * @returns `{ allowed: boolean; feePaid: number }` — if `allowed` is false the
- *          caller should throw / show an error (insufficient balance).
+ * @returns `{ allowed: boolean; feePaid: number }`
  */
 export const chargeJoinFee = async (
-  userId: string
+  userId: string,
+  teamId?: string,
+  teamName?: string
 ): Promise<{ allowed: boolean; feePaid: number }> => {
   if (!isFirebaseConfigured()) return { allowed: true, feePaid: 0 };
 
-  const profileSnap = await getDoc(doc(db, 'profiles', userId));
-  if (!profileSnap.exists()) return { allowed: true, feePaid: 0 };
+  const profileRef = doc(db, 'profiles', userId);
+  const snap = await getDoc(profileRef);
+  if (!snap.exists()) return { allowed: true, feePaid: 0 };
 
-  const profile = profileSnap.data() as UserProfile;
-  const totalEarned = profile.totalPerksEarned ?? 0;
-  const currentBalance = profile.perks ?? 0;
+  const currentBalance = (snap.data().perks ?? 0) as number;
 
-  // Pioneer phase — free to join
-  if (totalEarned < JOIN_FEE_THRESHOLD) {
-    return { allowed: true, feePaid: 0 };
-  }
-
-  // Non-pioneer — must have at least JOIN_FEE spendable
-  if (currentBalance < JOIN_FEE) {
+  if (currentBalance < TEAM_JOIN_COST) {
     return { allowed: false, feePaid: 0 };
   }
 
-  // Deduct the fee
-  await updateDoc(doc(db, 'profiles', userId), {
-    perks: increment(-JOIN_FEE),
+  const newBalance = Math.max(0, currentBalance - TEAM_JOIN_COST);
+  await updateDoc(profileRef, { perks: newBalance });
+
+  await logPerkTransaction(
+    userId,
+    -TEAM_JOIN_COST,
+    'team_join',
+    `🤝 Joined team${teamName ? ` "${teamName}"` : ''} — join fee deducted.`,
+    newBalance,
+    teamId
+  );
+
+  return { allowed: true, feePaid: TEAM_JOIN_COST };
+};
+
+// ========================
+// TEAM CREATE FEE (25 perks)
+// ========================
+
+/**
+ * Deducts TEAM_CREATE_COST (25) perks when a user creates a team.
+ *
+ * @returns `{ allowed: boolean; feePaid: number }`
+ */
+export const chargeTeamCreateFee = async (
+  userId: string,
+  teamId?: string,
+  teamName?: string
+): Promise<{ allowed: boolean; feePaid: number }> => {
+  if (!isFirebaseConfigured()) return { allowed: true, feePaid: 0 };
+
+  const profileRef = doc(db, 'profiles', userId);
+  const snap = await getDoc(profileRef);
+  if (!snap.exists()) return { allowed: true, feePaid: 0 };
+
+  const currentBalance = (snap.data().perks ?? 0) as number;
+
+  if (currentBalance < TEAM_CREATE_COST) {
+    return { allowed: false, feePaid: 0 };
+  }
+
+  const newBalance = Math.max(0, currentBalance - TEAM_CREATE_COST);
+  await updateDoc(profileRef, { perks: newBalance });
+
+  await logPerkTransaction(
+    userId,
+    -TEAM_CREATE_COST,
+    'team_create',
+    `🚀 Created team${teamName ? ` "${teamName}"` : ''} — creation fee deducted.`,
+    newBalance,
+    teamId
+  );
+
+  return { allowed: true, feePaid: TEAM_CREATE_COST };
+};
+
+// ========================
+// INTERVIEW FEE (5 perks, idempotent)
+// ========================
+
+/**
+ * Deducts INTERVIEW_COST (5) perks from the leader when an interview starts.
+ *
+ * Idempotent: uses `interviewPerkCharges/{leaderId}_{candidateId}` as a
+ * "charged" marker so reconnects / restarts do NOT trigger additional deductions.
+ * The same leader interviewing the same candidate counts as one session.
+ *
+ * @returns `{ charged: boolean; alreadyCharged: boolean }`
+ */
+export const chargeInterviewFee = async (
+  leaderId: string,
+  candidateId: string,
+  interviewId: string
+): Promise<{ charged: boolean; alreadyCharged: boolean }> => {
+  if (!isFirebaseConfigured()) return { charged: false, alreadyCharged: false };
+
+  // Idempotency key — one per leader+candidate pair
+  const chargeKey = `${leaderId}_${candidateId}`;
+  const chargeRef = doc(db, 'interviewPerkCharges', chargeKey);
+  const chargeSnap = await getDoc(chargeRef);
+
+  if (chargeSnap.exists()) {
+    // Already charged for this leader+candidate pair
+    return { charged: false, alreadyCharged: true };
+  }
+
+  const profileRef = doc(db, 'profiles', leaderId);
+  const snap = await getDoc(profileRef);
+  if (!snap.exists()) return { charged: false, alreadyCharged: false };
+
+  const currentBalance = (snap.data().perks ?? 0) as number;
+  const deduction = Math.min(INTERVIEW_COST, currentBalance); // floor at 0
+  const newBalance = currentBalance - deduction;
+
+  // Write charge marker FIRST (prevents race conditions on reconnect)
+  await setDoc(chargeRef, {
+    leaderId,
+    candidateId,
+    interviewId,
+    chargedAt: serverTimestamp(),
+    amount: deduction,
   });
 
-  return { allowed: true, feePaid: JOIN_FEE };
+  if (deduction > 0) {
+    await updateDoc(profileRef, { perks: newBalance });
+    await logPerkTransaction(
+      leaderId,
+      -deduction,
+      'interview',
+      `🎤 Interview started with candidate. Interview fee deducted.`,
+      newBalance,
+      interviewId
+    );
+  }
+
+  return { charged: true, alreadyCharged: false };
+};
+
+// ========================
+// DEADLINE PENALTY (30%)
+// ========================
+
+/**
+ * Applies a 30% deadline penalty when a task is verified after its deadline.
+ * Deducts Math.floor(perkValue * DEADLINE_PENALTY_RATE) from the user's balance.
+ * Perk balance is floored at 0.
+ * Idempotent: checks `task.deadlinePenaltyApplied` before deducting.
+ *
+ * NOTE: The task perk reward is NOT awarded when a deadline is missed.
+ * Instead, this penalty is deducted from the existing balance.
+ */
+export const applyDeadlinePenalty = async (
+  userId: string,
+  taskId: string,
+  perkValue: number,
+  taskTitle?: string
+): Promise<number> => {
+  if (!isFirebaseConfigured()) return 0;
+
+  const penalty = Math.floor(perkValue * DEADLINE_PENALTY_RATE);
+  if (penalty <= 0) return 0;
+
+  const profileRef = doc(db, 'profiles', userId);
+  const snap = await getDoc(profileRef);
+  if (!snap.exists()) return 0;
+
+  const currentBalance = (snap.data().perks ?? 0) as number;
+  const actualDeduction = Math.min(penalty, currentBalance); // never go below 0
+  const newBalance = currentBalance - actualDeduction;
+
+  await updateDoc(profileRef, { perks: newBalance });
+
+  // Mark the task so penalty isn't applied twice
+  await updateDoc(doc(db, 'teamTasks', taskId), {
+    deadlinePenaltyApplied: true,
+  });
+
+  await logPerkTransaction(
+    userId,
+    -actualDeduction,
+    'deadline_penalty',
+    `⏰ Deadline missed on "${taskTitle || 'Task'}" — 30% penalty applied.`,
+    newBalance,
+    taskId
+  );
+
+  return actualDeduction;
+};
+
+// ========================
+// PERK TRANSACTION HISTORY
+// ========================
+
+/**
+ * Fetches the perk transaction log for a user (most recent first).
+ */
+export const getUserPerkTransactions = async (
+  userId: string,
+  limitN = 30
+): Promise<PerkTransaction[]> => {
+  if (!isFirebaseConfigured()) return [];
+  const q = query(
+    collection(db, 'perkTransactions'),
+    where('userId', '==', userId),
+    orderBy('createdAt', 'desc'),
+    limit(limitN)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as PerkTransaction));
+};
+
+/**
+ * Real-time listener for a user's perk transaction log.
+ */
+export const subscribeToUserPerkTransactions = (
+  userId: string,
+  callback: (txs: PerkTransaction[]) => void,
+  limitN = 20
+): Unsubscribe => {
+  if (!isFirebaseConfigured()) return () => {};
+  const q = query(
+    collection(db, 'perkTransactions'),
+    where('userId', '==', userId),
+    orderBy('createdAt', 'desc'),
+    limit(limitN)
+  );
+  return onSnapshot(q, snap => {
+    callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as PerkTransaction)));
+  });
 };
 
 // ========================
 // LEADERBOARDS
 // ========================
 
-/**
- * Global Top-50 leaderboard ranked by `totalPerksEarned`.
- */
+/** Global Top-50 leaderboard ranked by `totalPerksEarned`. */
 export const getGlobalLeaderboard = async (): Promise<LeaderboardEntry[]> => {
   if (!isFirebaseConfigured()) return [];
 
@@ -128,16 +443,12 @@ export const getGlobalLeaderboard = async (): Promise<LeaderboardEntry[]> => {
   });
 };
 
-/**
- * Private team leaderboard — members of a specific team ranked by
- * `totalPerksEarned` (best proxy for task-completion contribution).
- */
+/** Private team leaderboard — members ranked by `totalPerksEarned`. */
 export const getTeamLeaderboard = async (
   memberUserIds: string[]
 ): Promise<LeaderboardEntry[]> => {
   if (!isFirebaseConfigured() || memberUserIds.length === 0) return [];
 
-  // Firestore `in` supports up to 30 items; teams are capped well below that
   const q = query(
     collection(db, 'profiles'),
     where('__name__', 'in', memberUserIds)
@@ -155,7 +466,7 @@ export const getTeamLeaderboard = async (
       totalPerksEarned,
       perks: data.perks ?? 0,
       rank: getPerkRank(totalPerksEarned),
-      position: 0, // filled in after sort
+      position: 0,
     };
   });
 
@@ -168,22 +479,13 @@ export const getTeamLeaderboard = async (
 // REFERRAL SYSTEM
 // ========================
 
-/**
- * Generates a unique referral code for a user.
- * Format: TU- + 8 uppercase alphanumeric chars derived from userId + random suffix.
- */
 export const generateReferralCode = (userId: string): string => {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  // Use first 4 chars of userId (uppercased) + 4 random chars
   const fromId = userId.slice(0, 4).toUpperCase().replace(/[^A-Z0-9]/g, 'X');
   const random = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
   return `TU-${fromId}${random}`;
 };
 
-/**
- * Gets or creates a referral code for a user.
- * Saves the code to Firestore if new.
- */
 export const getOrCreateReferralCode = async (userId: string): Promise<string> => {
   if (!isFirebaseConfigured()) return generateReferralCode(userId);
 
@@ -194,29 +496,11 @@ export const getOrCreateReferralCode = async (userId: string): Promise<string> =
   const data = snap.data();
   if (data.referralCode) return data.referralCode as string;
 
-  // Create and save a new one
   const newCode = generateReferralCode(userId);
   await updateDoc(profileRef, { referralCode: newCode });
   return newCode;
 };
 
-/**
- * Redeems a referral code for the current user.
- * Each code is SINGLE-USE — after one person redeems it:
- *   - The REDEEMER immediately receives +10 Perks
- *   - A pending reward doc is created for the REFERRER to claim on next visit
- *   - The referrer's old code is regenerated when they claim (via claimPendingReferralRewards)
- *
- * Flow:
- *   1. Redeemer writes to their own profile: referredBy + +10 perks
- *   2. A doc is created in `referralRedemptions` for the referrer to claim
- *   3. The referrer claims pending rewards via claimPendingReferralRewards()
- *      which awards their +10 perks AND auto-generates a fresh referral code
- *
- * Guards:
- *   - Redeemer can only ever use one code (referredBy field)
- *   - Code is blocked once a pending referralRedemptions doc exists for that referrer
- */
 export const redeemReferralCode = async (
   code: string,
   redeemerUserId: string
@@ -224,7 +508,6 @@ export const redeemReferralCode = async (
   try {
     if (!isFirebaseConfigured()) return { success: false, message: 'Firebase not configured' };
 
-    // 0) Require verified email before redeeming
     const currentUser = auth?.currentUser;
     if (!currentUser || !currentUser.emailVerified) {
       return {
@@ -235,7 +518,6 @@ export const redeemReferralCode = async (
 
     const normalised = code.trim().toUpperCase();
 
-    // 1) Check if redeemer has already used a code
     const redeemerSnap = await getDoc(doc(db, 'profiles', redeemerUserId));
     if (!redeemerSnap.exists()) return { success: false, message: 'Your profile was not found.' };
     const redeemerData = redeemerSnap.data();
@@ -243,7 +525,6 @@ export const redeemReferralCode = async (
       return { success: false, message: 'You have already redeemed a referral code.' };
     }
 
-    // 2) Find the owner of this referral code
     const q = query(
       collection(db, 'profiles'),
       where('referralCode', '==', normalised),
@@ -257,15 +538,10 @@ export const redeemReferralCode = async (
     const referrerDoc = snap.docs[0];
     const referrerId = referrerDoc.id;
 
-    // 3) Cannot refer yourself
     if (referrerId === redeemerUserId) {
       return { success: false, message: "You can't use your own referral code." };
     }
 
-    // 3b) SINGLE-USE GUARD: check if this referrer's code is already pending redemption
-    //     (i.e., someone redeemed it but the referrer hasn't claimed yet)
-    //     Wrapped in try/catch — if rules aren't deployed yet this query may fail,
-    //     but the redeemer's own `referredBy` guard still prevents their side of double-use.
     try {
       const pendingQ = query(
         collection(db, 'referralRedemptions'),
@@ -280,19 +556,13 @@ export const redeemReferralCode = async (
         };
       }
     } catch (permErr) {
-      // Rules not yet deployed — skip the guard and continue
-      console.warn('[redeemReferralCode] Could not check pending redemptions (rules may need deployment):', permErr);
+      console.warn('[redeemReferralCode] Could not check pending redemptions:', permErr);
     }
 
-    // 4) Mark redeemer as referred (writing to OWN profile — always allowed)
-    //    NOTE: Only the REFERRER earns Perks (via claimPendingReferralRewards).
-    //    The redeemer does NOT earn perks — they just record who referred them.
     await updateDoc(doc(db, 'profiles', redeemerUserId), {
       referredBy: referrerId,
     });
 
-    // 5) Create a pending reward for the referrer to claim
-    //    (any authenticated user can create docs in this collection)
     await addDoc(collection(db, 'referralRedemptions'), {
       referrerId,
       redeemerId: redeemerUserId,
@@ -305,7 +575,7 @@ export const redeemReferralCode = async (
     const referrerName = referrerDoc.data().fullName || 'your friend';
     return {
       success: true,
-      message: `\uD83C\uDF89 Referral redeemed! You earned +10 Perks! ${referrerName} will also receive 10 Perks when they next visit the Perk Shop.`,
+      message: `🎉 Referral redeemed! ${referrerName} will also receive 10 Perks when they next visit the Perk Shop.`,
     };
   } catch (err: any) {
     console.error('[redeemReferralCode] Error:', err);
@@ -313,29 +583,15 @@ export const redeemReferralCode = async (
   }
 };
 
-/**
- * Called when the referrer visits the Perk Shop.
- * Claims any pending referral rewards by:
- *   - Reading unclaimed docs from `referralRedemptions` where referrerId == userId
- *   - Awarding +10 Perks to the current user's OWN profile (no cross-user writes)
- *   - Auto-generating a FRESH referral code (old code is now spent / single-used)
- *   - Deleting the claimed referralRedemption docs
- *
- * @returns number of rewards claimed (each = 10 perks)
- */
-export const claimPendingReferralRewards = async (
-  userId: string
-): Promise<number> => {
+export const claimPendingReferralRewards = async (userId: string): Promise<number> => {
   if (!isFirebaseConfigured()) return 0;
 
   try {
-    // Query only by referrerId — docs are deleted after claim
     const q = query(
       collection(db, 'referralRedemptions'),
       where('referrerId', '==', userId)
     );
     const snap = await getDocs(q);
-    console.log(`[claimPendingReferralRewards] Found ${snap.size} pending reward(s) for ${userId}`);
     if (snap.empty) return 0;
 
     let totalPerks = 0;
@@ -343,18 +599,27 @@ export const claimPendingReferralRewards = async (
       totalPerks += d.data().perksAwarded || 10;
     });
 
-    // Award all pending perks to own profile + auto-generate a fresh referral code
-    // Writing to own profile → Firestore rule 1 (request.auth.uid == userId) allows all fields
+    const profileRef = doc(db, 'profiles', userId);
+    const profileSnap = await getDoc(profileRef);
+    const currentBalance = (profileSnap.data()?.perks ?? 0) as number;
+    const newBalance = currentBalance + totalPerks;
+
     const newCode = generateReferralCode(userId);
-    await updateDoc(doc(db, 'profiles', userId), {
+    await updateDoc(profileRef, {
       perks: increment(totalPerks),
       totalPerksEarned: increment(totalPerks),
       referralCount: increment(snap.size),
-      referralCode: newCode,   // ← fresh single-use code automatically assigned
+      referralCode: newCode,
     });
-    console.log(`[claimPendingReferralRewards] Awarded ${totalPerks} perks, new referral code: ${newCode}`);
 
-    // Delete all claimed docs so the old code path is cleared
+    await logPerkTransaction(
+      userId,
+      totalPerks,
+      'referral',
+      `🎁 Referral reward — ${snap.size} friend(s) joined using your code!`,
+      newBalance
+    );
+
     await Promise.allSettled(snap.docs.map((d) => deleteDoc(d.ref)));
 
     return snap.size;

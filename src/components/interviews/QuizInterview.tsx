@@ -40,6 +40,8 @@ import {
   ProctoringWarning,
 } from '@/services/firestore_interviews';
 import { addTeamMember, getProfile } from '@/services/firestore';
+import { chargeInterviewFee } from '@/services/perksService';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { serverTimestamp } from 'firebase/firestore';
 import { toast } from 'sonner';
 
@@ -58,6 +60,8 @@ const InterviewerView = ({ request, onEnd }: { request: InterviewRequest; onEnd:
   const [addedToTeam, setAddedToTeam] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [loadingReport, setLoadingReport] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [initQuizFlow, setInitQuizFlow] = useState(false);
   const [quizAnswers, setQuizAnswers] = useState<
     { question: string; selected: string; correct: string; isCorrect: boolean }[]
   >([]);
@@ -86,6 +90,17 @@ const InterviewerView = ({ request, onEnd }: { request: InterviewRequest; onEnd:
         // Generate questions if not yet done
         const existing = await getQuizQuestions(request.id);
         if (existing.length === 0) {
+          if (!initQuizFlow) {
+            const profile = await getProfile(request.leaderId);
+            if ((profile?.perks ?? 0) < 5) {
+              toast.error('Insufficient Perks! You need 5 Perks for a quiz interview.');
+              onEnd();
+              return;
+            }
+            setShowConfirm(true);
+            return;
+          }
+
           const config = request.quizConfig!;
           const generated = await generateQuizQuestions({
             topics: config.topics,
@@ -113,7 +128,12 @@ const InterviewerView = ({ request, onEnd }: { request: InterviewRequest; onEnd:
       }
     };
     setup();
-  }, []);
+  }, [initQuizFlow]);
+
+  const handleConfirmStart = () => {
+    setShowConfirm(false);
+    setInitQuizFlow(true);
+  };
 
   const handleAddToTeam = async () => {
     setAddingToTeam(true);
@@ -304,17 +324,16 @@ const InterviewerView = ({ request, onEnd }: { request: InterviewRequest; onEnd:
           <button
             onClick={handleAddToTeam}
             disabled={addingToTeam || addedToTeam}
-            className={`w-full flex items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all font-semibold ${
-              addedToTeam
-                ? 'border-green-500/30 bg-green-500/10 text-green-600 cursor-not-allowed'
-                : 'border-green-500/40 bg-green-500/5 text-green-600 hover:bg-green-500/10'
-            }`}
+            className={`w-full flex items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all font-semibold ${addedToTeam
+              ? 'border-green-500/30 bg-green-500/10 text-green-600 cursor-not-allowed'
+              : 'border-green-500/40 bg-green-500/5 text-green-600 hover:bg-green-500/10'
+              }`}
           >
             {addingToTeam
               ? <Loader2 className="w-5 h-5 animate-spin" />
               : addedToTeam
-              ? <CheckCircle className="w-5 h-5" />
-              : <UserPlus className="w-5 h-5" />}
+                ? <CheckCircle className="w-5 h-5" />
+                : <UserPlus className="w-5 h-5" />}
             {addedToTeam
               ? `✓ Added to ${request.teamName}`
               : `Add to ${request.teamName}`}
@@ -323,6 +342,16 @@ const InterviewerView = ({ request, onEnd }: { request: InterviewRequest; onEnd:
 
         <button onClick={onEnd} className="btn-secondary w-full">Close</button>
       </div>
+
+      {/* Confirm Modal */}
+      {showConfirm && (
+        <ConfirmModal
+          title="Prepare Quiz"
+          message="Preparing this quiz interview costs 5 Perks (deducted when candidate starts). Do you want to proceed?"
+          onConfirm={handleConfirmStart}
+          onCancel={() => { setShowConfirm(false); onEnd(); }}
+        />
+      )}
     </div>
   );
 };
@@ -396,7 +425,7 @@ const CandidateView = ({ request, onEnd }: { request: InterviewRequest; onEnd: (
   useEffect(() => {
     if (phase === 'active' && localVideoRef.current && streamRef.current) {
       localVideoRef.current.srcObject = streamRef.current;
-      localVideoRef.current.play().catch(() => {});
+      localVideoRef.current.play().catch(() => { });
     }
   }, [phase]);
 
@@ -461,13 +490,20 @@ const CandidateView = ({ request, onEnd }: { request: InterviewRequest; onEnd: (
     // 4. Attach video
     if (localVideoRef.current) {
       localVideoRef.current.srcObject = stream;
-      localVideoRef.current.play().catch(() => {});
+      localVideoRef.current.play().catch(() => { });
     }
 
     // 5. Enter fullscreen
     await enterFullscreen();
 
-    // 6. Start — use local variable for timer to avoid stale state
+    // 6. Charge leader fee (idempotent)
+    try {
+      await chargeInterviewFee(request.leaderId, request.candidateId, request.id);
+    } catch (err) {
+      console.warn("Could not charge leader fee:", err);
+    }
+
+    // 7. Start — use local variable for timer to avoid stale state
     setPhaseSync('active');
     const totalSeconds = request.quizConfig!.timeLimitMinutes * 60;
     setTimeLeft(totalSeconds);
@@ -721,15 +757,13 @@ const CandidateView = ({ request, onEnd }: { request: InterviewRequest; onEnd: (
               <button
                 key={i}
                 onClick={() => setAnswers(prev => ({ ...prev, [currentQuestion.id]: option }))}
-                className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
-                  selected
-                    ? 'border-primary bg-primary/5 text-foreground'
-                    : 'border-border hover:border-primary/40 text-muted-foreground hover:text-foreground'
-                }`}
+                className={`w-full text-left p-4 rounded-xl border-2 transition-all ${selected
+                  ? 'border-primary bg-primary/5 text-foreground'
+                  : 'border-border hover:border-primary/40 text-muted-foreground hover:text-foreground'
+                  }`}
               >
-                <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold mr-3 ${
-                  selected ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'
-                }`}>
+                <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold mr-3 ${selected ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'
+                  }`}>
                   {String.fromCharCode(65 + i)}
                 </span>
                 {option}

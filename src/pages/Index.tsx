@@ -25,7 +25,7 @@ import { ProductWalkthrough } from "@/components/walkthrough/ProductWalkthrough"
 import { PerksBadge } from '@/components/PerksBadge';
 import PerksStatusCard from '@/components/PerksStatusCard';
 import LeaderboardPage from '@/components/pages/LeaderboardPage';
-import { Trophy } from "lucide-react"; // For the sidebar icon later
+import { Trophy } from "lucide-react";
 import AdminPanel from "@/components/pages/AdminPanel";
 import { useLocation, useParams } from "react-router-dom";
 import TeamDashboard from "@/components/pages/TeamDashboard";
@@ -52,7 +52,7 @@ import FeedbackPopup from "@/components/FeedbackPopup";
 import InterviewDashboard from "@/components/interviews/InterviewDashboard";
 import InterviewRouter from "@/components/interviews/InterviewRouter";
 import { InterviewRequest } from "@/services/firestore_interviews";
-import {Settings} from "lucide-react";
+import { Settings } from "lucide-react";
 const Index = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading, logout } = useAuth();
@@ -156,24 +156,24 @@ const Index = () => {
   useEffect(() => {
     const savedPage = localStorage.getItem("teamup:lastPage");
 
-const path = window.location.pathname.replace("/", "");
+    const path = window.location.pathname.replace("/", "");
 
-// 🔥 CLEAN BOTH VALUES
-const cleanSavedPage = savedPage?.replace("/", "");
-const cleanPath = path.replace("/", "");
+    // 🔥 CLEAN BOTH VALUES
+    const cleanSavedPage = savedPage?.replace("/", "");
+    const cleanPath = path.replace("/", "");
 
-const pageToLoad = cleanSavedPage || cleanPath || "feed";
+    const pageToLoad = cleanSavedPage || cleanPath || "feed";
 
-setCurrentPage(pageToLoad);
+    setCurrentPage(pageToLoad);
 
     // keep browser history in sync on refresh / direct URL
     const safePage = pageToLoad.replace("/", "");
 
-window.history.replaceState(
-  { page: safePage },
-  "",
-  safePage === "feed" ? "/" : `/${safePage}`
-);
+    window.history.replaceState(
+      { page: safePage },
+      "",
+      safePage === "feed" ? "/" : `/${safePage}`
+    );
   }, []);
 
   useEffect(() => {
@@ -242,24 +242,24 @@ window.history.replaceState(
     setNeedsProfileSetup(false);
   };
 
-const handleNavigate = (page: string) => {
-  const cleanPage = page.replace("/", ""); // ✅ FIX
+  const handleNavigate = (page: string) => {
+    const cleanPage = page.replace("/", ""); // ✅ FIX
 
-  setCurrentPage(cleanPage);
-  setSelectedUserId(null);
-  setSelectedTeamId(null);
-  setMobileMenuOpen(false);
-  setEditingProfile(false);
-  setActiveConversationId(null);
+    setCurrentPage(cleanPage);
+    setSelectedUserId(null);
+    setSelectedTeamId(null);
+    setMobileMenuOpen(false);
+    setEditingProfile(false);
+    setActiveConversationId(null);
 
-  localStorage.setItem("teamup:lastPage", cleanPage);
+    localStorage.setItem("teamup:lastPage", cleanPage);
 
-  window.history.pushState(
-    { page: cleanPage },
-    "",
-    cleanPage === "feed" ? "/" : `/${cleanPage}`
-  );
-};
+    window.history.pushState(
+      { page: cleanPage },
+      "",
+      cleanPage === "feed" ? "/" : `/${cleanPage}`
+    );
+  };
 
   const handleViewProfile = (userId: string) => {
     setSelectedUserId(userId);
@@ -328,18 +328,18 @@ const handleNavigate = (page: string) => {
 
   // 2️⃣ AUTH SCREEN (only after Get Started)
   if (forceAuth && isFirebaseConfigured() && !authLoading) {
-  return (
-    <Auth
-      defaultMode={authMode}
-      onAuthSuccess={(data) => {  // ✅ CAPTURE THE DATA
-        setForceAuth(false);
-        if (data) {
-          setSignupData(data);  // ✅ STORE IT
-        }
-      }}
-    />
-  );
-}
+    return (
+      <Auth
+        defaultMode={authMode}
+        onAuthSuccess={(data) => {  // ✅ CAPTURE THE DATA
+          setForceAuth(false);
+          if (data) {
+            setSignupData(data);  // ✅ STORE IT
+          }
+        }}
+      />
+    );
+  }
 
   // 3️⃣ LOADING
   if (authLoading) {
@@ -357,25 +357,25 @@ const handleNavigate = (page: string) => {
 
   // 4️⃣ PROFILE SETUP
   if ((needsProfileSetup || editingProfile) && user) {
-  return (
-    <ProfileSetup
-      existingProfile={editingProfile ? profile : null}
-      initialName={signupData?.name}        // ✅ PASS NAME
-      initialUsername={signupData?.username} // ✅ PASS USERNAME
-      onComplete={() => {
-        setNeedsProfileSetup(false);
-        setEditingProfile(false);
-        setSignupData(null);  // ✅ CLEAR AFTER USE
-        checkProfile();
-      }}
-      onSkip={() => {
-        setNeedsProfileSetup(false);
-        handleNavigate('feed');
-      }}
-      onOpenVerification={handleOpenVerification}
-    />
-  );
-}
+    return (
+      <ProfileSetup
+        existingProfile={editingProfile ? profile : null}
+        initialName={signupData?.name}        // ✅ PASS NAME
+        initialUsername={signupData?.username} // ✅ PASS USERNAME
+        onComplete={() => {
+          setNeedsProfileSetup(false);
+          setEditingProfile(false);
+          setSignupData(null);  // ✅ CLEAR AFTER USE
+          checkProfile();
+        }}
+        onSkip={() => {
+          setNeedsProfileSetup(false);
+          handleNavigate('feed');
+        }}
+        onOpenVerification={handleOpenVerification}
+      />
+    );
+  }
 
   // Show auth if not logged in (only when Firebase is configured)
   // if (isFirebaseConfigured() && !authLoading && !user) {
@@ -393,11 +393,11 @@ const handleNavigate = (page: string) => {
                 onViewLeaderboard={() => handleNavigate("leaderboard")}
               />
             )}
-            <HomeFeed 
+            <HomeFeed
               onNavigate={handleNavigate}
               onViewProfile={handleViewProfile}
               openAuth={openAuth}
-              profile={profile} 
+              profile={profile}
             />
           </div>
         );
@@ -412,35 +412,35 @@ const handleNavigate = (page: string) => {
         );
       case "upload":
         return <UploadPage onBack={() => handleNavigate("feed")} />;
-            case "build":
-              return (
-                <BuildTeam
-                  onNavigate={handleNavigate}
-                  openAuth={() => {
-                    setShowEntry(false);
-                    setForceAuth(true);
-                  }}
-                />
-              );
+      case "build":
+        return (
+          <BuildTeam
+            onNavigate={handleNavigate}
+            openAuth={() => {
+              setShowEntry(false);
+              setForceAuth(true);
+            }}
+          />
+        );
 
       case "discover":
-          return (
-            <DiscoverPeople 
-              onViewProfile={handleViewProfile}
-              openAuth={openAuth}
-            />
-          );
-  //     case "admin":
-  // return <AdminPanel />;
+        return (
+          <DiscoverPeople
+            onViewProfile={handleViewProfile}
+            openAuth={openAuth}
+          />
+        );
+      //     case "admin":
+      // return <AdminPanel />;
       case "discover-teams":
-        return <DiscoverTeams onNavigate={handleNavigate} openAuth={openAuth} onViewProfile={handleViewProfile}/>;
+        return <DiscoverTeams onNavigate={handleNavigate} openAuth={openAuth} onViewProfile={handleViewProfile} />;
 
       case "teams":
         return (
           <MyTeams
             onNavigate={handleNavigate}
             onViewWorkspace={handleViewWorkspace}
-            onViewProfile={handleViewProfile} 
+            onViewProfile={handleViewProfile}
             openAuth={openAuth}
           />
         );
@@ -490,7 +490,7 @@ const handleNavigate = (page: string) => {
           <Messages
             initialConversationId={activeConversationId}
             onBack={() => handleNavigate("feed")}
-            onViewProfile={handleViewProfile} 
+            onViewProfile={handleViewProfile}
             openAuth={openAuth}
           />
         );
@@ -503,8 +503,8 @@ const handleNavigate = (page: string) => {
             openAuth={openAuth}
           />
         );
-        
-        case "settings":
+
+      case "settings":
         return (
           <SettingsPage
             userProfile={profile}
@@ -520,11 +520,11 @@ const handleNavigate = (page: string) => {
 
       default:
         return (
-          <HomeFeed 
+          <HomeFeed
             onNavigate={handleNavigate}
             onViewProfile={handleViewProfile}
             openAuth={openAuth}
-            profile={profile} 
+            profile={profile}
           />
         );
     }
@@ -601,8 +601,8 @@ const handleNavigate = (page: string) => {
                   profile?.avatar
                     ? `${profile.avatar}?t=${Date.now()}`
                     : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
-                        profile?.fullName || "User"
-                      )}`
+                      profile?.fullName || "User"
+                    )}`
                 }
                 alt="Profile"
                 className="w-8 h-8 rounded-full object-cover ring-2 ring-primary/10"
@@ -622,8 +622,8 @@ const handleNavigate = (page: string) => {
                   profile?.avatar
                     ? `${profile.avatar}?t=${Date.now()}`
                     : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
-                        profile?.fullName || "User"
-                      )}`
+                      profile?.fullName || "User"
+                    )}`
                 }
                 alt="Profile"
                 className="w-8 h-8 rounded-full object-cover"
@@ -721,10 +721,10 @@ const handleNavigate = (page: string) => {
                 transition={{ duration: 0.2, ease: "easeOut" }}
               >
                 {isDashboard ? (
-                    <TeamDashboard />
-                  ) : (
-                    renderContent()
-                  )}
+                  <TeamDashboard />
+                ) : (
+                  renderContent()
+                )}
               </motion.div>
             </AnimatePresence>
           </main>

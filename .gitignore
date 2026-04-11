@@ -22,6 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+<<<<<<< HEAD
+=======
+backend/config/serviceAccountKey.json
+>>>>>>> 78b5bd8192f614bf0ac8f0c7392559e17e8e351b
 
 .env
 .env.local

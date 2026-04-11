@@ -161,7 +161,7 @@ const AdminPanel = () => {
     const growthMap: Record<string, number> = {};
     users.forEach((u) => {
       if (u.createdAt) {
-        try { const d = format(new Date(u.createdAt), "MMM d"); growthMap[d] = (growthMap[d] || 0) + 1; } catch {}
+        try { const d = format(new Date(u.createdAt), "MMM d"); growthMap[d] = (growthMap[d] || 0) + 1; } catch { }
       }
     });
 
@@ -203,7 +203,7 @@ const AdminPanel = () => {
         try {
           const d = format(new Date(p.createdAt._seconds * 1000), "MMM d");
           if (map[d] && p.type) map[d][p.type] = (map[d][p.type] || 0) + 1;
-        } catch {}
+        } catch { }
       }
     });
     return last14.map((date) => ({ name: date, ...map[date] }));
@@ -349,7 +349,7 @@ const AdminPanel = () => {
                           <p className="text-xs font-medium truncate">{p.title || p.description || "Activity"}</p>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             <span className="text-[10px] text-gray-500">{p.authorName || "Unknown"}</span>
-                            <span className={`text-[9px] font-bold uppercase px-1 py-0.5 rounded ${style}`}>{p.type?.replace(/_/g," ")}</span>
+                            <span className={`text-[9px] font-bold uppercase px-1 py-0.5 rounded ${style}`}>{p.type?.replace(/_/g, " ")}</span>
                           </div>
                         </div>
                       </div>
@@ -466,14 +466,14 @@ const AdminPanel = () => {
                                     </div>
                                   )}
                                   <div>
-                                    <p className="text-xs font-medium">{r.raterProfile?.fullName || r.raterProfile?.email || r.raterId?.slice(0,8) || dash}</p>
-                                    {r.teamId && <p className="text-[10px] text-gray-600">{teams.find(t=>t.id===r.teamId)?.name || "Team"}</p>}
+                                    <p className="text-xs font-medium">{r.raterProfile?.fullName || r.raterProfile?.email || r.raterId?.slice(0, 8) || dash}</p>
+                                    {r.teamId && <p className="text-[10px] text-gray-600">{teams.find(t => t.id === r.teamId)?.name || "Team"}</p>}
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <div className="flex items-center gap-0.5">
-                                    {[1,2,3,4,5].map(s => (
-                                      <Star key={s} className={`w-3 h-3 ${ s <= Math.round(r.rating) ? "text-amber-400 fill-amber-400" : "text-gray-600" }`} />
+                                    {[1, 2, 3, 4, 5].map(s => (
+                                      <Star key={s} className={`w-3 h-3 ${s <= Math.round(r.rating) ? "text-amber-400 fill-amber-400" : "text-gray-600"}`} />
                                     ))}
                                   </div>
                                   <span className="text-xs font-bold text-amber-400">{r.rating}</span>
@@ -580,9 +580,8 @@ const AdminPanel = () => {
                   <div className="flex items-start justify-between mb-6">
                     <div>
                       <h3 className="text-xl font-bold">{selectedTeam.name}</h3>
-                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md mt-1 inline-block ${
-                        selectedTeam.status === "complete" ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400"
-                      }`}>
+                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md mt-1 inline-block ${selectedTeam.status === "complete" ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400"
+                        }`}>
                         {selectedTeam.status || dash}
                       </span>
                     </div>
@@ -648,9 +647,8 @@ const AdminPanel = () => {
                     <div className="w-10 h-10 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-400 font-bold text-lg uppercase">
                       {(team.name || "T")[0]}
                     </div>
-                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md ${
-                      team.status === "complete" ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400"
-                    }`}>
+                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md ${team.status === "complete" ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400"
+                      }`}>
                       {team.status || dash}
                     </span>
                   </div>
@@ -699,61 +697,61 @@ const AdminPanel = () => {
                 {verified.map((v) => {
                   const u = v.resolvedUser;
                   return (
-                  <div key={v.id} className="bg-[#21233d] border border-emerald-500/10 rounded-3xl p-5 flex items-start gap-5 hover:border-emerald-500/25 transition-all">
-                    {/* Avatar */}
-                    {u?.avatar ? (
-                      <img src={u.avatar} alt="" className="w-12 h-12 rounded-full object-cover border border-emerald-500/20 shrink-0" />
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                        <CheckCircle className="w-6 h-6 text-emerald-400" />
-                      </div>
-                    )}
+                    <div key={v.id} className="bg-[#21233d] border border-emerald-500/10 rounded-3xl p-5 flex items-start gap-5 hover:border-emerald-500/25 transition-all">
+                      {/* Avatar */}
+                      {u?.avatar ? (
+                        <img src={u.avatar} alt="" className="w-12 h-12 rounded-full object-cover border border-emerald-500/20 shrink-0" />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                          <CheckCircle className="w-6 h-6 text-emerald-400" />
+                        </div>
+                      )}
 
-                    <div className="flex-1 min-w-0">
-                      {/* Name row */}
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <p className="font-bold text-sm">{u?.fullName || dash}</p>
-                        {u?.username && <span className="text-[11px] text-gray-500">@{u.username}</span>}
-                        <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-bold uppercase px-2 py-0.5 rounded-md">Verified</span>
-                        {u?.primaryRole && <span className="bg-purple-500/10 text-purple-400 text-[10px] font-bold uppercase px-2 py-0.5 rounded-md">{u.primaryRole}</span>}
-                      </div>
+                      <div className="flex-1 min-w-0">
+                        {/* Name row */}
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <p className="font-bold text-sm">{u?.fullName || dash}</p>
+                          {u?.username && <span className="text-[11px] text-gray-500">@{u.username}</span>}
+                          <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-bold uppercase px-2 py-0.5 rounded-md">Verified</span>
+                          {u?.primaryRole && <span className="bg-purple-500/10 text-purple-400 text-[10px] font-bold uppercase px-2 py-0.5 rounded-md">{u.primaryRole}</span>}
+                        </div>
 
-                      {/* ID + email + date */}
-                      <p className="text-[11px] text-gray-600 mb-3">
-                        <span>{u?.email || v.userId || dash}</span>
-                        {" · "} Verified: {safeDate(v.verifiedAt)}
-                      </p>
+                        {/* ID + email + date */}
+                        <p className="text-[11px] text-gray-600 mb-3">
+                          <span>{u?.email || v.userId || dash}</span>
+                          {" · "} Verified: {safeDate(v.verifiedAt)}
+                        </p>
 
-                      {/* Verified Skills */}
-                      {v.verifiedSkills?.length > 0 && (
-                        <div className="mb-2">
-                          <p className="text-[10px] text-gray-500 uppercase font-bold mb-1.5">Verified Skills</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {v.verifiedSkills.map((s: string) => (
-                              <span key={s} className="bg-emerald-600/15 text-emerald-400 text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full border border-emerald-500/20">{s}</span>
-                            ))}
+                        {/* Verified Skills */}
+                        {v.verifiedSkills?.length > 0 && (
+                          <div className="mb-2">
+                            <p className="text-[10px] text-gray-500 uppercase font-bold mb-1.5">Verified Skills</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {v.verifiedSkills.map((s: string) => (
+                                <span key={s} className="bg-emerald-600/15 text-emerald-400 text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full border border-emerald-500/20">{s}</span>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
 
-                      {/* GitHub info if available */}
-                      {v.sources?.github && (
-                        <div className="mt-2 flex items-center gap-2 text-[11px] text-gray-500">
-                          <Shield className="w-3 h-3" />
-                          <span>GitHub: <span className="text-gray-300">@{v.sources.github.username || dash}</span></span>
-                          {v.sources.github.repoCount != null && <span>· {v.sources.github.repoCount} repos</span>}
-                          {v.overallScore != null && <span>· Score: <span className="text-purple-400 font-bold">{v.overallScore}</span></span>}
-                        </div>
-                      )}
+                        {/* GitHub info if available */}
+                        {v.sources?.github && (
+                          <div className="mt-2 flex items-center gap-2 text-[11px] text-gray-500">
+                            <Shield className="w-3 h-3" />
+                            <span>GitHub: <span className="text-gray-300">@{v.sources.github.username || dash}</span></span>
+                            {v.sources.github.repoCount != null && <span>· {v.sources.github.repoCount} repos</span>}
+                            {v.overallScore != null && <span>· Score: <span className="text-purple-400 font-bold">{v.overallScore}</span></span>}
+                          </div>
+                        )}
 
-                      {/* Certificate info if available */}
-                      {v.sources?.certificates?.length > 0 && (
-                        <div className="mt-2 text-[11px] text-gray-500">
-                          <span>Certificates verified: {v.sources.certificates.length}</span>
-                        </div>
-                      )}
+                        {/* Certificate info if available */}
+                        {v.sources?.certificates?.length > 0 && (
+                          <div className="mt-2 text-[11px] text-gray-500">
+                            <span>Certificates verified: {v.sources.certificates.length}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
                   );
                 })}
               </div>
@@ -791,66 +789,65 @@ const AdminPanel = () => {
                   const reporterDisplay = reporter?.fullName || reporter?.email || r.reporterId || dash;
 
                   return (
-                  <div key={r.id} className="bg-[#21233d] rounded-3xl border border-white/5 p-5 hover:border-rose-500/20 transition-all">
+                    <div key={r.id} className="bg-[#21233d] rounded-3xl border border-white/5 p-5 hover:border-rose-500/20 transition-all">
 
-                    {/* Header: Reported user */}
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        {reported?.avatar ? (
-                          <img src={reported.avatar} alt="" className="w-10 h-10 rounded-full object-cover border border-rose-500/20 shrink-0" />
+                      {/* Header: Reported user */}
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          {reported?.avatar ? (
+                            <img src={reported.avatar} alt="" className="w-10 h-10 rounded-full object-cover border border-rose-500/20 shrink-0" />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-rose-500/10 flex items-center justify-center shrink-0">
+                              <AlertCircle className="w-4.5 h-4.5 text-rose-400" />
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-sm font-bold">
+                              Reported:{" "}
+                              <span className="text-rose-400">
+                                {reportedDisplay}
+                                {reported?.username && (
+                                  <span className="text-rose-300 font-normal"> @{reported.username}</span>
+                                )}
+                              </span>
+                            </p>
+                            <p className="text-[11px] text-gray-600 font-mono mt-0.5">{r.reportedId || dash}</p>
+                          </div>
+                        </div>
+                        <span className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-lg shrink-0 ${r.status === "pending" ? "bg-rose-500/15 text-rose-400" :
+                            r.status === "reviewed" ? "bg-amber-500/15 text-amber-400" :
+                              "bg-emerald-500/15 text-emerald-400"
+                          }`}>
+                          {r.status || dash}
+                        </span>
+                      </div>
+
+                      {/* Reporter info row */}
+                      <div className="flex items-center gap-2 mb-4 text-[11px] text-gray-500 bg-[#1a1c2e] px-3 py-2 rounded-xl border border-white/[0.04]">
+                        {reporter?.avatar ? (
+                          <img src={reporter.avatar} alt="" className="w-5 h-5 rounded-full object-cover border border-white/10 shrink-0" />
                         ) : (
-                          <div className="w-10 h-10 rounded-full bg-rose-500/10 flex items-center justify-center shrink-0">
-                            <AlertCircle className="w-4.5 h-4.5 text-rose-400" />
+                          <div className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center shrink-0">
+                            <User className="w-2.5 h-2.5 text-gray-500" />
                           </div>
                         )}
-                        <div>
-                          <p className="text-sm font-bold">
-                            Reported:{" "}
-                            <span className="text-rose-400">
-                              {reportedDisplay}
-                              {reported?.username && (
-                                <span className="text-rose-300 font-normal"> @{reported.username}</span>
-                              )}
-                            </span>
-                          </p>
-                          <p className="text-[11px] text-gray-600 font-mono mt-0.5">{r.reportedId || dash}</p>
-                        </div>
+                        <span className="text-gray-500">Reported by:</span>
+                        <span className="text-gray-200 font-medium">
+                          {reporterDisplay}
+                          {reporter?.username && (
+                            <span className="text-gray-500 font-normal"> @{reporter.username}</span>
+                          )}
+                        </span>
+                        <span className="text-gray-700 font-mono ml-1">({r.reporterId?.slice(0, 8) || dash}…)</span>
+                        <span className="ml-auto text-gray-600">{safeDate(r.createdAt)}</span>
                       </div>
-                      <span className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-lg shrink-0 ${
-                        r.status === "pending" ? "bg-rose-500/15 text-rose-400" :
-                        r.status === "reviewed" ? "bg-amber-500/15 text-amber-400" :
-                        "bg-emerald-500/15 text-emerald-400"
-                      }`}>
-                        {r.status || dash}
-                      </span>
-                    </div>
 
-                    {/* Reporter info row */}
-                    <div className="flex items-center gap-2 mb-4 text-[11px] text-gray-500 bg-[#1a1c2e] px-3 py-2 rounded-xl border border-white/[0.04]">
-                      {reporter?.avatar ? (
-                        <img src={reporter.avatar} alt="" className="w-5 h-5 rounded-full object-cover border border-white/10 shrink-0" />
-                      ) : (
-                        <div className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center shrink-0">
-                          <User className="w-2.5 h-2.5 text-gray-500" />
-                        </div>
-                      )}
-                      <span className="text-gray-500">Reported by:</span>
-                      <span className="text-gray-200 font-medium">
-                        {reporterDisplay}
-                        {reporter?.username && (
-                          <span className="text-gray-500 font-normal"> @{reporter.username}</span>
-                        )}
-                      </span>
-                      <span className="text-gray-700 font-mono ml-1">({r.reporterId?.slice(0, 8) || dash}…)</span>
-                      <span className="ml-auto text-gray-600">{safeDate(r.createdAt)}</span>
+                      {/* Reason + Description */}
+                      <div className="bg-[#1a1c2e] rounded-2xl p-4 border border-white/[0.04]">
+                        <p className="text-[11px] text-purple-400 font-bold uppercase mb-1">{r.reason || "No reason specified"}</p>
+                        <p className="text-sm text-gray-400 leading-relaxed">{r.description || dash}</p>
+                      </div>
                     </div>
-
-                    {/* Reason + Description */}
-                    <div className="bg-[#1a1c2e] rounded-2xl p-4 border border-white/[0.04]">
-                      <p className="text-[11px] text-purple-400 font-bold uppercase mb-1">{r.reason || "No reason specified"}</p>
-                      <p className="text-sm text-gray-400 leading-relaxed">{r.description || dash}</p>
-                    </div>
-                  </div>
                   );
                 })}
               </div>
@@ -911,11 +908,10 @@ const AdminPanel = () => {
                         value={isEditing ? (draftProfile as any)[key] : (adminProfile as any)[key]}
                         onChange={(e) => setDraftProfile({ ...draftProfile, [key]: e.target.value })}
                         disabled={!isEditing}
-                        className={`w-full bg-[#1a1c2e] border rounded-xl px-4 py-2.5 text-sm outline-none transition-all ${
-                          isEditing
+                        className={`w-full bg-[#1a1c2e] border rounded-xl px-4 py-2.5 text-sm outline-none transition-all ${isEditing
                             ? "border-purple-500/40 ring-1 ring-purple-500/20 text-white"
                             : "border-white/5 text-gray-300 cursor-default"
-                        }`}
+                          }`}
                       />
                     </div>
                   ))}
@@ -928,11 +924,10 @@ const AdminPanel = () => {
                       onChange={(e) => setDraftProfile({ ...draftProfile, bio: e.target.value })}
                       disabled={!isEditing}
                       rows={3}
-                      className={`w-full bg-[#1a1c2e] border rounded-xl px-4 py-2.5 text-sm outline-none transition-all resize-none ${
-                        isEditing
+                      className={`w-full bg-[#1a1c2e] border rounded-xl px-4 py-2.5 text-sm outline-none transition-all resize-none ${isEditing
                           ? "border-purple-500/40 ring-1 ring-purple-500/20 text-white"
                           : "border-white/5 text-gray-300 cursor-default"
-                      }`}
+                        }`}
                     />
                   </div>
                 </div>
@@ -975,8 +970,8 @@ const AdminPanel = () => {
       // ── Posts ──────────────────────────────────────────────────────────
       case "Posts": {
         const postTypeStyles: Record<string, { label: string; cls: string }> = {
-          user_post:     { label: "User Post",     cls: "text-purple-400 bg-purple-500/10 border-purple-500/20" },
-          team_created:  { label: "Team Created",  cls: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
+          user_post: { label: "User Post", cls: "text-purple-400 bg-purple-500/10 border-purple-500/20" },
+          team_created: { label: "Team Created", cls: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
           member_joined: { label: "Member Joined", cls: "text-amber-400 bg-amber-500/10 border-amber-500/20" },
         };
 
@@ -1095,9 +1090,9 @@ const AdminPanel = () => {
         };
 
         const now = new Date();
-        const todayStart  = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const weekStart   = new Date(todayStart); weekStart.setDate(weekStart.getDate() - 6);
-        const monthStart  = new Date(todayStart); monthStart.setDate(monthStart.getDate() - 29);
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const weekStart = new Date(todayStart); weekStart.setDate(weekStart.getDate() - 6);
+        const monthStart = new Date(todayStart); monthStart.setDate(monthStart.getDate() - 29);
 
         const inRange = (val: any, from: Date) => {
           const d = parseAnyDate(val);
@@ -1105,15 +1100,15 @@ const AdminPanel = () => {
         };
 
         // ── Filter per period ─────────────────────────────────────────────
-        const dailyUsers  = users.filter(u => inRange(u.createdAt, todayStart));
+        const dailyUsers = users.filter(u => inRange(u.createdAt, todayStart));
         const weeklyUsers = users.filter(u => inRange(u.createdAt, weekStart));
         const monthlyUsers = users.filter(u => inRange(u.createdAt, monthStart));
 
-        const dailyTeams  = teams.filter(t => inRange(t.createdAt, todayStart));
+        const dailyTeams = teams.filter(t => inRange(t.createdAt, todayStart));
         const weeklyTeams = teams.filter(t => inRange(t.createdAt, weekStart));
         const monthlyTeams = teams.filter(t => inRange(t.createdAt, monthStart));
 
-        const dailyPosts  = posts.filter(p => inRange(p.createdAt, todayStart));
+        const dailyPosts = posts.filter(p => inRange(p.createdAt, todayStart));
         const weeklyPosts = posts.filter(p => inRange(p.createdAt, weekStart));
         const monthlyPosts = posts.filter(p => inRange(p.createdAt, monthStart));
 
@@ -1149,7 +1144,7 @@ const AdminPanel = () => {
         // Monthly: group into 4 weeks
         const monthlyChartData = Array.from({ length: 4 }, (_, i) => {
           const wStart = new Date(monthStart); wStart.setDate(wStart.getDate() + i * 7);
-          const wEnd   = new Date(wStart);     wEnd.setDate(wEnd.getDate() + 7);
+          const wEnd = new Date(wStart); wEnd.setDate(wEnd.getDate() + 7);
           const inWeek = (val: any) => { const d = parseAnyDate(val); return d && d >= wStart && d < wEnd; };
           return {
             name: `Week ${i + 1}\n${format(wStart, 'MMM d')}`,
@@ -1162,11 +1157,11 @@ const AdminPanel = () => {
         // ── Activity type badge styles (all types) ────────────────────────
         const activityBadge = (type: string) => {
           const map: Record<string, string> = {
-            user_post:      'bg-purple-500/15 text-purple-300 border-purple-500/20',
-            team_created:   'bg-emerald-500/15 text-emerald-300 border-emerald-500/20',
+            user_post: 'bg-purple-500/15 text-purple-300 border-purple-500/20',
+            team_created: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/20',
             team_completed: 'bg-sky-500/15 text-sky-300 border-sky-500/20',
-            member_joined:  'bg-amber-500/15 text-amber-300 border-amber-500/20',
-            member_left:    'bg-rose-500/15 text-rose-300 border-rose-500/20',
+            member_joined: 'bg-amber-500/15 text-amber-300 border-amber-500/20',
+            member_left: 'bg-rose-500/15 text-rose-300 border-rose-500/20',
           };
           return map[type] || 'bg-white/5 text-gray-400 border-white/10';
         };
@@ -1228,7 +1223,11 @@ const AdminPanel = () => {
               @media print{body{padding:24px}}
             </style></head><body>
             <h1>TeamUp ${period} Analysis Report</h1>
+<<<<<<< HEAD
             <p class="meta">Generated: ${format(new Date(), 'PPPp')} &nbsp;|&nbsp; Period: ${period}</p>
+=======
+           <p class="meta">Generated: ${format(new Date(), 'PPPp')} &nbsp;|&nbsp; Period: ${period}</p>
+>>>>>>> 78b5bd8192f614bf0ac8f0c7392559e17e8e351b
             <div class="stats">
               <div class="stat"><div class="stat-n">${uData.length}</div><div class="stat-l">New Users</div></div>
               <div class="stat"><div class="stat-n" style="color:#10b981">${tData.length}</div><div class="stat-l">New Teams</div></div>
@@ -1236,6 +1235,7 @@ const AdminPanel = () => {
             </div>
             <h2>New Users (${uData.length})</h2>
             <table><thead><tr><th>#</th><th>Name</th><th>Email</th><th>Username</th><th>Role</th><th>Joined</th></tr></thead><tbody>
+<<<<<<< HEAD
             ${uData.map((u, i) => row(`${i+1}`, u.fullName||'—', u.email||'—', u.username ? '@'+u.username : '—', u.role||'—', u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—')).join('')}
             </tbody></table>
             <h2>New Teams (${tData.length})</h2>
@@ -1245,6 +1245,17 @@ const AdminPanel = () => {
             <h2>All Activities (${pData.length})</h2>
             <table><thead><tr><th>#</th><th>Title / Description</th><th>Author</th><th>Type</th><th>Date</th></tr></thead><tbody>
             ${pData.map((p, i) => row(`${i+1}`, p.title||p.description||'—', p.authorName||'—', `<span class="badge">${typeLabel(p.type)}</span>`, safeDate(p.createdAt))).join('')}
+=======
+            ${uData.map((u, i) => row(`${i + 1}`, u.fullName || '—', u.email || '—', u.username ? '@' + u.username : '—', u.role || '—', u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—')).join('')}
+            </tbody></table>
+            <h2>New Teams (${tData.length})</h2>
+            <table><thead><tr><th>#</th><th>Team</th><th>Leader</th><th>Members</th><th>Status</th><th>City</th></tr></thead><tbody>
+            ${tData.map((t, i) => row(`${i + 1}`, t.name || '—', t.leaderName || '—', `${t.members?.length ?? 0}`, t.status || '—', t.city || '—')).join('')}
+            </tbody></table>
+            <h2>All Activities (${pData.length})</h2>
+            <table><thead><tr><th>#</th><th>Title / Description</th><th>Author</th><th>Type</th><th>Date</th></tr></thead><tbody>
+            ${pData.map((p, i) => row(`${i + 1}`, p.title || p.description || '—', p.authorName || '—', `<span class="badge">${typeLabel(p.type)}</span>`, safeDate(p.createdAt))).join('')}
+>>>>>>> 78b5bd8192f614bf0ac8f0c7392559e17e8e351b
             </tbody></table>
             </body></html>`;
           const win = window.open('', '_blank', 'width=900,height=700');
@@ -1482,32 +1493,30 @@ const AdminPanel = () => {
 
         <nav className="flex-1 px-3 py-4 space-y-0.5">
           {[
-            { id: "Dashboard",         icon: <LayoutDashboard className="w-4 h-4" />, badge: null },
-            { id: "Analysis",          icon: <TrendingUp className="w-4 h-4" />,      badge: null },
-            { id: "Users",             icon: <Users className="w-4 h-4" />,           badge: users.length > 0 ? users.length : null },
-            { id: "Teams",             icon: <Users2 className="w-4 h-4" />,          badge: teams.length > 0 ? teams.length : null },
-            { id: "Skill Verifications", icon: <CheckCircle className="w-4 h-4" />,  badge: verifications.filter(v => v.status === "verified").length > 0 ? verifications.filter(v => v.status === "verified").length : null },
-            { id: "Reports",           icon: <AlertCircle className="w-4 h-4" />,    badge: reports.filter(r => r.status === "pending").length > 0 ? reports.filter(r => r.status === "pending").length : null },
-            { id: "Posts",             icon: <FileText className="w-4 h-4" />,        badge: posts.length > 0 ? posts.length : null },
-            { id: "Settings",          icon: <Settings className="w-4 h-4" />,        badge: null },
+            { id: "Dashboard", icon: <LayoutDashboard className="w-4 h-4" />, badge: null },
+            { id: "Analysis", icon: <TrendingUp className="w-4 h-4" />, badge: null },
+            { id: "Users", icon: <Users className="w-4 h-4" />, badge: users.length > 0 ? users.length : null },
+            { id: "Teams", icon: <Users2 className="w-4 h-4" />, badge: teams.length > 0 ? teams.length : null },
+            { id: "Skill Verifications", icon: <CheckCircle className="w-4 h-4" />, badge: verifications.filter(v => v.status === "verified").length > 0 ? verifications.filter(v => v.status === "verified").length : null },
+            { id: "Reports", icon: <AlertCircle className="w-4 h-4" />, badge: reports.filter(r => r.status === "pending").length > 0 ? reports.filter(r => r.status === "pending").length : null },
+            { id: "Posts", icon: <FileText className="w-4 h-4" />, badge: posts.length > 0 ? posts.length : null },
+            { id: "Settings", icon: <Settings className="w-4 h-4" />, badge: null },
           ].map(({ id, icon, badge }) => (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                activeTab === id
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${activeTab === id
                   ? "bg-purple-600/15 text-white"
                   : "text-gray-400 hover:bg-white/5 hover:text-white"
-              }`}
+                }`}
             >
               <div className="flex items-center gap-3">
                 {icon}
                 {id}
               </div>
               {badge != null && (
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                  activeTab === id ? "bg-purple-600 text-white" : "bg-white/10 text-gray-400"
-                }`}>
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === id ? "bg-purple-600 text-white" : "bg-white/10 text-gray-400"
+                  }`}>
                   {badge}
                 </span>
               )}

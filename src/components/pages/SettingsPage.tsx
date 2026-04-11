@@ -15,6 +15,8 @@ import { deleteUser } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { deleteUserCompletely } from '@/services/firestore';
 import { useNavigate } from 'react-router-dom';
+import { PerkTransactionLog } from '@/components/PerkTransactionLog';
+import { Zap } from 'lucide-react';
 
 
 interface SettingsPageProps {
@@ -24,7 +26,7 @@ interface SettingsPageProps {
   onDeleteProfile?: () => void;
 }
 
-type SettingsSubPage = 'menu' | 'blocked-users' | 'terms' | 'privacy' | 'contact' | 'feedback';
+type SettingsSubPage = 'menu' | 'blocked-users' | 'terms' | 'privacy' | 'contact' | 'feedback' | 'perk-history';
 const SettingsPage = ({ userProfile, onNavigate, onEditProfile, onDeleteProfile }: SettingsPageProps) => {
   const [subPage, setSubPage] = useState<SettingsSubPage>('menu');
   const { logout } = useAuth();
@@ -115,7 +117,13 @@ const SettingsPage = ({ userProfile, onNavigate, onEditProfile, onDeleteProfile 
       description: 'Update your name, bio, skills and more',
       action: () => onEditProfile?.(),
     },
-
+    {
+      id: 'perk-history' as const,
+      label: 'Perk History',
+      icon: Zap,
+      description: 'View your detailed perk transactions',
+      action: () => setSubPage('perk-history'),
+    },
     {
       id: 'blocked-users' as const,
       label: 'Blocked Users',
@@ -240,6 +248,7 @@ const SettingsPage = ({ userProfile, onNavigate, onEditProfile, onDeleteProfile 
           </div>
         )}
         {subPage === 'feedback' && <FeedbackSection />}
+        {subPage === 'perk-history' && <PerkHistorySection userId={userProfile?.id || ''} />}
       </div>
     );
   }
@@ -617,3 +626,21 @@ const FeedbackSection = () => {
     </div>
   );
 };
+
+// ───── Perk History Section ─────
+const PerkHistorySection = ({ userId }: { userId: string }) => (
+  <div className="card-base p-6">
+    <div className="flex items-center gap-3 mb-4">
+      <Zap className="w-5 h-5 text-amber-500" />
+      <h2 className="font-display font-bold text-xl text-foreground">Perk History</h2>
+    </div>
+    <p className="text-sm text-muted-foreground mb-6">
+      Here is a detailed breakdown of all your earned and spent Perks.
+    </p>
+    {userId ? (
+      <PerkTransactionLog userId={userId} maxItems={100} className="max-h-full" />
+    ) : (
+      <p className="text-sm text-muted-foreground text-center">Unable to load history.</p>
+    )}
+  </div>
+);

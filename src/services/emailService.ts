@@ -290,7 +290,7 @@ const hr = (): string => /* html */`
 <hr style="border:none;border-top:1px solid ${T.border};margin:26px 0;" />`;
 
 /** Task info card */
-const taskCard = (title: string, isUrgent = false): string => /* html */`
+const taskCard = (title: string, isUrgent = false, deadline?: string | null): string => /* html */`
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
        style="margin:20px 0;">
   <tr>
@@ -307,6 +307,15 @@ const taskCard = (title: string, isUrgent = false): string => /* html */`
                 line-height:1.4;font-family:${T.font};">
         ${title}
       </p>
+<<<<<<< HEAD
+=======
+      ${deadline ? `
+      <div style="margin-top:12px;display:flex;align-items:center;">
+        <span style="font-size:13px;color:${T.red};font-weight:600;font-family:${T.font};">
+          ⏰ Due: ${deadline}
+        </span>
+      </div>` : ''}
+>>>>>>> 78b5bd8192f614bf0ac8f0c7392559e17e8e351b
       ${isUrgent ? `
       <div style="margin-top:10px;">
         <span style="display:inline-block;background:${T.red};color:#fff;
@@ -434,7 +443,7 @@ const helperText = (text: string): string => /* html */`
    Template builders
 ───────────────────────────────────────────────────────────── */
 
-const buildAssignedEmail = (name: string, taskTitle: string, isUrgent: boolean): string => {
+const buildAssignedEmail = (name: string, taskTitle: string, isUrgent: boolean, deadline?: string | null): string => {
   const btnBg = isUrgent ? T.red : T.cobalt;
   const body  = /* html */`
 ${greeting(name)}
@@ -446,12 +455,29 @@ ${hero(
     ? 'This has been flagged as high priority. Please start on it right away.'
     : 'Your team leader just assigned you a task. Jump in and get it done!',
 )}
-${taskCard(taskTitle, isUrgent)}
+${taskCard(taskTitle, isUrgent, deadline)}
 ${hr()}
 ${helperText('Complete the task in the app and submit your proof for leader verification.')}
 ${cta(isUrgent ? 'Start Task Now &rarr;' : 'Open My Tasks &rarr;', cfg.appUrl(), btnBg)}`;
 
   return shell(body, { badgeLabel: isUrgent ? 'Urgent Task' : 'New Task' });
+};
+
+const buildTaskReminderEmail = (name: string, taskTitle: string, deadline: string): string => {
+  const body = /* html */`
+${greeting(name)}
+${hero(
+  '⏰',
+  T.amberBg,
+  'This task is due today!',
+  'A friendly reminder that your assigned task is due by the end of today. Don\'t forget to submit your proof!',
+)}
+${taskCard(taskTitle, false, deadline)}
+${hr()}
+${helperText('Missing the deadline results in a 30% Perk penalty. Finish it up now!')}
+${cta('Complete & Submit &rarr;', cfg.appUrl(), T.cobalt)}`;
+
+  return shell(body, { badgeLabel: 'Task Due Today' });
 };
 
 const buildReassignedEmail = (name: string, taskTitle: string, leaderNote: string): string => {
@@ -521,12 +547,27 @@ export const notifyAssignedEmail = async (
   memberName: string,
   taskTitle: string,
   isUrgent: boolean,
+  deadline?: string | null,
 ): Promise<boolean> => {
   if (!email) return false;
   const subject = isUrgent
     ? `⚡ [Urgent] New task assigned: ${taskTitle}`
     : `📋 New task assigned to you: ${taskTitle}`;
-  return sendEmail(email, subject, buildAssignedEmail(memberName, taskTitle, isUrgent));
+  return sendEmail(email, subject, buildAssignedEmail(memberName, taskTitle, isUrgent, deadline));
+};
+
+export const notifyTaskReminderEmail = async (
+  email: string | undefined,
+  memberName: string,
+  taskTitle: string,
+  deadline: string,
+): Promise<boolean> => {
+  if (!email) return false;
+  return sendEmail(
+    email,
+    `⏰ Reminder: Task "${taskTitle}" is due today`,
+    buildTaskReminderEmail(memberName, taskTitle, deadline)
+  );
 };
 
 export const notifyReassignedEmail = async (

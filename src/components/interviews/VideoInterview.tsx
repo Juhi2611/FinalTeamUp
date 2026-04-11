@@ -27,6 +27,8 @@ import {
   ProctoringWarning,
 } from '@/services/firestore_interviews';
 import { addTeamMember, getProfile } from '@/services/firestore';
+import { chargeInterviewFee } from '@/services/perksService';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import {
   doc, setDoc, onSnapshot, collection, addDoc, deleteDoc
 } from 'firebase/firestore';
@@ -275,6 +277,7 @@ const VideoInterview = ({ request, onEnd }: Props) => {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const endCalledRef = useRef(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const { startRecording, stopRecording, isRecording } = useMediaRecorder();
   const { startAsLeader, startAsCandidate, remoteVideoRef, connected, hangup } = useWebRTC(request.id);
@@ -323,18 +326,33 @@ const VideoInterview = ({ request, onEnd }: Props) => {
 
   useEffect(() => {
     const check = async () => {
-      if (isLeader) {
+      if (isLeader && user?.uid) {
         const report = await getInterviewReport(request.id).catch(() => null);
         if (report && (report.status === 'completed' || report.terminated || report.recordingUrl)) {
           setExistingReport(report as any);
           setPhase('results');
           return;
         }
+        
+        const profile = await getProfile(user.uid);
+        if ((profile?.perks ?? 0) < 5) {
+          toast.error('Insufficient Perks! You need 5 Perks to start an interview.');
+          onEnd();
+          return;
+        }
+
+        setShowConfirm(true);
+        return;
       }
       initCall();
     };
     check();
-  }, []);
+  }, [isLeader, user, request.id, onEnd]);
+
+  const handleConfirmStart = () => {
+    setShowConfirm(false);
+    initCall();
+  };
 
   const initCall = async () => {
     try {
@@ -352,7 +370,25 @@ const VideoInterview = ({ request, onEnd }: Props) => {
       };
       attachLocal();
 
-      // ✅ ONLY leader records
+      // ── Charge interview fee (leader only, idempotent) ─────────────────
+      if (isLeader && user?.uid) {
+        try {
+          const { charged, alreadyCharged } = await chargeInterviewFee(
+            user.uid,
+            request.candidateId,
+            request.id
+          );
+          if (charged) {
+            toast.info('💎 5 Perks deducted for this interview session.');
+          } else if (alreadyCharged) {
+            toast.info('ℹ️ Interview fee already charged — no additional deduction.');
+          }
+        } catch (feeErr) {
+          console.warn('Interview fee charge failed:', feeErr);
+        }
+      }
+
+      // Only leader records
       if (isLeader) startRecording(stream);
 
       await enterFullscreen();
@@ -565,6 +601,15 @@ const VideoInterview = ({ request, onEnd }: Props) => {
           <PhoneOff className="w-5 h-5" />
         </button>
       </div>
+
+      {showConfirm && (
+        <ConfirmModal
+          title="Start Interview"
+          message="Starting this interview will deduct 5 Perks from your balance. Do you want to continue?"
+          onConfirm={handleConfirmStart}
+          onCancel={() => { setShowConfirm(false); onEnd(); }}
+        />
+      )}
     </div>
   );
 };

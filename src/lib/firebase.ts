@@ -14,8 +14,8 @@ const firebaseConfig = {
 };
 // Check if Firebase is configured
 export const isFirebaseConfigured = (): boolean => {
-  return firebaseConfig.apiKey !== "YOUR_API_KEY" && 
-         firebaseConfig.projectId !== "YOUR_PROJECT_ID";
+  return firebaseConfig.apiKey !== "YOUR_API_KEY" &&
+    firebaseConfig.projectId !== "YOUR_PROJECT_ID";
 };
 let app: FirebaseApp;
 let auth: Auth;

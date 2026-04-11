@@ -3,7 +3,7 @@ import {
   BarChart3, CheckSquare, Users, Plus, Trash2, Loader2, Crown,
   Edit, TrendingUp, Clock, Send, ShieldCheck, Link, FileText,
   Type, ExternalLink, BadgeCheck, Upload, X, AlertOctagon,
-  RefreshCw, MessageSquare, Mail
+  RefreshCw, MessageSquare, Mail, Save, SaveAll
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -213,11 +213,18 @@ const SubmitProofModal = ({
         </div>
         <div className="flex gap-3 p-6 border-t border-border">
           <button onClick={onClose} className="btn-secondary flex-1">Cancel</button>
-          <button onClick={handleSubmit} disabled={submitting}
-            className="btn-primary flex-1 flex items-center justify-center gap-2">
-            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            Submit Proof
-          </button>
+          {task.deadline && (task.deadline as any).toDate() < new Date() ? (
+            <div className="flex-1 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-center">
+              <p className="text-xs font-bold text-red-600 uppercase tracking-tight">Deadline Passed</p>
+              <p className="text-[10px] text-red-500">You can no longer submit this task.</p>
+            </div>
+          ) : (
+            <button onClick={handleSubmit} disabled={submitting}
+              className="btn-primary flex-1 flex items-center justify-center gap-2">
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              Submit Proof
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -350,17 +357,20 @@ const TeamProgressPanel = ({ teamId, members, isLeader, onClose }: TeamProgressP
   const [activeTab, setActiveTab] = useState<TaskTab>('inprogress');
 
   // Add task form
-  const [newTaskTitle, setNewTaskTitle]       = useState('');
-  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
-  const [newTaskUrgent, setNewTaskUrgent]     = useState(false);
+  const [newTaskTitle, setNewTaskTitle]         = useState('');
+  const [selectedMembers, setSelectedMembers]   = useState<string[]>([]);
+  const [newTaskUrgent, setNewTaskUrgent]       = useState(false);
   const [newTaskPerkValue, setNewTaskPerkValue] = useState<number>(10);
-  const [adding, setAdding]                   = useState(false);
+  const [newTaskDeadline, setNewTaskDeadline]   = useState<string>(''); // ISO date string
+  const [adding, setAdding]                     = useState(false);
 
   // Edit task
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editTitle, setEditTitle]         = useState('');
   const [editMembers, setEditMembers]     = useState<string[]>([]);
   const [editUrgent, setEditUrgent]       = useState(false);
+  const [editPerkValue, setEditPerkValue] = useState<number>(10);
+  const [editDeadline, setEditDeadline]   = useState<string>(''); // ISO date string
   const [updating, setUpdating]           = useState(false);
   const [deleting, setDeleting]           = useState<string | null>(null);
 
@@ -415,44 +425,50 @@ const TeamProgressPanel = ({ teamId, members, isLeader, onClose }: TeamProgressP
   /* ── Handlers ────────────────────────────────────────────── */
 
   const handleAddTask = async () => {
-  if (!newTaskTitle.trim() || selectedMembers.length === 0) {
-    toast.error('Enter a task title and select at least one member');
-    return;
-  }
+    if (!newTaskTitle.trim() || selectedMembers.length === 0) {
+      toast.error('Enter a task title and select at least one member');
+      return;
+    }
+    if (newTaskPerkValue > 50) {
+      toast.error('Maximum perk reward is 50 points');
+      return;
+    }
 
-  // ✅ Add validation check for max points
-  if (newTaskPerkValue > 50) {
-    toast.error('Maximum perk reward is 50 points');
-    return;
-  }
-
-  setAdding(true);
-  try {
-    await createTeamTask(teamId, {
-      title: newTaskTitle.trim(),
-      assignedTo: selectedMembers,
-      completed: false,
-      isUrgent: newTaskUrgent,
-      perkValue: newTaskPerkValue,
-    });
-    selectedMembers.forEach(async (uid) => {
-    await addDoc(collection(db, "activity"), {
-        userId: uid,
-        type: "task_assigned",
-        createdAt: serverTimestamp()
+    setAdding(true);
+    try {
+      const deadline = newTaskDeadline ? new Date(newTaskDeadline) : null;
+      await createTeamTask(teamId, {
+        title: newTaskTitle.trim(),
+        assignedTo: selectedMembers,
+        completed: false,
+        isUrgent: newTaskUrgent,
+        perkValue: newTaskPerkValue,
+        deadline,
       });
-    });
-      // Notify each assigned member via email
+      selectedMembers.forEach(async (uid) => {
+        await addDoc(collection(db, 'activity'), {
+          userId: uid,
+          type: 'task_assigned',
+          createdAt: serverTimestamp()
+        });
+      });
       const results = await Promise.allSettled(
         selectedMembers.map(uid =>
-          notifyAssignedEmail(getMemberEmail(uid), getMemberName(uid), newTaskTitle.trim(), newTaskUrgent)
+          notifyAssignedEmail(
+            getMemberEmail(uid),
+            getMemberName(uid),
+            newTaskTitle.trim(),
+            newTaskUrgent,
+            newTaskDeadline ? new Date(newTaskDeadline).toLocaleDateString() : null
+          )
         )
       );
-      const sentCount = results.filter(r => r.status === 'fulfilled' && r.value).length;
+      const sentCount = results.filter(r => r.status === 'fulfilled' && (r as any).value).length;
       setNewTaskTitle('');
       setSelectedMembers([]);
       setNewTaskUrgent(false);
       setNewTaskPerkValue(10);
+      setNewTaskDeadline('');
       if (sentCount > 0) {
         toast.success(`Task added. Email sent to ${sentCount}/${selectedMembers.length} member(s).`);
       } else {
@@ -493,7 +509,8 @@ const TeamProgressPanel = ({ teamId, members, isLeader, onClose }: TeamProgressP
     if (!user) return;
     setVerifying(task.id);
     try {
-      await verifyTask(task.id, user.uid);
+      const result = await verifyTask(task.id, user.uid) as any;
+      
       await addDoc(collection(db, "activity"), {
         userId: user.uid,
         type: "task_verified",
@@ -507,7 +524,15 @@ const TeamProgressPanel = ({ teamId, members, isLeader, onClose }: TeamProgressP
         )
       );
       const sentCount = results.filter(r => r.status === 'fulfilled' && r.value).length;
-      toast.success(`Task verified. Email sent to ${sentCount}/${assigned.length} member(s).`);
+
+      if (result?.penaltyApplied) {
+        toast.info(`Task verified. Deadline missed! ${result.penaltyAmount} perks deducted as penalty.`, {
+          duration: 6000,
+          description: `Deadline: ${new Date(result.deadline).toLocaleString()}`
+        });
+      } else {
+        toast.success(`Task verified. Perks awarded! Email sent to ${sentCount}/${assigned.length} member(s).`);
+      }
     } catch (err: any) { toast.error(err.message || 'Failed'); }
     setVerifying(null);
   };
@@ -527,9 +552,18 @@ const TeamProgressPanel = ({ teamId, members, isLeader, onClose }: TeamProgressP
 
   const handleUpdateTask = async (taskId: string) => {
     if (!editTitle.trim() || editMembers.length === 0) { toast.error('Fill all fields'); return; }
+    if (editPerkValue > 50) { toast.error('Maximum perk reward is 50 points'); return; }
+    
     setUpdating(true);
     try {
-      await updateTeamTask(taskId, { title: editTitle.trim(), assignedTo: editMembers, isUrgent: editUrgent } as any);
+      const deadline = editDeadline ? new Date(editDeadline) : null;
+      await updateTeamTask(taskId, { 
+        title: editTitle.trim(), 
+        assignedTo: editMembers, 
+        isUrgent: editUrgent,
+        perkValue: editPerkValue,
+        deadline
+      } as any);
       toast.success('Task updated');
       setEditingTaskId(null);
     } catch (err: any) { toast.error(err.message || 'Failed'); }
@@ -599,39 +633,73 @@ const TeamProgressPanel = ({ teamId, members, isLeader, onClose }: TeamProgressP
     /* ── Edit mode ── */
     if (isEditing) return (
       <div key={task.id} className="p-4 rounded-xl border-2 border-primary bg-primary/5 space-y-3">
-        <input value={editTitle} onChange={e => setEditTitle(e.target.value)}
-          className="input-field" placeholder="Task title" />
-        <div className="flex flex-wrap gap-2">
-          {members.map(m => (
-            <button key={m.userId}
-              onClick={() => setEditMembers(p => p.includes(m.userId) ? p.filter(x => x !== m.userId) : [...p, m.userId])}
-              className={`px-2 py-1 rounded text-xs font-medium transition-all ${
-                editMembers.includes(m.userId) ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'
-              }`}>
-              {m.userName || 'User'}
-            </button>
-          ))}
+        <div className="space-y-1">
+          <label className="text-[10px] font-bold text-primary uppercase tracking-wider ml-1">Task Title</label>
+          <input value={editTitle} onChange={e => setEditTitle(e.target.value)}
+            className="input-field" placeholder="Task title" />
         </div>
-        {/* Urgent toggle in edit */}
-        <label className="flex items-center gap-2 cursor-pointer select-none">
-          <div
-            onClick={() => setEditUrgent(v => !v)}
-            className={`w-9 h-5 rounded-full flex items-center transition-colors ${
-              editUrgent ? 'bg-red-500' : 'bg-secondary'
-            }`}>
-            <span className={`w-4 h-4 rounded-full bg-white shadow transition-transform mx-0.5 ${editUrgent ? 'translate-x-4' : ''}`} />
+        
+        <div className="space-y-1">
+          <label className="text-[10px] font-bold text-primary uppercase tracking-wider ml-1">Assigned Members</label>
+          <div className="flex flex-wrap gap-2">
+            {members.map(m => (
+              <button key={m.userId}
+                onClick={() => setEditMembers(p => p.includes(m.userId) ? p.filter(x => x !== m.userId) : [...p, m.userId])}
+                className={`px-2 py-1 rounded text-xs font-medium transition-all ${
+                  editMembers.includes(m.userId) ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'
+                }`}>
+                {m.userName || 'User'}
+              </button>
+            ))}
           </div>
-          <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-            <AlertOctagon className="w-3.5 h-3.5 text-red-500" />
-            Mark as Urgent
-          </span>
-        </label>
-        <div className="flex gap-2">
-          <button onClick={() => handleUpdateTask(task.id)} disabled={updating}
-            className="btn-primary flex-1 text-sm">
-            {updating ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
-          </button>
-          <button onClick={() => setEditingTaskId(null)} className="btn-secondary flex-1 text-sm">Cancel</button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-primary uppercase tracking-wider ml-1">Perk Reward (1-50)</label>
+            <input 
+              type="number" 
+              min={1} 
+              max={50} 
+              value={editPerkValue} 
+              onChange={e => setEditPerkValue(Number(e.target.value))}
+              className="input-field py-1.5" 
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-primary uppercase tracking-wider ml-1">Deadline (Optional)</label>
+            <input 
+              type="date" 
+              value={editDeadline} 
+              onChange={e => setEditDeadline(e.target.value)}
+              className="input-field py-1.5" 
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <div
+              onClick={() => setEditUrgent(v => !v)}
+              className={`w-9 h-5 rounded-full flex items-center transition-colors ${
+                editUrgent ? 'bg-red-500' : 'bg-secondary'
+              }`}>
+              <span className={`w-4 h-4 rounded-full bg-white shadow transition-transform mx-0.5 ${editUrgent ? 'translate-x-4' : ''}`} />
+            </div>
+            <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+              <AlertOctagon className="w-3.5 h-3.5 text-red-500" />
+              Urgent
+            </span>
+          </label>
+
+          <div className="flex gap-2">
+            <button onClick={() => setEditingTaskId(null)} className="px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-secondary transition-colors">Cancel</button>
+            <button onClick={() => handleUpdateTask(task.id)} disabled={updating}
+              className="bg-primary text-primary-foreground px-4 py-1.5 rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-1.5 focus:ring-2 focus:ring-primary focus:ring-offset-2">
+              {updating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+              Save Changes
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -669,6 +737,25 @@ const TeamProgressPanel = ({ teamId, members, isLeader, onClose }: TeamProgressP
               Assigned to: {assignedNames.join(', ')}
               {isAssignedToMe && <span className="ml-1 text-primary font-medium">(You)</span>}
             </p>
+
+            {/* Deadline Display */}
+            {task.deadline && (
+              <div className="flex items-center gap-1.5 mt-1">
+                <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className={`text-[10px] uppercase tracking-wider font-bold ${
+                  new Date(task.deadline.toDate()) < new Date() && tab !== 'verified' 
+                    ? 'text-red-500' 
+                    : 'text-muted-foreground'
+                }`}>
+                  Due: {task.deadline.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </span>
+                {new Date(task.deadline.toDate()) < new Date() && tab !== 'verified' && !task.completed && (
+                  <span className="text-[10px] text-red-600 font-black animate-pulse bg-red-100 px-1 rounded flex items-center gap-0.5">
+                    <AlertOctagon className="w-2.5 h-2.5" /> LATE
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Replace the "Potential Reward Display" section with this: */}
             {tab !== 'verified' && (
@@ -787,6 +874,10 @@ const TeamProgressPanel = ({ teamId, members, isLeader, onClose }: TeamProgressP
                   setEditTitle(task.title);
                   setEditMembers(task.assignedTo || []);
                   setEditUrgent(task.isUrgent || false);
+                  setEditPerkValue(task.perkValue || 10);
+                  // Convert Timestamp to YYYY-MM-DD for the date input
+                  const d = (task.deadline as any)?.toDate?.() || null;
+                  setEditDeadline(d ? d.toISOString().split('T')[0] : '');
                 }}
                   className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
                   <Edit className="w-4 h-4" />
@@ -957,16 +1048,42 @@ const TeamProgressPanel = ({ teamId, members, isLeader, onClose }: TeamProgressP
                   <input
                     type="number"
                     min={1}
-                    max={50} // ✅ Limit changed to 50
+                    max={50}
                     value={newTaskPerkValue}
                     onChange={e => {
                       const val = Number(e.target.value);
-                      setNewTaskPerkValue(val > 50 ? 50 : val); // ✅ Prevent typing higher numbers
+                      setNewTaskPerkValue(val > 50 ? 50 : val);
                     }}
                     className="w-16 bg-background border border-amber-200 rounded-lg px-2 py-1 text-sm font-bold text-amber-700 focus:ring-2 focus:ring-amber-500 outline-none"
                   />
                   <span className="text-xs font-medium text-amber-600">Perks</span>
                 </div>
+              </div>
+            )}
+
+            {/* ✅ Deadline Picker (Leader Only) */}
+            {isLeader && (
+              <div className="flex items-center gap-3 mt-2 bg-rose-500/5 p-3 rounded-xl border border-rose-500/10 w-fit">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-rose-600 shrink-0" />
+                  <label className="text-xs font-bold text-rose-700 uppercase tracking-wider">
+                    Deadline <span className="text-rose-400 font-normal normal-case">(optional — miss it = 30% penalty)</span>:
+                  </label>
+                </div>
+                <input
+                  type="date"
+                  value={newTaskDeadline}
+                  min={new Date().toISOString().split('T')[0]}
+                  onChange={e => setNewTaskDeadline(e.target.value)}
+                  className="bg-background border border-rose-200 rounded-lg px-2 py-1 text-sm text-rose-700 focus:ring-2 focus:ring-rose-400 outline-none"
+                />
+                {newTaskDeadline && (
+                  <button
+                    type="button"
+                    onClick={() => setNewTaskDeadline('')}
+                    className="text-rose-400 hover:text-rose-600 text-xs"
+                  >✕ Clear</button>
+                )}
               </div>
             )}
 

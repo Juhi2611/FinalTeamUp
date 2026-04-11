@@ -10,9 +10,9 @@ export type PerkRank = 'Pioneer' | 'Contributor' | 'Builder' | 'Elite' | 'Legend
 export interface PerkRankInfo {
   rank: PerkRank;
   label: string;
-  color: string;       // Tailwind text color class
-  bg: string;          // Tailwind bg color class
-  border: string;      // Tailwind border color class
+  color: string;
+  bg: string;
+  border: string;
   minPerks: number;
   maxPerks: number | null;
   emoji: string;
@@ -33,16 +33,58 @@ export const getPerkRank = (perks: number): PerkRankInfo => {
   );
 };
 
-/**
- * Join Fee Logic:
- *  - 0–49 Perks  → Pioneer phase, joining is FREE
- *  - 50+ Perks   → Must spend 50 Perks per join request / invite acceptance
- */
-export const JOIN_FEE = 50;
-export const JOIN_FEE_THRESHOLD = 50; // Perks below this = free
+// ========================
+// PERK COST CONSTANTS
+// ========================
 
-export const getJoinFee = (perks: number): number =>
-  perks >= JOIN_FEE_THRESHOLD ? JOIN_FEE : 0;
+/** Perks granted automatically on account creation. */
+export const INITIAL_PERKS = 50;
+
+/** Flat cost to send a join request or accept an invite. */
+export const TEAM_JOIN_COST = 10;
+
+/** Flat cost to create a new team. */
+export const TEAM_CREATE_COST = 25;
+
+/** Cost charged to the interviewer when an interview session actually starts. */
+export const INTERVIEW_COST = 5;
+
+/** Fraction of task perk value deducted when deadline is missed (0.30 = 30%). */
+export const DEADLINE_PENALTY_RATE = 0.30;
+
+/** @deprecated Use TEAM_JOIN_COST. Kept for backward compat. */
+export const JOIN_FEE = TEAM_JOIN_COST;
+/** @deprecated No longer meaningful — join is flat cost. */
+export const JOIN_FEE_THRESHOLD = 0;
+
+export const getJoinFee = (_perks: number): number => TEAM_JOIN_COST;
+
+// ========================
+// PERK TRANSACTION LOG
+// ========================
+
+export type PerkTransactionType =
+  | 'signup_bonus'
+  | 'team_join'
+  | 'team_create'
+  | 'interview'
+  | 'task_reward'
+  | 'deadline_penalty'
+  | 'referral';
+
+export interface PerkTransaction {
+  id: string;
+  userId: string;
+  /** Positive = credit, Negative = debit */
+  amount: number;
+  type: PerkTransactionType;
+  description: string;
+  /** Related entity ID (teamId / taskId / interviewId) */
+  relatedId?: string;
+  /** Perk balance after this transaction */
+  balanceAfter: number;
+  createdAt: Timestamp | FieldValue;
+}
 
 // ========================
 // USER PROFILE
@@ -81,6 +123,8 @@ export interface UserProfile {
   perks?: number;
   /** Lifetime Perks earned (never decremented — used for leaderboards/rank) */
   totalPerksEarned?: number;
+  /** Set to true after the 50-perk signup bonus has been granted (idempotency guard) */
+  initialPerksGranted?: boolean;
 
   // ========================
   // REFERRAL SYSTEM
@@ -241,6 +285,10 @@ export interface TeamTask {
   createdAt: Timestamp;
   /** Perk value awarded to the task completer upon leader verification. Defaults to 10 if not set. */
   perkValue?: number;
+  /** Optional deadline for the task (set by leader). If missed, 30% penalty applies. */
+  deadline?: Timestamp | null;
+  /** True once the 30% deadline penalty has been deducted, preventing double penalties. */
+  deadlinePenaltyApplied?: boolean;
 }
 
 // ========================
