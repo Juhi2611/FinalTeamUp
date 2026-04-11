@@ -21,6 +21,8 @@ import SkillVerificationModal from "@/components/skill-verification/SkillVerific
 import Messages from "@/components/pages/Messages";
 import { useAuth } from "../contexts/AuthContext";
 import { ProductWalkthrough } from "@/components/walkthrough/ProductWalkthrough";
+import { walkthroughPages } from "@/components/walkthrough/WalkthroughSteps";
+import { HelpCircle } from "lucide-react";
 
 import { PerksBadge } from '@/components/PerksBadge';
 import PerksStatusCard from '@/components/PerksStatusCard';
@@ -78,7 +80,7 @@ const Index = () => {
   const [forceAuth, setForceAuth] = useState(false);
   const [signupData, setSignupData] = useState<{ name?: string; username?: string } | null>(null);
   const [activeInterview, setActiveInterview] = useState<InterviewRequest | null>(null);
-  const [showWalkthrough, setShowWalkthrough] = useState(false);
+  const [activeWalkthrough, setActiveWalkthrough] = useState<{ pageId: string, steps: any[] } | null>(null);
 
   const openAuth = (mode: "login" | "signup" = "login") => {
     setAuthMode(mode);
@@ -135,23 +137,39 @@ const Index = () => {
   }, [user]);
 
   useEffect(() => {
-    if (user && profile && !authLoading) {
-      const hasCompleted = localStorage.getItem(`teamup:walkthrough_${user.uid}`);
-      if (!hasCompleted) {
-        // Listen for a custom event from Settings page to reset it too
-        const timer = setTimeout(() => {
-          setShowWalkthrough(true);
-        }, 1500);
-        return () => clearTimeout(timer);
+    if (user && profile && !authLoading && currentPage) {
+      // Check if this specific page walkthrough has been completed
+      const pageId = currentPage === "feed" ? "feed" : currentPage;
+      const steps = walkthroughPages[pageId];
+      
+      if (steps) {
+        const key = `teamup:walkthrough_${pageId}_${user.uid}`;
+        const hasCompleted = localStorage.getItem(key);
+        
+        if (!hasCompleted) {
+          const timer = setTimeout(() => {
+            setActiveWalkthrough({ pageId, steps });
+          }, 1500);
+          return () => clearTimeout(timer);
+        }
       }
     }
-  }, [user, profile, authLoading]);
+  }, [user, profile, authLoading, currentPage]);
+
+  const handleReplayWalkthrough = () => {
+    const pageId = currentPage === "feed" ? "feed" : currentPage;
+    const steps = walkthroughPages[pageId];
+    if (steps) {
+      setActiveWalkthrough({ pageId, steps });
+    } else {
+      toast.info("No tour available for this page");
+    }
+  };
 
   useEffect(() => {
-    const handleReplayWalkthrough = () => setShowWalkthrough(true);
     window.addEventListener('teamup:replay_walkthrough', handleReplayWalkthrough);
     return () => window.removeEventListener('teamup:replay_walkthrough', handleReplayWalkthrough);
-  }, []);
+  }, [currentPage]);
 
   useEffect(() => {
     const savedPage = localStorage.getItem("teamup:lastPage");
@@ -569,6 +587,21 @@ const Index = () => {
               />
             )}
 
+            {/* Replay Tour */}
+            {walkthroughPages[currentPage === "feed" ? "feed" : currentPage] && (
+              <button
+                id="tour-header-tour"
+                onClick={handleReplayWalkthrough}
+                className="p-2 rounded-xl hover:bg-secondary transition-colors group relative"
+                title="Replay Page Tour"
+              >
+                <HelpCircle className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none transition-opacity">
+                  Replay Tour
+                </span>
+              </button>
+            )}
+
             {/* Notifications */}
             <button
               onClick={() => handleNavigate("notifications")}
@@ -608,7 +641,7 @@ const Index = () => {
                 className="w-8 h-8 rounded-full object-cover ring-2 ring-primary/10"
               />
               <span className="text-sm font-medium text-foreground max-w-[100px] truncate">
-                {profile?.fullName?.split(' ')[0] || 'Profile'}
+                {profile?.fullName || 'Profile'}
               </span>
             </button>
 
@@ -697,8 +730,8 @@ const Index = () => {
       {/* ═══════════════════════════════════════════
           MAIN CONTENT AREA — 3 column layout
          ═══════════════════════════════════════════ */}
-      <div className="flex-1 max-w-[1400px] mx-auto px-5 py-6 w-full">
-        <div className="flex gap-6">
+      <div className="flex-1 max-w-[1400px] mx-auto px-5 w-full">
+        <div className="flex gap-6 h-full">
           {/* Left Sidebar — fixed width, sticky */}
           <div className="hidden md:block">
             <div className="sticky top-[88px]">
@@ -711,7 +744,7 @@ const Index = () => {
           </div>
 
           {/* Main Feed */}
-          <main className="flex-1 min-w-0">
+          <main className="flex-1 min-w-0 py-6">
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentPage}
@@ -813,10 +846,10 @@ const Index = () => {
       )}
 
       {/* Footer */}
-      <footer className="w-full border-t border-border/60 bg-card/50 backdrop-blur-sm text-center py-4 text-sm text-muted-foreground mt-auto">
+      <footer className="w-full h-[30px] border-t border-border/60 bg-card/50 backdrop-blur-sm text-center py-4 text-sm text-muted-foreground mt-auto">
         <button
           onClick={() => setShowLegal(true)}
-          className="hover:text-foreground transition underline-offset-4 hover:underline"
+          className="text-xs hover:text-foreground transition underline-offset-4 hover:underline relative -top-3"
         >
           TeamUp © 2026 · All rights reserved
         </button>
@@ -829,11 +862,13 @@ const Index = () => {
       {/* Feedback Popup */}
       <FeedbackPopup />
 
-      {showWalkthrough && user && (
+      {activeWalkthrough && user && (
         <ProductWalkthrough
-          onComplete={() => {
-            setShowWalkthrough(false);
-            localStorage.setItem(`teamup:walkthrough_${user.uid}`, 'true');
+          pageId={activeWalkthrough.pageId}
+          steps={activeWalkthrough.steps}
+          onComplete={(pageId) => {
+            setActiveWalkthrough(null);
+            localStorage.setItem(`teamup:walkthrough_${pageId}_${user.uid}`, 'true');
           }}
         />
       )}

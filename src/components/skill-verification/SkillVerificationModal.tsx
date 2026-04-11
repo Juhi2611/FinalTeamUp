@@ -134,6 +134,10 @@ export function SkillVerificationModal({
         profileSkillsAtVerification: userSkills,
       });
 
+      // Update primary profile document for instant badge recognition across the app
+      const { updateProfile } = await import('@/services/firestore');
+      await updateProfile(user!.uid, { isSkillVerified: true });
+
       setGithubStep("success");
       toast.success("GitHub verification successful");
       onVerificationComplete(verifiedSkills);
@@ -395,6 +399,10 @@ export function SkillVerificationModal({
         },
         profileSkillsAtVerification: userSkills
       });
+
+      // Update primary profile document for instant badge recognition across the app
+      const { updateProfile } = await import('@/services/firestore');
+      await updateProfile(user.uid, { isSkillVerified: true });
 
       toast.success(
         `Successfully verified ${verifiedSkills.length} skill(s): ${verifiedSkills.slice(0, 3).join(', ')}${verifiedSkills.length > 3 ? '...' : ''}`

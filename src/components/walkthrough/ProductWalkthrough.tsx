@@ -1,219 +1,206 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { walkthroughSteps } from './WalkthroughSteps';
+import { X, ChevronRight, ChevronLeft, CheckCircle2 } from 'lucide-react';
+import { WalkthroughStep } from './WalkthroughSteps';
 import { MockUI } from './MockUI';
+import { cn } from '@/lib/utils';
 
-export const ProductWalkthrough: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [targetRect, setTargetRect] = useState<{ x: number, y: number, w: number, h: number } | null>(null);
-  const [infoPos, setInfoPos] = useState({ x: window.innerWidth / 2 - 160, y: -1000 }); // default offscreen
-  
-  const currentStep = walkthroughSteps[currentIndex];
+interface ProductWalkthroughProps {
+  pageId: string;
+  steps: WalkthroughStep[];
+  onComplete: (pageId: string) => void;
+}
 
-  const updateRect = useCallback(() => {
-    if (!currentStep) return;
-    
+export const ProductWalkthrough: React.FC<ProductWalkthroughProps> = ({
+  pageId,
+  steps,
+  onComplete
+}) => {
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  const currentStep = steps[currentStepIndex];
+
+  useEffect(() => {
+    setIsVisible(true);
+  }, []);
+
+  useEffect(() => {
     if (currentStep.targetId) {
-      const el = document.getElementById(currentStep.targetId);
-      if (el) {
-        const rect = el.getBoundingClientRect();
-        const padding = 12;
-        setTargetRect({
-          x: rect.left - padding,
-          y: rect.top - padding,
-          w: rect.width + padding * 2,
-          h: rect.height + padding * 2
-        });
-
-        // Position info box
-        const cardW = 320;
-        const cardH = 220;
-        let pX = 0, pY = 0;
-
-        if (currentStep.position === 'right') {
-          pX = rect.right + 24;
-          pY = rect.top + rect.height / 2 - cardH / 2;
-        } else if (currentStep.position === 'left') {
-          pX = rect.left - 24 - cardW;
-          pY = rect.top + rect.height / 2 - cardH / 2;
-        } else if (currentStep.position === 'bottom') {
-          pX = rect.left + rect.width / 2 - cardW / 2;
-          pY = rect.bottom + 24;
-        } else if (currentStep.position === 'top') {
-          pX = rect.left + rect.width / 2 - cardW / 2;
-          pY = rect.top - 24 - cardH;
-        } else {
-          pX = window.innerWidth / 2 - cardW / 2;
-          pY = window.innerHeight / 2 + 100;
-        }
-
-        // Clamp to screen bounds
-        const screenPad = 16;
-        if (pX + cardW > window.innerWidth - screenPad) pX = window.innerWidth - cardW - screenPad;
-        if (pX < screenPad) pX = screenPad;
-        if (pY + cardH > window.innerHeight - screenPad) pY = window.innerHeight - cardH - screenPad;
-        if (pY < screenPad) pY = screenPad;
-
-        setInfoPos({ x: pX, y: pY });
-      } else {
-        // Fallback to center if target not found yet (maybe rendering)
-        setTargetRect(null);
-        setInfoPos({ x: window.innerWidth / 2 - 160, y: window.innerHeight / 2 + 100 });
+      const element = document.getElementById(currentStep.targetId);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
+    }
+  }, [currentStepIndex]);
+
+  useEffect(() => {
+    if (currentStep.targetId) {
+      const updateRect = () => {
+        const element = document.getElementById(currentStep.targetId!);
+        if (element) {
+          setTargetRect(element.getBoundingClientRect());
+        } else {
+          setTargetRect(null);
+        }
+      };
+
+      updateRect();
+      window.addEventListener('resize', updateRect);
+      window.addEventListener('scroll', updateRect);
+      
+      return () => {
+        window.removeEventListener('resize', updateRect);
+        window.removeEventListener('scroll', updateRect);
+      };
     } else {
-      // Mock UI mode - center a generic spotlight or no spotlight
-      setTargetRect({
-        x: window.innerWidth / 2 - 250,
-        y: window.innerHeight / 2 - 150,
-        w: 500,
-        h: 300
-      });
-      setInfoPos({ x: window.innerWidth / 2 - 160, y: window.innerHeight / 2 + 170 });
+      setTargetRect(null);
     }
   }, [currentStep]);
 
-  useEffect(() => {
-    updateRect();
-    window.addEventListener('resize', updateRect);
-    // Poll continuously just in case the DOM shifts or elements mount
-    const interval = setInterval(updateRect, 100);
-    return () => {
-      window.removeEventListener('resize', updateRect);
-      clearInterval(interval);
-    };
-  }, [updateRect]);
-
-  useEffect(() => {
-    if (!currentStep) return;
-    // Auto-scroll logic
-    if (currentStep.targetId) {
-      const el = document.getElementById(currentStep.targetId);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
+  const handleNext = () => {
+    if (currentStepIndex < steps.length - 1) {
+      setCurrentStepIndex(currentStepIndex + 1);
+    } else {
+      handleComplete();
     }
-    
-    const duration = currentStep.duration || 5000;
-    const timer = setTimeout(() => {
-      if (currentIndex < walkthroughSteps.length - 1) {
-        setCurrentIndex(prev => prev + 1);
-      } else {
-        onComplete();
-      }
-    }, duration);
+  };
 
-    return () => clearTimeout(timer);
-  }, [currentIndex, currentStep, onComplete]);
+  const handleBack = () => {
+    if (currentStepIndex > 0) {
+      setCurrentStepIndex(currentStepIndex - 1);
+    }
+  };
 
-  if (!currentStep) return null;
+  const handleComplete = () => {
+    setIsVisible(false);
+    setTimeout(() => onComplete(pageId), 300);
+  };
+
+  if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] pointer-events-auto overflow-hidden">
-      {/* Full screen blur for mock steps */}
-      <AnimatePresence>
-        {currentStep.mockId && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-[#0F172A]/20 backdrop-blur-md pointer-events-none"
-          />
-        )}
-      </AnimatePresence>
+    <div className="fixed inset-0 z-[100] pointer-events-none">
+      {/* Backdrop with hole */}
+      <div className="absolute inset-0 pointer-events-auto">
+        <svg className="w-full h-full">
+          <defs>
+            <mask id="walkthrough-mask">
+              <rect width="100%" height="100%" fill="white" />
+              {targetRect && (
+                <rect
+                  x={targetRect.x - 8}
+                  y={targetRect.y - 8}
+                  width={targetRect.width + 16}
+                  height={targetRect.height + 16}
+                  rx="16"
+                  fill="black"
+                />
+              )}
+            </mask>
+          </defs>
+          <rect width="100%" height="100%" fill="rgba(0,0,0,0.85)" mask="url(#walkthrough-mask)" className="backdrop-blur-[2px]" />
+        </svg>
+      </div>
 
-      <AnimatePresence>
-        {/* The Spotlight Mask */}
-        {targetRect && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ 
-              opacity: 1,
-              left: targetRect.x, 
-              top: targetRect.y, 
-              width: targetRect.w, 
-              height: targetRect.h 
-            }}
-            transition={{
-              left: { type: 'spring', stiffness: 70, damping: 20 },
-              top: { type: 'spring', stiffness: 70, damping: 20 },
-              width: { type: 'spring', stiffness: 70, damping: 20 },
-              height: { type: 'spring', stiffness: 70, damping: 20 },
-              opacity: { duration: 0.5 }
-            }}
-            className="absolute rounded-xl pointer-events-none"
-            style={{
-              boxShadow: '0 0 0 9999px rgba(15, 23, 42, 0.75)', // Strong Navy blue tint dimming
-            }}
-          />
-        )}
-      </AnimatePresence>
+      {/* Pulsing Highlight Ring */}
+      {targetRect && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="absolute z-[101] pointer-events-none"
+          style={{
+            top: targetRect.y - 12,
+            left: targetRect.x - 12,
+            width: targetRect.width + 24,
+            height: targetRect.height + 24,
+          }}
+        >
+          <div className="absolute inset-0 border-2 border-primary rounded-[20px] animate-pulse shadow-[0_0_15px_rgba(var(--primary),0.5)]" />
+          <div className="absolute inset-0 border-4 border-primary/20 rounded-[20px] animate-[ping_2s_infinite]" />
+        </motion.div>
+      )}
 
-      {/* Render Mock UI if needed */}
       <AnimatePresence mode="wait">
-        {currentStep.mockId && (
-          <motion.div 
-            key={currentStep.mockId}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[60%] pointer-events-none"
-          >
-            <MockUI mockId={currentStep.mockId} />
-          </motion.div>
-        )}
-      </AnimatePresence>
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-6">
+          <div className="flex flex-col items-center gap-6 w-full max-w-lg">
+            {/* Mock UI section if exists */}
+            {currentStep.mockId && (
+              <motion.div
+                key={`mock-${currentStep.mockId}`}
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: -20 }}
+                className="pointer-events-auto"
+              >
+                <MockUI mockId={currentStep.mockId} />
+              </motion.div>
+            )}
 
-      {/* Info Card */}
-      <motion.div
-        animate={{
-          left: infoPos.x,
-          top: infoPos.y,
-        }}
-        transition={{ type: 'spring', stiffness: 80, damping: 20 }}
-        className="absolute w-[320px] bg-white dark:bg-[#1E293B] rounded-2xl shadow-2xl border border-[#E2E8F0] dark:border-[#334155] p-6 z-[10000]"
-      >
-        <div className="flex justify-between items-center mb-3">
-          <span className="text-xs font-bold uppercase tracking-wider text-[#14B8A6]">
-            Step {currentIndex + 1} of {walkthroughSteps.length}
-          </span>
-        </div>
-        <h2 className="text-xl font-bold text-[#0F172A] dark:text-white mb-2">
-          {currentStep.title}
-        </h2>
-        <p className="text-sm text-[#64748B] dark:text-[#94A3B8] mb-6 leading-relaxed">
-          {currentStep.description}
-        </p>
-
-        <div className="flex justify-between items-center">
-          <button 
-            onClick={onComplete}
-            className="text-sm font-semibold text-[#64748B] hover:text-[#0F172A] dark:hover:text-white transition-colors"
-          >
-            Skip Tour
-          </button>
-          
-          <div className="flex gap-2">
-            <button 
-              onClick={() => {
-                if (currentIndex < walkthroughSteps.length - 1) {
-                  setCurrentIndex(currentIndex + 1);
-                } else {
-                  onComplete();
-                }
-              }}
-              className="bg-[#0F172A] dark:bg-white text-white dark:text-[#0F172A] text-sm font-bold px-4 py-2 rounded-lg hover:bg-[#1E293B] dark:hover:bg-[#F1F5F9] transition-colors"
+            {/* Tooltip Card */}
+            <motion.div
+              key={`step-${currentStep.id}`}
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: -10 }}
+              className={cn(
+                "bg-card/90 backdrop-blur-xl border border-white/20 rounded-[2rem] p-5 shadow-[0_20px_50px_rgba(0,0,0,0.3)] pointer-events-auto w-full max-w-[320px] relative",
+                !currentStep.mockId && targetRect ? "absolute" : "relative"
+              )}
+              style={!currentStep.mockId && targetRect ? {
+                top: targetRect.bottom + 32 > window.innerHeight - 250 ? 'auto' : targetRect.bottom + 32,
+                bottom: targetRect.bottom + 32 > window.innerHeight - 250 ? window.innerHeight - targetRect.top + 32 : 'auto',
+                left: Math.min(Math.max(20, targetRect.left + targetRect.width / 2 - 160), window.innerWidth - 340),
+              } : undefined}
             >
-              {currentIndex === walkthroughSteps.length - 1 ? 'Finish' : 'Next'}
-            </button>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                  Step {currentStepIndex + 1} / {steps.length}
+                </span>
+                <button 
+                  onClick={handleComplete}
+                  className="p-1.5 rounded-full hover:bg-white/10 transition-colors text-muted-foreground/60 hover:text-foreground"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <h3 className="text-lg font-bold text-foreground font-display mb-2 leading-tight">
+                {currentStep.title}
+              </h3>
+
+              <p className="text-[13px] text-muted-foreground/90 leading-relaxed mb-6">
+                {currentStep.description}
+              </p>
+
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  {currentStepIndex > 0 && (
+                    <button
+                      onClick={handleBack}
+                      className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                    >
+                      <ChevronLeft className="w-3 h-3" /> Back
+                    </button>
+                  )}
+                </div>
+                
+                <button
+                  onClick={handleNext}
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-primary text-white shadow-[0_8px_16px_rgba(var(--primary),0.3)] hover:shadow-[0_12px_20px_rgba(var(--primary),0.4)] hover:-translate-y-0.5 transition-all flex items-center gap-1.5"
+                >
+                  {currentStepIndex === steps.length - 1 ? (
+                    <>Finish <CheckCircle2 className="w-3.5 h-3.5" /></>
+                  ) : (
+                    <>Next <ChevronRight className="w-3.5 h-3.5" /></>
+                  )}
+                </button>
+              </div>
+            </motion.div>
           </div>
         </div>
-
-        {/* Progress Bar */}
-        <div className="absolute bottom-0 left-0 h-1 bg-[#F1F5F9] dark:bg-[#334155] w-full rounded-b-2xl overflow-hidden">
-          <motion.div 
-            initial={{ width: 0 }}
-            animate={{ width: `${((currentIndex + 1) / walkthroughSteps.length) * 100}%` }}
-            className="h-full bg-[#14B8A6]"
-          />
-        </div>
-      </motion.div>
+      </AnimatePresence>
     </div>
   );
 };

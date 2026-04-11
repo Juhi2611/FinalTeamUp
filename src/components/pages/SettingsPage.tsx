@@ -272,6 +272,7 @@ const SettingsPage = ({ userProfile, onNavigate, onEditProfile, onDeleteProfile 
         {menuItems.map((item) => (
           <button
             key={item.id}
+            id={item.id === 'edit-profile' ? 'tour-settings-profile' : item.id === 'delete-profile' ? 'tour-settings-account' : undefined}
             onClick={item.action}
             className={`w-full flex items-center gap-4 p-4 hover:bg-secondary/50 transition-colors text-left ${item.danger ? 'text-destructive' : 'text-foreground'
               }`}

@@ -136,8 +136,9 @@ export interface UserProfile {
   /** How many users this user has referred successfully */
   referralCount?: number;
 
-  // Identity Verification
+  // Verification Flags
   isProfileVerified?: boolean;
+  isSkillVerified?: boolean;
 
   // GitHub Verification Fields
   githubVerified?: boolean;

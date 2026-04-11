@@ -168,7 +168,7 @@ const LeaderboardPage = ({
           Leaderboard
         </button>
         <button
-          id="tab-perkshop"
+          id="tour-leaderboard-shop"
           onClick={() => setTopTab('perkshop')}
           className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold transition-all duration-200 ${
             topTab === 'perkshop'
@@ -232,7 +232,7 @@ const LeaderboardPage = ({
             </div>
 
             {/* List */}
-            <div className="card-base p-4">
+            <div id="tour-leaderboard-list" className="card-base p-4">
               {loading ? (
                 <div className="flex justify-center py-12">
                   <Loader2 className="w-6 h-6 animate-spin text-primary" />

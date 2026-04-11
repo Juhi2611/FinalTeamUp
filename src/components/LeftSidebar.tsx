@@ -99,20 +99,19 @@ function getGreeting(): string {
 const LeftSidebar = ({ currentPage, onNavigate, userProfile, collapsed = false }: LeftSidebarProps) => {
   const navItems = [
     { id: 'feed', label: 'Home', icon: Home },
-    { id: 'discover', label: 'My Network', icon: Users },
-    { id: 'messages', label: 'Messages', icon: MessageCircle },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
+    { id: 'discover', label: 'Discover People', icon: Users },
     { id: 'discover-teams', label: 'Discover Teams', icon: Search },
     { id: 'teams', label: 'My Teams', icon: FolderKanban },
+    { id: 'messages', label: 'Messages', icon: MessageCircle },
     { id: 'interviews', label: 'Interviews', icon: Video },
   ];
 
-  const displayName = userProfile?.fullName?.split(' ')[0] || 'User';
+  const displayName = userProfile?.fullName || 'User';
   const userId = (userProfile as any)?.id || undefined;
 
   if (collapsed) {
     return (
-      <aside className="flex-shrink-0 w-14 h-[calc(100vh-5rem)] flex flex-col transition-all duration-300">
+      <aside className="flex-shrink-0 w-14 h-[calc(100vh-4rem)] flex flex-col transition-all duration-300 pb-4">
         <nav className="space-y-0.5 flex-1">
           {navItems.map((item) => {
             const isActive = currentPage === item.id;
@@ -134,10 +133,10 @@ const LeftSidebar = ({ currentPage, onNavigate, userProfile, collapsed = false }
 
   return (
     /* Fixed height, no overflow scroll */
-    <aside className="flex-shrink-0 w-60 h-[calc(100vh-5rem)] flex flex-col transition-all duration-300 gap-2.5">
+    <aside className="flex-shrink-0 w-70 h-screen overflow-y-auto flex flex-col transition-all duration-300 gap-2.5">
 
       {/* ── Greeting + Profile Card ── */}
-      <div className="card-base px-3 py-3 flex-shrink-0">
+      <div className="card-base px-4 py-4 min-h-[60px] flex-shrink-0 flex items-center mt-2">
         <div className="flex items-center gap-2.5">
           <img
             src={
@@ -146,7 +145,7 @@ const LeftSidebar = ({ currentPage, onNavigate, userProfile, collapsed = false }
                 : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(displayName)}`
             }
             alt={displayName}
-            className="w-8 h-8 rounded-full object-cover ring-2 ring-primary/15 flex-shrink-0"
+            className="w-10 h-10 rounded-full object-cover ring-2 ring-primary/15 flex-shrink-0"
           />
           <div className="min-w-0">
             <p className="text-[10px] text-muted-foreground">{getGreeting()} 👋</p>
@@ -156,7 +155,7 @@ const LeftSidebar = ({ currentPage, onNavigate, userProfile, collapsed = false }
       </div>
 
       {/* ── Navigation ── */}
-      <div className="sidebar-nav-box flex-shrink-0">
+      <div className="sidebar-nav-box flex-shrink-0 ">
         <p className="text-[9px] font-semibold text-muted-foreground/60 uppercase tracking-wider px-3 py-1.5">
           Menu · {navItems.length}
         </p>
@@ -171,7 +170,7 @@ const LeftSidebar = ({ currentPage, onNavigate, userProfile, collapsed = false }
                 className={cn('nav-item w-full group relative', isActive && 'nav-item-active')}
               >
                 <item.icon className={cn(
-                  'w-[18px] h-[18px] flex-shrink-0 transition-colors',
+                  'w-[22px] h-[22px] flex-shrink-0 transition-colors',
                   isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
                 )} />
                 <span className={cn(

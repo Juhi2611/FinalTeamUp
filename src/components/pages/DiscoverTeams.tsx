@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Search, Users, Loader2, Filter, ChevronDown,
   MapPin, RotateCcw, Sparkles, Check, X, Eye, ChevronRight,
-  Zap, BadgeCheck, Clock, Crown, Coffee,
+  Zap, BadgeCheck, Clock, Crown, Coffee, LayoutGrid, List, Layers, MoreHorizontal
 } from 'lucide-react';
 import {
   motion, useMotionValue, useTransform,
@@ -63,7 +63,9 @@ function scoreColor(s: number) {
 
 function getWhyReasons(team: Team): string[] {
   const r: string[] = [];
+  if (team.rolesNeeded && team.rolesNeeded.length > 0) {
     r.push(`Looking for ${team.rolesNeeded[0]} — matches your profile`);
+  }
   r.push("Open to new members and early-stage collaborations");
   if ((team.maxMembers - team.members.length) > 0)
     r.push(`${team.maxMembers - team.members.length} open slot${team.maxMembers - team.members.length !== 1 ? "s" : ""} — apply now`);
@@ -167,7 +169,6 @@ function TeamSwipeCard({
   const score = computeTeamScore(team);
   const badges = getTeamBadges(team);
   const reasons = getWhyReasons(team);
-  const openSlots = team.maxMembers - team.members.length;
   const collegeName = useInstitutionName(team.college);
 
   const handleDragEnd = useCallback(
@@ -210,11 +211,10 @@ function TeamSwipeCard({
       animate={{ y: stackY, scale: stackSc, rotate: active ? 0 : stackRot }}
       transition={{ type: "spring", stiffness: 240, damping: 26 }}
       className={`absolute inset-0 transition-shadow ${active
-        ? "cursor-grab active:cursor-grabbing z-50"
-        : "pointer-events-none z-0"
-      }`}
+          ? "cursor-grab active:cursor-grabbing z-50"
+          : "pointer-events-none z-0"
+        }`}
     >
-      {/* ── GLASSMORPHISM CARD ── */}
       <div
         className="w-full h-full rounded-3xl overflow-hidden relative"
         style={{
@@ -225,7 +225,6 @@ function TeamSwipeCard({
           boxShadow: "none",
         }}
       >
-        {/* Subtle teal shimmer */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
@@ -234,58 +233,29 @@ function TeamSwipeCard({
         />
 
         <div className="relative z-10 flex flex-col h-full p-6">
-
-          {/* ── ROW 1: Team Avatar + Name + Score Ring ── */}
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-4 min-w-0 flex-1 mr-3">
-              {/* Team Avatar */}
               <div
                 className="rounded-2xl flex items-center justify-center flex-shrink-0 text-white font-black"
                 style={{
                   width: 64, height: 64,
                   background: avatarBg(team.id),
                   fontSize: 26,
-                  boxShadow: "none",
+                  overflow: "hidden",
                 }}
               >
                 {(team.name?.[0] ?? "T").toUpperCase()}
               </div>
-
-              {/* Name + hackathon + availability */}
               <div className="min-w-0">
-                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                  <h2 className="font-black text-slate-900 text-xl leading-tight truncate">{team.name}</h2>
-                  {/* Open slots chip */}
-                  {openSlots > 0 && (
-                    <span
-                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold flex-shrink-0"
-                      style={{ background: "#f0fdf4", color: "#15803d", border: "1px solid #86efac" }}
-                    >
-                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
-                      {openSlots} slot{openSlots !== 1 ? "s" : ""} open
-                    </span>
-                  )}
-                  {openSlots === 0 && (
-                    <span
-                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold flex-shrink-0"
-                      style={{ background: "#fef2f2", color: "#b91c1c", border: "1px solid #fecaca" }}
-                    >
-                      Full
-                    </span>
-                  )}
-                </div>
-                {/* Hackathon / project subtitle */}
+                <h2 className="font-black text-slate-900 text-xl leading-tight truncate">{team.name}</h2>
                 <p className="font-bold text-base truncate" style={{ color: "#0d9488" }}>
                   {team.hackathon || "Open Collaboration"}
                 </p>
               </div>
             </div>
-
-            {/* Score ring */}
             <ScoreRing score={score} />
           </div>
 
-          {/* ── ROW 2: Badges ── */}
           {badges.length > 0 && (
             <div className="flex gap-2 mb-3 flex-wrap">
               {badges.map((b, i) => (
@@ -300,7 +270,6 @@ function TeamSwipeCard({
             </div>
           )}
 
-          {/* ── ROW 3: Description ── */}
           <p
             className="mb-3 leading-snug line-clamp-2"
             style={{ color: "#475569", fontSize: 14 }}
@@ -308,7 +277,6 @@ function TeamSwipeCard({
             {team.description || "A team looking for talented collaborators to build something great."}
           </p>
 
-          {/* ── ROW 4: Roles Needed Tags ── */}
           {(team.rolesNeeded?.length ?? 0) > 0 && (
             <div className="flex flex-wrap gap-2 mb-3">
               {team.rolesNeeded!.slice(0, 4).map((role, i) => (
@@ -325,28 +293,14 @@ function TeamSwipeCard({
                   {role}
                 </span>
               ))}
-              {(team.rolesNeeded?.length ?? 0) > 4 && (
-                <span
-                  className="px-3 py-1 rounded-full text-sm font-semibold"
-                  style={{ background: "rgba(255,255,255,0.60)", border: "1px solid rgba(148,163,184,0.35)", color: "#64748b" }}
-                >
-                  +{team.rolesNeeded!.length - 4}
-                </span>
-              )}
             </div>
           )}
 
-          {/* ── ROW 5: Meta (city · college · members) ── */}
           <div className="flex items-center gap-3 mb-4 flex-wrap">
             {team.city && (
-              <span className="flex items-center gap-1 text-sm" style={{ color: "#64748b" }}>
+              <span className="flex items-center gap-1 text-sm font-medium" style={{ color: "#64748b" }}>
                 <MapPin size={13} style={{ color: "#ec4899" }} />
                 {getCityById(team.city || '')?.name || team.city}
-              </span>
-            )}
-            {collegeName && (
-              <span className="text-sm" style={{ color: "#64748b" }}>
-                · {collegeName}
               </span>
             )}
             <span
@@ -355,9 +309,13 @@ function TeamSwipeCard({
             >
               {team.members.length}/{team.maxMembers} members
             </span>
+            {collegeName && (
+              <span className="text-sm" style={{ color: "#64748b" }}>
+                · {collegeName}
+              </span>
+            )}
           </div>
 
-          {/* ── ROW 6: Why this team? box ── */}
           <div
             className="rounded-2xl px-4 py-3 mb-4 flex-1"
             style={{
@@ -366,70 +324,54 @@ function TeamSwipeCard({
               backdropFilter: "blur(12px)",
             }}
           >
-            <p
-              className="flex items-center gap-1.5 mb-2 font-bold uppercase tracking-wider"
-              style={{ fontSize: 11, color: "#0d9488" }}
-            >
-              <Sparkles size={12} /> Why this team?
+            <p className="flex items-center gap-1.5 mb-2 font-bold uppercase tracking-wider" style={{ fontSize: 11, color: "#0d9488" }}>
+              <Sparkles size={12} /> Team Fit
             </p>
             <div className="space-y-1.5">
               {reasons.map((r, i) => (
                 <div key={i} className="flex items-start gap-2">
-                  {i === 2
-                    ? <Clock size={14} className="flex-shrink-0 mt-0.5" style={{ color: "#0d9488" }} />
-                    : <Check size={14} className="flex-shrink-0 mt-0.5" style={{ color: "#0d9488" }} />
-                  }
-                  <span className="text-sm leading-snug" style={{ color: "#1e293b" }}>{r}</span>
+                  <Check size={14} className="flex-shrink-0 mt-0.5" style={{ color: "#0d9488" }} />
+                  <span className="text-sm leading-snug font-medium" style={{ color: "#1e293b" }}>{r}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* ── ROW 7: Leader + members strip + Request to Join ── */}
           {active && (
             <div className="flex items-center justify-between gap-2">
-              {/* Left: leader + member avatars */}
-              <div className="flex items-center gap-3 min-w-0">
-                {/* "View details" hint */}
-                <button
-                  onClick={() => onExpand(team)}
-                  className="flex items-center gap-1.5 text-sm transition-opacity hover:opacity-70 flex-shrink-0"
-                  style={{ color: "#64748b" }}
-                >
-                  <Eye size={15} />
-                  View details
-                  <ChevronRight size={15} />
-                </button>
-              </div>
+              <button
+                onClick={() => onExpand(team)}
+                className="flex items-center gap-1.5 text-sm transition-opacity hover:opacity-70 text-slate-500 font-bold"
+              >
+                <Eye size={15} />
+                View details
+                <ChevronRight size={15} />
+              </button>
 
-              {/* Request to Join CTA */}
               <motion.button
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.96 }}
                 onClick={() => onRequestJoin(team)}
-                className="flex items-center gap-2 font-bold text-white flex-shrink-0"
+                className="flex items-center gap-2 font-bold text-white shadow-xl"
                 style={{
-                  padding: "10px 20px",
+                  padding: "10px 24px",
                   borderRadius: 99,
-                  background: "linear-gradient(135deg, #0d9488 0%, #0891b2 100%)",
+                  background: "linear-gradient(135deg, #0d9488, #0891b2)",
                   boxShadow: "0 4px 18px rgba(13,148,136,0.38)",
                   fontSize: 14,
-                  letterSpacing: "-0.01em",
                 }}
               >
-                Request to Join
+                Join Team
                 <ChevronRight size={15} />
               </motion.button>
             </div>
           )}
         </div>
 
-        {/* ── SWIPE OVERLAYS (same as DiscoverPeople) ── */}
         {active && (
           <>
-            {/* Right → JOIN */}
             <motion.div style={{ opacity: connOp }} className="absolute inset-0 rounded-3xl pointer-events-none">
-              <div className="absolute inset-0 rounded-3xl" style={{ background: "rgba(13,148,136,0.08)", border: "3px solid #0d9488" }} />
+              <div className="absolute inset-0 rounded-3xl" style={{ border: "3px solid #0d9488", background: "rgba(13,148,136,0.08)" }} />
               <div
                 className="absolute top-5 right-6 font-black rounded-2xl px-4 py-2 text-white"
                 style={{ background: "#0d9488", fontSize: 15, transform: "rotate(-5deg)", letterSpacing: "-0.01em" }}
@@ -437,9 +379,8 @@ function TeamSwipeCard({
                 JOIN ✓
               </div>
             </motion.div>
-            {/* Left → SKIP */}
             <motion.div style={{ opacity: skipOp }} className="absolute inset-0 rounded-3xl pointer-events-none">
-              <div className="absolute inset-0 rounded-3xl" style={{ background: "rgba(239,68,68,0.08)", border: "3px solid #ef4444" }} />
+              <div className="absolute inset-0 rounded-3xl" style={{ border: "3px solid #ef4444", background: "rgba(239,68,68,0.08)" }} />
               <div
                 className="absolute top-5 left-6 font-black rounded-2xl px-4 py-2 text-white"
                 style={{ background: "#ef4444", fontSize: 15, transform: "rotate(5deg)", letterSpacing: "-0.01em" }}
@@ -447,14 +388,13 @@ function TeamSwipeCard({
                 SKIP ✗
               </div>
             </motion.div>
-            {/* Up → VIEW TEAM */}
             <motion.div style={{ opacity: viewOp }} className="absolute inset-0 rounded-3xl pointer-events-none">
-              <div className="absolute inset-0 rounded-3xl" style={{ background: "rgba(59,130,246,0.08)", border: "3px solid #3b82f6" }} />
+              <div className="absolute inset-0 rounded-3xl" style={{ border: "3px solid #3b82f6", background: "rgba(59,130,246,0.08)" }} />
               <div
                 className="absolute top-5 left-1/2 -translate-x-1/2 font-black rounded-2xl px-4 py-2 text-white"
                 style={{ background: "#3b82f6", fontSize: 15 }}
               >
-                VIEW TEAM ↑
+                VIEW DETAILS ↑
               </div>
             </motion.div>
           </>
@@ -464,7 +404,7 @@ function TeamSwipeCard({
   );
 }
 
-// ─── Team Detail Drawer (mirrors ProfileDrawer) ────────────────────────────────
+// ─── Team Drawer ──────────────────────────────────────────────────────────────
 
 function TeamDrawer({
   team, onClose, onJoin, onSkip, onViewProfile,
@@ -478,58 +418,37 @@ function TeamDrawer({
   const score = computeTeamScore(team);
   const badges = getTeamBadges(team);
   const reasons = getWhyReasons(team);
-  const openSlots = team.maxMembers - team.members.length;
   const collegeName = useInstitutionName(team.college);
 
   return (
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ background: "rgba(15,23,42,0.50)", backdropFilter: "blur(8px)" }}
+      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 backdrop-blur-sm"
       onClick={onClose}
     >
       <motion.div
         initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
         transition={{ type: "spring", stiffness: 320, damping: 32 }}
-        className="w-full max-w-2xl rounded-t-3xl overflow-auto"
-        style={{
-          background: "linear-gradient(160deg, rgba(255,255,255,0.96) 0%, rgba(240,253,250,0.96) 100%)",
-          backdropFilter: "blur(20px)",
-          maxHeight: "88vh",
-          border: "1.5px solid rgba(255,255,255,0.80)",
-          borderBottom: "none",
-        }}
+        className="w-full max-w-2xl bg-white rounded-t-3xl overflow-auto max-h-[90vh] pb-10"
         onClick={e => e.stopPropagation()}
       >
-        {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1.5 rounded-full" style={{ background: "#cbd5e1" }} />
+          <div className="w-10 h-1.5 rounded-full bg-slate-200" />
         </div>
 
-        {/* Header */}
-        <div className="px-7 pt-5 pb-4" style={{ borderBottom: "1px solid rgba(203,213,225,0.50)" }}>
+        <div className="px-7 pt-5 pb-6 border-b border-slate-100">
           <div className="flex items-start gap-5">
             <div
               className="rounded-2xl flex items-center justify-center flex-shrink-0 text-white font-black text-3xl"
-              style={{ width: 80, height: 80, background: avatarBg(team.id), overflow: "hidden", boxShadow: "0 4px 16px rgba(0,0,0,0.15)" }}
+              style={{ width: 80, height: 80, background: avatarBg(team.id) }}
             >
               {(team.name?.[0] ?? "T").toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="font-black text-slate-900 text-2xl mb-0.5 truncate">{team.name}</h2>
-              <p className="font-bold text-base mb-2 truncate" style={{ color: "#0d9488" }}>{team.hackathon || "Open Collaboration"}</p>
-              <div className="flex items-center gap-2 flex-wrap text-sm" style={{ color: "#64748b" }}>
-                {openSlots > 0 && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: "#f0fdf4", color: "#15803d", border: "1px solid #86efac" }}>
-                    🟢 {openSlots} slot{openSlots !== 1 ? "s" : ""} open
-                  </span>
-                )}
-                {team.city && (
-                  <span className="flex items-center gap-1">
-                    <MapPin size={12} style={{ color: "#ec4899" }} />
-                    {getCityById(team.city || '')?.name || team.city}
-                  </span>
-                )}
+              <h2 className="font-black text-slate-900 text-2xl truncate mb-1">{team.name}</h2>
+              <p className="font-bold text-teal-600">{team.hackathon || "Open Collaboration"}</p>
+              <div className="flex items-center gap-3 mt-2 text-sm text-slate-500">
+                {team.city && <span className="flex items-center gap-1"><MapPin size={14} />{getCityById(team.city || '')?.name || team.city}</span>}
                 {collegeName && <span>· {collegeName}</span>}
               </div>
             </div>
@@ -537,102 +456,49 @@ function TeamDrawer({
           </div>
         </div>
 
-        <div className="px-7 py-5 space-y-5">
-          {/* Badges */}
-          {badges.length > 0 && (
-            <div className="flex gap-2 flex-wrap">
-              {badges.map((b, i) => (
-                <span key={i} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold"
-                  style={{ background: b.bg, color: b.color, border: `1px solid ${b.border}` }}>
-                  {b.icon} {b.label}
-                </span>
+        <div className="px-7 py-6 space-y-6">
+          <div>
+            <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">About Team</h4>
+            <p className="text-slate-600 leading-relaxed text-sm">{team.description || "No description provided."}</p>
+          </div>
+
+          <div>
+            <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Roles Needed</h4>
+            <div className="flex flex-wrap gap-2">
+              {team.rolesNeeded?.map((r, i) => (
+                <span key={i} className="px-3 py-1.5 rounded-xl bg-slate-50 text-slate-700 text-sm font-semibold border border-slate-200">{r}</span>
               ))}
             </div>
-          )}
+          </div>
 
-          {/* Description */}
-          {team.description && (
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: "#94a3b8" }}>About</p>
-              <p className="text-sm leading-relaxed" style={{ color: "#334155" }}>{team.description}</p>
+          <div>
+            <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Current Members ({team.members.length}/{team.maxMembers})</h4>
+            <div className="grid grid-cols-2 gap-3">
+              {team.members.map((m, i) => (
+                <div key={i} className="flex items-center gap-3 p-2 rounded-xl bg-slate-50 border border-slate-100">
+                  <MemberAvatar userId={m.userId} fallbackName={m.userName} size="w-8 h-8" isLeader={m.userId === team.leaderId} />
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-800 truncate">{m.userName}</p>
+                    <p className="text-[10px] text-slate-500">{m.userId === team.leaderId ? "Founder" : "Member"}</p>
+                  </div>
+                </div>
+              ))}
             </div>
-          )}
+          </div>
 
-          {/* Roles needed */}
-          {(team.rolesNeeded?.length ?? 0) > 0 && (
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider mb-2.5" style={{ color: "#94a3b8" }}>Roles Needed</p>
-              <div className="flex flex-wrap gap-2">
-                {team.rolesNeeded!.map((role, i) => (
-                  <span key={i} className="px-3 py-1.5 rounded-full text-sm font-semibold"
-                    style={{ background: "rgba(255,255,255,0.70)", border: "1px solid rgba(148,163,184,0.40)", color: "#334155" }}>
-                    {role}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Team members */}
-          {team.members.length > 0 && (
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider mb-2.5" style={{ color: "#94a3b8" }}>Team ({team.members.length}/{team.maxMembers})</p>
-              <div className="flex flex-wrap gap-3">
-                {team.members.map((m, i) => (
-                  <button
-                    key={i}
-                    onClick={() => onViewProfile(m.userId)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl hover:opacity-80 transition-opacity"
-                    style={{ background: "rgba(241,245,249,0.80)", border: "1px solid #e2e8f0" }}
-                  >
-                    <MemberAvatar userId={m.userId} fallbackName={m.userName || "User"} size="w-7 h-7" isLeader={m.userId === team.leaderId} />
-                    <div className="text-left">
-                      <p className="text-xs font-semibold text-slate-800 leading-none">{m.userName || "User"}</p>
-                      {m.userId === team.leaderId && (
-                        <p className="text-[10px] text-teal-600 font-medium mt-0.5">Founder</p>
-                      )}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Why this team box */}
-          <div className="rounded-2xl p-4" style={{ background: "linear-gradient(135deg, rgba(240,253,250,0.90) 0%, rgba(224,242,254,0.80) 100%)", border: "1px solid rgba(153,246,228,0.60)" }}>
-            <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#0d9488" }}>
-              <Sparkles size={12} /> Why this team?
-            </p>
+          <div className="rounded-2xl p-4 bg-teal-50 border border-teal-100">
+            <h4 className="text-xs font-black text-teal-700 uppercase tracking-widest mb-3">Why fits your profile?</h4>
             {reasons.map((r, i) => (
-              <div key={i} className="flex items-start gap-2.5 mb-2">
-                <Check size={14} className="flex-shrink-0 mt-0.5" style={{ color: "#0d9488" }} />
-                <span className="text-sm leading-snug" style={{ color: "#1e293b" }}>{r}</span>
+              <div key={i} className="flex items-start gap-2.5 mb-2 last:mb-0">
+                <Check size={14} className="text-teal-600 mt-0.5" />
+                <span className="text-sm text-slate-700 font-medium">{r}</span>
               </div>
             ))}
           </div>
 
-          {/* Timeline */}
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider mb-2.5" style={{ color: "#94a3b8" }}>Project Timeline</p>
-            <ProjectTimeline stages={DEFAULT_STAGES} teamId={team.id} compact />
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-3 pb-4">
-            <button
-              onClick={onSkip}
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold text-sm"
-              style={{ background: "rgba(241,245,249,0.90)", color: "#64748b", border: "1.5px solid #e2e8f0" }}
-            >
-              <X size={16} /> Skip
-            </button>
-            <button
-              onClick={onJoin}
-              className="flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-sm text-white"
-              style={{ flex: 2.5, background: "linear-gradient(135deg,#0d9488,#0891b2)", boxShadow: "0 4px 16px rgba(13,148,136,0.30)" }}
-            >
-              <Check size={16} /> Request to Join
-            </button>
+          <div className="flex gap-3">
+            <button onClick={onSkip} className="flex-1 py-3.5 rounded-2xl font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">Skip</button>
+            <button onClick={onJoin} className="flex-[2] py-3.5 rounded-2xl font-bold bg-teal-600 text-white hover:bg-teal-700 transition-colors shadow-lg shadow-teal-500/25">Join Team</button>
           </div>
         </div>
       </motion.div>
@@ -640,23 +506,194 @@ function TeamDrawer({
   );
 }
 
-// ─── Toast (same as DiscoverPeople) ───────────────────────────────────────────
+// ─── Toast Banner ─────────────────────────────────────────────────────────────
 
 function ToastBanner({ msg, type }: { msg: string; type: "join" | "skip" }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16, scale: 0.92 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -8 }}
-      className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 px-6 py-2.5 rounded-full text-white font-semibold shadow-2xl pointer-events-none"
-      style={{
-        background: type === "join"
-          ? "linear-gradient(135deg,#0d9488,#0891b2)"
-          : "linear-gradient(135deg,#64748b,#475569)",
-        fontSize: 14,
-      }}
+      initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
+      className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-[60] px-6 py-3 rounded-2xl font-bold text-white shadow-xl ${
+        type === "join" ? "bg-teal-600" : "bg-slate-800"
+      }`}
     >
       {msg}
+    </motion.div>
+  );
+}
+
+// ─── Swipe Indicator ──────────────────────────────────────────────────────────
+function SwipeIndicator({ text = "join" }: { text?: string }) {
+  return (
+    <motion.div 
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      className="swipe-indicator-container"
+    >
+      <div className="swipe-indicator-rotating-line" />
+      <div className="swipe-indicator-content">
+        <span className="flex items-center gap-1.5 leading-none">
+          <span className="opacity-60">←</span> skip
+        </span>
+        <span className="w-1 h-1 rounded-full bg-slate-300" />
+        <span className="flex items-center gap-1.5 leading-none">
+          <span className="opacity-60">→</span> {text}
+        </span>
+        <span className="w-1 h-1 rounded-full bg-slate-300" />
+        <span className="flex items-center gap-1.5 leading-none">
+          <span className="opacity-60">↑</span> profile
+        </span>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── View Switcher ────────────────────────────────────────────────────────────
+
+type ViewMode = "swipe" | "grid" | "detail";
+
+function ViewSwitcher({ current, onChange }: { current: ViewMode; onChange: (v: ViewMode) => void }) {
+  return (
+    <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
+      {(["swipe", "grid", "detail"] as ViewMode[]).map((v) => (
+        <button
+          key={v}
+          onClick={() => onChange(v)}
+          className={`p-2 rounded-xl transition-all ${
+            current === v ? "bg-white text-teal-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
+          }`}
+        >
+          {v === "swipe" && <Layers size={18} />}
+          {v === "grid" && <LayoutGrid size={18} />}
+          {v === "detail" && <List size={18} />}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─── Teams Grid Card ─────────────────────────────────────────────────────────────
+
+function TeamsGridCard({
+  team, onSwipe, onExpand, onRequestJoin
+}: {
+  team: Team;
+  onSwipe: (id: string, dir: "left" | "right" | "up") => void;
+  onExpand: (team: Team) => void;
+  onRequestJoin: (team: Team) => void;
+}) {
+  const score = computeTeamScore(team);
+  const collegeName = useInstitutionName(team.college);
+  const reasons = getWhyReasons(team);
+
+  return (
+    <motion.div
+      layout
+      whileHover={{ y: -4 }}
+      className="p-5 rounded-3xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-all flex flex-col"
+    >
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex gap-4">
+          <div
+            className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-black text-xl"
+            style={{ background: avatarBg(team.id) }}
+          >
+            {(team.name?.[0] ?? "T").toUpperCase()}
+          </div>
+          <div>
+            <h3 className="font-black text-slate-900 leading-tight">{team.name}</h3>
+            <p className="text-teal-600 text-sm font-bold mt-1">{team.hackathon || "Open Collab"}</p>
+          </div>
+        </div>
+        <div className="flex flex-col items-center">
+          <span className="text-[10px] font-black text-slate-400 uppercase">Match</span>
+          <span className="text-lg font-black" style={{ color: scoreColor(score) }}>{score}%</span>
+        </div>
+      </div>
+
+      <p className="text-slate-500 text-sm line-clamp-2 mb-4 leading-relaxed">
+        {team.description || "Building something amazing."}
+      </p>
+
+      <div className="flex flex-wrap gap-2 mb-4">
+        {team.rolesNeeded?.slice(0, 3).map((r, i) => (
+          <span key={i} className="px-2.5 py-1 rounded-lg bg-slate-50 text-slate-600 text-[11px] font-bold border border-slate-100">{r}</span>
+        ))}
+      </div>
+
+      <div className="mt-auto pt-4 border-t border-slate-50 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-slate-600">{team.members.length}/{team.maxMembers} members</span>
+          <div className="flex -space-x-1.5">
+            {team.members.slice(0, 3).map((m, i) => (
+              <div key={i} className="w-5 h-5 rounded-full border border-white bg-slate-100 overflow-hidden">
+                <MemberAvatar userId={m.userId} fallbackName={m.userName} size="w-full h-full" />
+              </div>
+            ))}
+          </div>
+        </div>
+        <button
+          onClick={() => onExpand(team)}
+          className="text-xs font-black text-teal-600 hover:text-teal-700"
+        >
+          Details →
+        </button>
+      </div>
+
+      <button
+        onClick={() => onRequestJoin(team)}
+        className="mt-4 w-full py-2.5 rounded-2xl bg-teal-50 text-teal-700 text-sm font-bold hover:bg-teal-100 transition-all border border-teal-100"
+      >
+        Quick Join
+      </button>
+    </motion.div>
+  );
+}
+
+// ─── Teams Detail Row ───────────────────────────────────────────────────────────
+
+function TeamsDetailRow({ team, onClick }: { team: Team, onClick: () => void }) {
+  const score = computeTeamScore(team);
+  const collegeName = useInstitutionName(team.college);
+
+  return (
+    <motion.div
+      layout
+      onClick={onClick}
+      className="group flex items-center p-3 rounded-2xl hover:bg-slate-50 transition-all cursor-pointer border border-transparent hover:border-slate-100"
+    >
+      <div className="flex items-center gap-4 flex-1 min-w-0">
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm"
+          style={{ background: avatarBg(team.id) }}
+        >
+          {(team.name?.[0] ?? "T").toUpperCase()}
+        </div>
+        <div className="min-w-0">
+          <h4 className="font-bold text-slate-900 text-sm truncate">{team.name}</h4>
+          <p className="text-teal-600 text-[10px] font-bold">{team.hackathon || "Open Collab"}</p>
+        </div>
+      </div>
+
+      <div className="flex-1 px-4 hidden md:block min-w-0 text-slate-500 text-xs truncate">
+        {collegeName || team.city || "Global"}
+      </div>
+
+      <div className="flex-1 px-4 hidden sm:block">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-slate-600">{team.members.length}/{team.maxMembers}</span>
+          <div className="flex -space-x-1.5">
+            {team.members.slice(0, 3).map((m, i) => (
+              <div key={i} className="w-4 h-4 rounded-full border border-white bg-slate-100 overflow-hidden">
+                <MemberAvatar userId={m.userId} fallbackName={m.userName} size="w-full h-full" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="w-16 text-right">
+        <span className="text-sm font-black" style={{ color: scoreColor(score) }}>{score}%</span>
+      </div>
     </motion.div>
   );
 }
@@ -677,16 +714,19 @@ const DiscoverTeams = ({ onNavigate, openAuth, onViewProfile }: DiscoverTeamsPro
   const [collegeFilter, setCollegeFilter] = useState('');
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [expandedTeam, setExpandedTeam] = useState<Team | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>(() => (localStorage.getItem("teamup:teams_view") as ViewMode) || "swipe");
+
+  // Persist view mode
+  useEffect(() => { localStorage.setItem("teamup:teams_view", viewMode); }, [viewMode]);
+
   const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
   const [showDemoLock, setShowDemoLock] = useState(false);
   const [toastMsg, setToastMsg] = useState<{ msg: string; type: "join" | "skip" } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Persist ─────────────────────────────────────────────────────────────────
   useEffect(() => { sessionStorage.setItem("teamup:teams_joined", JSON.stringify(joined)); }, [joined]);
   useEffect(() => { sessionStorage.setItem("teamup:teams_skipped", JSON.stringify(skipped)); }, [skipped]);
 
-  // ── Load ────────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!isFirebaseConfigured() || !user) { setLoading(false); return; }
     getProfile(user.uid).then(setCurrentUserProfile);
@@ -698,7 +738,6 @@ const DiscoverTeams = ({ onNavigate, openAuth, onViewProfile }: DiscoverTeamsPro
     return () => unsub();
   }, [user, wasBlockedByThem]);
 
-  // ── Filter ──────────────────────────────────────────────────────────────────
   const filteredTeams = teams.filter((team) => {
     const term = searchTerm.toLowerCase();
     const matchesSearch =
@@ -711,33 +750,31 @@ const DiscoverTeams = ({ onNavigate, openAuth, onViewProfile }: DiscoverTeamsPro
     return matchesSearch && matchesCity && matchesCollege;
   });
 
-  // Sync queue
   useEffect(() => {
     const seen = new Set([...joined, ...skipped]);
     setQueue(filteredTeams.filter(t => !seen.has(t.id)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredTeams.length, joined.length, skipped.length, searchTerm, cityFilter, collegeFilter]);
 
-  // ── Helpers ─────────────────────────────────────────────────────────────────
   const showToast = (msg: string, type: "join" | "skip") => {
     setToastMsg({ msg, type });
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToastMsg(null), 2200);
   };
 
-  // ── Swipe ────────────────────────────────────────────────────────────────────
   const handleSwipe = useCallback((id: string, dir: "left" | "right" | "up") => {
     if (dir === "up") {
       const target = teams.find(t => t.id === id);
       if (target) setExpandedTeam(target);
-      return; // don't remove from queue — user can return to card
+      return;
     }
     if (dir === "right") {
       if (isDemoUser) { setShowDemoLock(true); return; }
       const target = teams.find(t => t.id === id);
-      if (target) setSelectedTeam(target);
-      setJoined(prev => [...prev, id]);
-      showToast("🚀 Join request sent!", "join");
+      if (target) {
+        setSelectedTeam(target);
+        setJoined(prev => [...prev, id]);
+        showToast("🚀 Join request sent!", "join");
+      }
     } else {
       setSkipped(prev => [...prev, id]);
       showToast("Skipped", "skip");
@@ -745,7 +782,6 @@ const DiscoverTeams = ({ onNavigate, openAuth, onViewProfile }: DiscoverTeamsPro
     setQueue(prev => prev.filter(t => t.id !== id));
   }, [teams, isDemoUser]);
 
-  // ── Join request ─────────────────────────────────────────────────────────────
   const handleJoinRequest = async (team: Team, message: string) => {
     if (!user || !currentUserProfile) return;
     try {
@@ -755,66 +791,36 @@ const DiscoverTeams = ({ onNavigate, openAuth, onViewProfile }: DiscoverTeamsPro
         toUserId: team.leaderId, toUserName: team.leaderName || 'Team Leader',
         message, type: 'join_request',
       });
-      toast.success(`Join request sent to ${team.name}!`);
+      toast.success(`Request sent to ${team.name}!`);
       window.dispatchEvent(new CustomEvent('teamup:feedback_trigger', { detail: { type: 'team_joined' } }));
       setSelectedTeam(null);
     } catch (error: any) {
-      toast.error(error.message || 'Failed to send join request');
+      toast.error(error.message || 'Failed to send request');
     }
   };
 
-  // ── Keyboard ─────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => {
-      if (expandedTeam || selectedTeam) return;
-      const top = queue[0];
-      if (!top) return;
-      if (e.key === "ArrowRight") handleSwipe(top.id, "right");
-      if (e.key === "ArrowLeft") handleSwipe(top.id, "left");
-      if (e.key === "ArrowUp") { e.preventDefault(); handleSwipe(top.id, "up"); }
-    };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [queue, expandedTeam, selectedTeam, handleSwipe]);
-
-  // ── Loading ──────────────────────────────────────────────────────────────────
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center" style={{ height: "calc(100vh - 80px)" }}>
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  const cardCount = queue.length;
-
-  // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div
-      className="flex flex-col"
-      style={{ height: "calc(100vh - 80px)", overflow: "hidden" }}
-    >
-      {/* ── HEADER ────────────────────────────────────────────────── */}
+    <div className="flex flex-col h-[calc(100vh-80px)] overflow-hidden">
       <div className="flex-shrink-0 pb-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-primary/10">
-              <Users className="w-5 h-5 text-primary" />
+            <div className="bg-teal-50 p-2.5 rounded-2xl text-teal-600">
+              <Users size={22} />
             </div>
             <div>
-              <h1 className="font-display font-bold text-2xl text-foreground leading-tight">Discover Teams</h1>
-              <p className="text-muted-foreground text-sm">Find your next team · swipe right to join</p>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight">Discover Teams</h1>
+              <p className="text-slate-500 text-sm font-medium mt-0.5">{filteredTeams.length} active projects</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            {joined.length > 0 && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-primary/10 text-primary border border-primary/20">
-                <Check size={13} /> {joined.length} requested
-              </span>
-            )}
-            <span className="hidden lg:block text-xs text-muted-foreground bg-muted px-3 py-1.5 rounded-lg border border-border">
-              ← skip · → join · ↑ details
-            </span>
+          <div className="flex items-center gap-4">
+            {viewMode === "swipe" && queue.length > 0 && <SwipeIndicator text="join" />}
+            <ViewSwitcher current={viewMode} onChange={setViewMode} />
+            <button
+              onClick={() => { setJoined([]); setSkipped([]); }}
+              className="p-2.5 rounded-2xl text-slate-400 hover:text-teal-600 hover:bg-slate-50 transition-all"
+            >
+              <RotateCcw size={20} />
+            </button>
           </div>
         </div>
 
@@ -839,74 +845,119 @@ const DiscoverTeams = ({ onNavigate, openAuth, onViewProfile }: DiscoverTeamsPro
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Filters Grid */}
+        <div id="tour-teams-filters" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <CitySelect value={cityFilter} onChange={setCityFilter} placeholder="All Cities" className="h-full" />
           <InstitutionSelect value={collegeFilter} onChange={setCollegeFilter} placeholder="All Colleges" className="h-full" />
         </div>
       </div>
 
-      {/* ── CARD STACK ─────────────────────────────────────────────── */}
-      <div className="flex-1 min-h-0 flex flex-col">
-        {cardCount === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-4">
-            <Coffee className="w-12 h-12 text-muted-foreground" />
-            <div className="text-center">
-              <h3 className="font-display font-bold text-xl text-foreground mb-1">
-                {filteredTeams.length === 0 && (searchTerm || cityFilter || collegeFilter)
-                  ? "No teams match your filters"
-                  : "You've seen all teams!"}
-              </h3>
-              <p className="text-muted-foreground text-sm mb-5">
-                {filteredTeams.length === 0 && (searchTerm || cityFilter || collegeFilter)
-                  ? "Try adjusting your search or filters"
-                  : `${joined.length} request${joined.length !== 1 ? "s" : ""} sent · ${skipped.length} skipped`}
-              </p>
-              {(joined.length > 0 || skipped.length > 0) && (
+      <div className="flex-1 relative min-h-0">
+
+        {/* SWIPE VIEW — fills full remaining height, no scroll */}
+        {viewMode === "swipe" && (
+          <>
+            <AnimatePresence mode="wait">
+            {queue.length === 0 ? (
+              <motion.div
+                key="empty-swipe"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center"
+              >
+                <Sparkles size={40} className="text-teal-400 mb-6" />
+                <h3 className="text-2xl font-black text-slate-800 mb-2">That's all for now!</h3>
+                <p className="text-slate-500 max-w-sm mb-8">Try adjusting your filters or check back later.</p>
                 <button
-                  onClick={() => {
-                    setJoined([]);
-                    setSkipped([]);
-                    sessionStorage.removeItem("teamup:teams_joined");
-                    sessionStorage.removeItem("teamup:teams_skipped");
-                  }}
-                  className="btn-primary inline-flex items-center gap-2 text-sm"
+                  onClick={() => { setCityFilter(""); setCollegeFilter(""); setSearchTerm(""); }}
+                  className="px-8 py-3.5 bg-slate-900 text-white font-black rounded-2xl hover:bg-slate-800 transition-all"
                 >
-                  <RotateCcw size={14} /> Shuffle Again
+                  Clear Filters
                 </button>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="swipe-cards"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0"
+                style={{ paddingBottom: 28 }}
+              >
+                {queue.slice(0, 3).reverse().map((t, i) => (
+                  <TeamSwipeCard
+                    key={t.id}
+                    team={t}
+                    index={Math.min(queue.length, 3) - 1 - i}
+                    total={Math.min(queue.length, 3)}
+                    active={i === Math.min(queue.length, 3) - 1}
+                    onSwipe={handleSwipe}
+                    onExpand={setExpandedTeam}
+                    onRequestJoin={() => {
+                      if (isDemoUser) setShowDemoLock(true);
+                      else setSelectedTeam(t);
+                    }}
+                    onViewProfile={onViewProfile}
+                  />
+                ))}
+              </motion.div>
+            )}
+            </AnimatePresence>
+          </>
+        )}
+
+        {/* GRID & DETAIL VIEWS — scrollable */}
+        {viewMode !== "swipe" && (
+          <div className="absolute inset-0 overflow-y-auto no-scrollbar pb-10 pr-1">
+            <AnimatePresence mode="wait">
+              {queue.length === 0 ? (
+                <motion.div
+                  key="empty"
+                  className="flex flex-col items-center justify-center py-20 px-6 text-center"
+                >
+                  <Sparkles size={40} className="text-teal-400 mb-6" />
+                  <h3 className="text-2xl font-black text-slate-800 mb-2">That's all for now!</h3>
+                  <p className="text-slate-500 max-w-sm mb-8">Try adjusting your filters or check back later.</p>
+                  <button
+                    onClick={() => { setCityFilter(""); setCollegeFilter(""); setSearchTerm(""); }}
+                    className="px-8 py-3.5 bg-slate-900 text-white font-black rounded-2xl hover:bg-slate-800 transition-all"
+                  >
+                    Clear Filters
+                  </button>
+                </motion.div>
+              ) : viewMode === "grid" ? (
+                <motion.div key="grid" className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  {queue.map(t => (
+                    <TeamsGridCard
+                      key={t.id}
+                      team={t}
+                      onSwipe={handleSwipe}
+                      onExpand={setExpandedTeam}
+                      onRequestJoin={() => {
+                        if (isDemoUser) setShowDemoLock(true);
+                        else setSelectedTeam(t);
+                      }}
+                    />
+                  ))}
+                </motion.div>
+              ) : (
+                <motion.div key="detail" className="flex flex-col gap-2 mt-4">
+                  <div className="flex items-center px-4 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 mb-2">
+                    <div className="flex-1">Team / Hackathon</div>
+                    <div className="flex-1 hidden md:block">Location</div>
+                    <div className="flex-1 hidden sm:block">Members</div>
+                    <div className="w-16 text-right">Match</div>
+                  </div>
+                  {queue.map(t => (
+                    <TeamsDetailRow key={t.id} team={t} onClick={() => setExpandedTeam(t)} />
+                  ))}
+                </motion.div>
               )}
-            </div>
-          </div>
-        ) : (
-          <div
-            className="relative flex-1 min-h-0"
-            style={{ paddingBottom: 28 }}
-          >
-            {queue
-              .slice(0, 3)
-              .map((team, idx) => (
-                <TeamSwipeCard
-                  key={team.id}
-                  team={team}
-                  index={idx}
-                  total={Math.min(cardCount, 3)}
-                  active={idx === 0}
-                  onSwipe={handleSwipe}
-                  onExpand={t => setExpandedTeam(t)}
-                  onRequestJoin={t => {
-                    if (isDemoUser) { setShowDemoLock(true); return; }
-                    setSelectedTeam(t);
-                  }}
-                  onViewProfile={onViewProfile}
-                />
-              ))
-              .reverse() /* render back-cards first so top card is on top */
-            }
+            </AnimatePresence>
           </div>
         )}
-      </div>
 
-      {/* ── MODALS & OVERLAYS ─────────────────────────────────────── */}
+      </div>
 
       <AnimatePresence>
         {expandedTeam && (
@@ -915,10 +966,10 @@ const DiscoverTeams = ({ onNavigate, openAuth, onViewProfile }: DiscoverTeamsPro
             onClose={() => setExpandedTeam(null)}
             onJoin={() => {
               if (isDemoUser) { setShowDemoLock(true); setExpandedTeam(null); return; }
+              setSelectedTeam(expandedTeam);
               setJoined(prev => [...prev, expandedTeam.id]);
               setQueue(prev => prev.filter(t => t.id !== expandedTeam.id));
               showToast("🚀 Join request sent!", "join");
-              setSelectedTeam(expandedTeam);
               setExpandedTeam(null);
             }}
             onSkip={() => {
@@ -937,19 +988,12 @@ const DiscoverTeams = ({ onNavigate, openAuth, onViewProfile }: DiscoverTeamsPro
           team={selectedTeam}
           userProfile={currentUserProfile}
           onClose={() => setSelectedTeam(null)}
-          onSend={(message) => handleJoinRequest(selectedTeam, message)}
+          onSend={(msg) => handleJoinRequest(selectedTeam, msg)}
         />
       )}
 
-      <DemoLockModal
-        open={showDemoLock}
-        onClose={() => setShowDemoLock(false)}
-        onSignup={() => { setShowDemoLock(false); openAuth(); }}
-      />
-
-      <AnimatePresence>
-        {toastMsg && <ToastBanner msg={toastMsg.msg} type={toastMsg.type} />}
-      </AnimatePresence>
+      <DemoLockModal open={showDemoLock} onClose={() => setShowDemoLock(false)} onSignup={() => { setShowDemoLock(false); openAuth(); }} />
+      <AnimatePresence>{toastMsg && <ToastBanner msg={toastMsg.msg} type={toastMsg.type} />}</AnimatePresence>
     </div>
   );
 };

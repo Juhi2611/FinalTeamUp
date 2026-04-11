@@ -240,6 +240,7 @@ const Messages = ({
           CONVERSATIONS LIST (Left panel)
          ════════════════════════════════════════════ */}
       <div
+        id="tour-messages-list"
         className={cn(
           'border-r border-border/60 flex flex-col',
           selectedConversation && 'hidden md:flex',
@@ -340,7 +341,7 @@ const Messages = ({
       {/* ════════════════════════════════════════════
           CHAT PANEL (Right)
          ════════════════════════════════════════════ */}
-      <div className="flex flex-col flex-1 bg-background/50">
+      <div id="tour-messages-chat" className="flex flex-col flex-1 bg-background/50">
         {!selectedConversation || !selectedConv ? (
           <div className="hidden md:flex flex-1 items-center justify-center">
             <div className="text-center">

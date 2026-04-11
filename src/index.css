@@ -114,6 +114,12 @@
     border-color: hsl(var(--border));
   }
 
+  html, body, #root {
+    min-height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', system-ui, sans-serif;
@@ -780,3 +786,52 @@
     text-xs font-medium bg-secondary hover:bg-secondary/80 
     transition whitespace-nowrap;
   }
+
+/* ═══════════════════════════════════════════
+   SWIPE GESTURE INDICATOR
+   ═══════════════════════════════════════════ */
+@keyframes swipe-border-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.swipe-indicator-container {
+  position: relative;
+  overflow: hidden;
+  border-radius: 9999px;
+  padding: 1.5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.swipe-indicator-rotating-line {
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: conic-gradient(transparent, #14b8a6, transparent 25%);
+  animation: swipe-border-rotate 3s linear infinite;
+}
+
+.swipe-indicator-content {
+  position: relative;
+  z-index: 1;
+  background: #f1f5f9;
+  border-radius: 9999px;
+  padding: 8px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  letter-spacing: -0.01em;
+}
+
+.dark .swipe-indicator-content {
+  background: #1e293b;
+  color: #94a3b8;
+}

@@ -203,7 +203,7 @@ const TeamWorkspace = ({ teamId, onBack, openAuth }: TeamWorkspaceProps) => {
         {/* Progress Log */}
         <div className="lg:col-span-2 space-y-4">
           {/* Add Log Form */}
-          <div className="card-base p-6">
+          <div id="tour-workspace-tasks" className="card-base p-6">
             <h2 className="section-title mb-4">Add Progress Update</h2>
             <form
               onSubmit={(e) => {
@@ -238,7 +238,7 @@ const TeamWorkspace = ({ teamId, onBack, openAuth }: TeamWorkspaceProps) => {
           </div>
 
           {/* Logs List */}
-          <div className="card-base p-6">
+          <div id="tour-workspace-timeline" className="card-base p-6">
             <h2 className="section-title mb-4">Progress Log</h2>
 
             {logs.length === 0 ? (

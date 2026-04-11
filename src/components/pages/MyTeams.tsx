@@ -322,7 +322,7 @@ const MyTeams = ({ onNavigate, onViewWorkspace, onViewProfile, onViewFiles, open
       )}
 
       {/* ═══ TEAM CARDS GRID ═══ */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div id="tour-teams-list" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {filteredTeams.map((team) => {
           const isLeader = team.leaderId === user?.uid;
           const isCompleted = team.status === 'complete';

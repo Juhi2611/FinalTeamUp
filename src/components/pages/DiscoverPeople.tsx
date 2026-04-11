@@ -24,7 +24,8 @@ import {
 import {
   Users, Loader2, RotateCcw, Sparkles, Crown, Coffee,
   ChevronRight, Eye, X, Check, Search, Filter, ChevronDown,
-  Video, Award, Zap, BadgeCheck, Clock, MapPin,
+  Video, Award, Zap, BadgeCheck, Clock, MapPin, ShieldCheck,
+  LayoutGrid, List, Layers, MoreHorizontal
 } from "lucide-react";
 
 import { useAuth } from "@/contexts/AuthContext";
@@ -129,16 +130,24 @@ interface BadgeDef { label: string; icon: JSX.Element; bg: string; color: string
 
 function getBadges(u: UserProfile): BadgeDef[] {
   const b: BadgeDef[] = [];
-  // Use totalPerksEarned as a proxy for "top collaborator"
+
+  // Use totalPerksEarned as a proxy for "Top Collaborator"
   if ((u.totalPerksEarned ?? 0) > 100)
     b.push({ label: "Top Collaborator", icon: <Award size={12} />, bg: "#fef9c3", color: "#b45309", border: "#fde68a" });
-  // Skill verified proxy — has 3+ skills
-  if ((u.skills?.length ?? 0) >= 3)
+
+  // Real Skill Verification Badge
+  if (u.isSkillVerified)
     b.push({ label: "Skill Verified", icon: <BadgeCheck size={12} />, bg: "#f0fdfa", color: "#0f766e", border: "#99f6e4" });
-  // Fast responder proxy — is not in any team (active & available)
-  if ((u.teamIds?.length ?? 0) === 0)
+
+  // Identity Verification Badge
+  if (u.isProfileVerified)
+    b.push({ label: "Id Verified", icon: <ShieldCheck size={12} />, bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" });
+
+  // Fast Responder proxy — is available
+  if ((u.teamIds?.length ?? 0) === 0 && !u.isSkillVerified && !u.isProfileVerified)
     b.push({ label: "Fast Responder", icon: <Zap size={12} />, bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" });
-  return b.slice(0, 2);
+
+  return b.slice(0, 3);
 }
 
 // ─── Glassmorphism Swipe Card ──────────────────────────────────────────────────
@@ -175,8 +184,6 @@ function SwipeCard({
   const avail = getAvailability(user);
   const reasons = getMatchReasons(user);
   const badges = getBadges(user);
-  const leading = user.leaderOfTeamIds?.length ?? 0;
-  const inTeam = (user.teamIds?.length ?? 0) - leading;
 
   const avatarSrc = user.avatar
     ? `${user.avatar}?t=${Math.floor(Date.now() / 60000)}`
@@ -191,9 +198,7 @@ function SwipeCard({
       const swX = Math.abs(offset.x) > 90 || Math.abs(velocity.x) > 400;
       const swU = offset.y < -80 || velocity.y < -400;
       if (swU) {
-        // Increase velocity or decrease duration to make it snappier
         animate(y, -800, { duration: 0.25, ease: "easeOut" });
-        // Trigger immediately or with a shorter delay
         setTimeout(() => onSwipe(user.id, "up"), 100);
       } else if (swX && offset.x > 0) {
         animate(x, 700, { duration: 0.3 });
@@ -208,10 +213,6 @@ function SwipeCard({
     },
     [x, y, onSwipe, user.id]
   );
-
-  function onViewProfile(id: string) {
-    throw new Error("Function not implemented.");
-  }
 
   return (
     <motion.div
@@ -230,17 +231,14 @@ function SwipeCard({
       onDragEnd={handleDragEnd}
       animate={{ y: stackY, scale: stackSc, rotate: active ? 0 : stackRot }}
       transition={{ type: "spring", stiffness: 240, damping: 26 }}
-      // Keep active cards interactive, but ensure the z-index is high enough during the swipe
       className={`absolute inset-0 transition-shadow ${active
-          ? "cursor-grab active:cursor-grabbing z-50"
-          : "pointer-events-none z-0"
+        ? "cursor-grab active:cursor-grabbing z-50"
+        : "pointer-events-none z-0"
         }`}
     >
-      {/* ── GLASSMORPHISM CARD ─── */}
       <div
         className="w-full h-full rounded-3xl overflow-hidden relative"
         style={{
-          /* Glassmorphism */
           background: "linear-gradient(145deg, rgba(255,255,255,0.82) 0%, rgba(240,253,250,0.75) 50%, rgba(224,242,254,0.72) 100%)",
           backdropFilter: "blur(20px) saturate(180%)",
           WebkitBackdropFilter: "blur(20px) saturate(180%)",
@@ -248,7 +246,6 @@ function SwipeCard({
           boxShadow: "none",
         }}
       >
-        {/* Subtle teal shimmer in background */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
@@ -257,12 +254,8 @@ function SwipeCard({
         />
 
         <div className="relative z-10 flex flex-col h-full p-6">
-
-          {/* ── ROW 1: Avatar + Name + Score Ring ── */}
           <div className="flex items-start justify-between mb-3">
-            {/* Left: Avatar + name/role */}
             <div className="flex items-center gap-4">
-              {/* Avatar */}
               <div
                 className="rounded-2xl flex items-center justify-center flex-shrink-0 text-white font-black"
                 style={{
@@ -279,11 +272,9 @@ function SwipeCard({
                 }
               </div>
 
-              {/* Name + role + availability */}
               <div>
                 <div className="flex items-center gap-2 mb-0.5">
                   <h2 className="font-black text-slate-900 text-xl leading-tight">{user.fullName || "Unnamed"}</h2>
-                  {/* Availability chip */}
                   {avail === "Available" && (
                     <span
                       className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold"
@@ -308,11 +299,9 @@ function SwipeCard({
               </div>
             </div>
 
-            {/* Score ring */}
             <ScoreRing score={score} />
           </div>
 
-          {/* ── ROW 2: Badges ── */}
           {badges.length > 0 && (
             <div className="flex gap-2 mb-3 flex-wrap">
               {badges.map((b, i) => (
@@ -327,7 +316,6 @@ function SwipeCard({
             </div>
           )}
 
-          {/* ── ROW 3: Tagline ── */}
           {user.bio && (
             <p
               className="mb-3 leading-snug line-clamp-2"
@@ -345,7 +333,6 @@ function SwipeCard({
             </p>
           )}
 
-          {/* ── ROW 4: Skills ── */}
           <div className="flex flex-wrap gap-2 mb-3">
             {user.skills?.slice(0, 4).map((s, i) => (
               <span
@@ -371,7 +358,6 @@ function SwipeCard({
             )}
           </div>
 
-          {/* ── ROW 5: Meta (exp · city · active) ── */}
           <div className="flex items-center gap-3 mb-4 flex-wrap">
             {expLevel && (
               <span
@@ -394,7 +380,6 @@ function SwipeCard({
             )}
           </div>
 
-          {/* ── ROW 6: Why this match box ── */}
           <div
             className="rounded-2xl px-4 py-3 mb-4 flex-1"
             style={{
@@ -412,19 +397,15 @@ function SwipeCard({
             <div className="space-y-1.5">
               {reasons.map((r, i) => (
                 <div key={i} className="flex items-start gap-2">
-                  {r.icon === "skill" && <Check size={14} className="flex-shrink-0 mt-0.5" style={{ color: "#0d9488" }} />}
-                  {r.icon === "collab" && <Check size={14} className="flex-shrink-0 mt-0.5" style={{ color: "#0d9488" }} />}
-                  {r.icon === "time" && <Clock size={14} className="flex-shrink-0 mt-0.5" style={{ color: "#0d9488" }} />}
+                  <Check size={14} className="flex-shrink-0 mt-0.5" style={{ color: "#0d9488" }} />
                   <span className="text-sm leading-snug" style={{ color: "#1e293b" }}>{r.text}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* ── ROW 7: Interview button (leader only) + View hint ── */}
           {active && (
             <div className="flex items-center justify-between">
-              {/* View profile hint */}
               <button
                 onClick={() => onExpand(user)}
                 className="flex items-center gap-1.5 text-sm transition-opacity hover:opacity-70"
@@ -435,7 +416,6 @@ function SwipeCard({
                 <ChevronRight size={15} />
               </button>
 
-              {/* Interview button — team leaders only */}
               {isLeader && (
                 <motion.button
                   whileHover={{ scale: 1.04 }}
@@ -459,7 +439,6 @@ function SwipeCard({
           )}
         </div>
 
-        {/* ── SWIPE OVERLAYS ── */}
         {active && (
           <>
             <motion.div style={{ opacity: connOp }} className="absolute inset-0 rounded-3xl pointer-events-none">
@@ -481,7 +460,6 @@ function SwipeCard({
               </div>
             </motion.div>
             <motion.div style={{ opacity: viewOp }} className="absolute inset-0 rounded-3xl pointer-events-none">
-              {/* ✅ Ensure this border only appears during the swipe */}
               <div
                 className="absolute inset-0 rounded-3xl"
                 style={{
@@ -503,12 +481,15 @@ function SwipeCard({
   );
 }
 
-// ─── Profile Drawer ────────────────────────────────────────────────────────────
-
 function ProfileDrawer({
-  user, onClose, onConnect, onSkip,
+  user, onClose, onConnect, onSkip, onInterview, isLeader,
 }: {
-  user: UserProfile; onClose: () => void; onConnect: () => void; onSkip: () => void;
+  user: UserProfile;
+  onClose: () => void;
+  onConnect: () => void;
+  onSkip: () => void;
+  onInterview: (user: UserProfile) => void; // Add this
+  isLeader: boolean;                        // Add this
 }) {
   const score = computeMatchScore(user);
   const avail = getAvailability(user);
@@ -607,21 +588,41 @@ function ProfileDrawer({
             ))}
           </div>
 
-          <div className="flex gap-3 pb-4">
-            <button
-              onClick={onSkip}
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold text-sm"
-              style={{ background: "rgba(241,245,249,0.90)", color: "#64748b", border: "1.5px solid #e2e8f0" }}
-            >
-              <X size={16} /> Skip
-            </button>
-            <button
-              onClick={onConnect}
-              className="flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-sm text-white"
-              style={{ flex: 2.5, background: "linear-gradient(135deg,#0d9488,#0891b2)", boxShadow: "0 4px 16px rgba(13,148,136,0.30)" }}
-            >
-              <Check size={16} /> Connect & Invite
-            </button>
+          <div className="flex flex-col gap-3 pb-4">
+            {/* Primary Action Row */}
+            <div className="flex gap-3">
+              <button
+                onClick={onSkip}
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold text-sm"
+                style={{ background: "rgba(241,245,249,0.90)", color: "#64748b", border: "1.5px solid #e2e8f0" }}
+              >
+                <X size={16} /> Skip
+              </button>
+              <button
+                onClick={onConnect}
+                className="flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-sm text-white"
+                style={{ flex: 2.5, background: "linear-gradient(135deg,#0d9488,#0891b2)", boxShadow: "0 4px 16px rgba(13,148,136,0.30)" }}
+              >
+                <Check size={16} /> Connect & Invite
+              </button>
+            </div>
+
+            {/* Secondary Action Row: Interview Button (Visible only to Leaders) */}
+            {isLeader && (
+              <motion.button
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => onInterview(user)}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-white"
+                style={{
+                  background: "linear-gradient(135deg, #0d9488 0%, #0891b2 100%)",
+                  boxShadow: "0 4px 18px rgba(13,148,136,0.25)"
+                }}
+              >
+                <Video size={18} />
+                Request Interview
+              </motion.button>
+            )}
           </div>
         </div>
       </motion.div>
@@ -646,6 +647,224 @@ function ToastBanner({ msg, type }: { msg: string; type: "connect" | "skip" }) {
       }}
     >
       {msg}
+    </motion.div>
+  );
+}
+
+// ─── Swipe Indicator ──────────────────────────────────────────────────────────
+function SwipeIndicator({ text = "connect" }: { text?: string }) {
+  return (
+    <motion.div 
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      className="swipe-indicator-container"
+    >
+      <div className="swipe-indicator-rotating-line" />
+      <div className="swipe-indicator-content">
+        <span className="flex items-center gap-1.5 leading-none">
+          <span className="opacity-60">←</span> skip
+        </span>
+        <span className="w-1 h-1 rounded-full bg-slate-300" />
+        <span className="flex items-center gap-1.5 leading-none">
+          <span className="opacity-60">→</span> {text}
+        </span>
+        <span className="w-1 h-1 rounded-full bg-slate-300" />
+        <span className="flex items-center gap-1.5 leading-none">
+          <span className="opacity-60">↑</span> profile
+        </span>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── View Switcher ────────────────────────────────────────────────────────────
+
+type ViewMode = "swipe" | "grid" | "detail";
+
+function ViewSwitcher({ current, onChange }: { current: ViewMode; onChange: (v: ViewMode) => void }) {
+  return (
+    <div id="tour-view-switcher" className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
+      {(["swipe", "grid", "detail"] as ViewMode[]).map((v) => (
+        <button
+          key={v}
+          onClick={() => onChange(v)}
+          className={`p-2 rounded-xl transition-all ${current === v ? "bg-white text-teal-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
+            }`}
+        >
+          {v === "swipe" && <Layers size={18} />}
+          {v === "grid" && <LayoutGrid size={18} />}
+          {v === "detail" && <List size={18} />}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─── Grid View Card ─────────────────────────────────────────────────────────────
+
+function PeopleGridCard({
+  user, onSwipe, onExpand, onInterview, isLeader
+}: {
+  user: UserProfile;
+  onSwipe: (id: string, dir: "left" | "right" | "up") => void;
+  onExpand: (user: UserProfile) => void;
+  onInterview: (user: UserProfile) => void;
+  isLeader: boolean;
+}) {
+  const score = computeMatchScore(user);
+  const avail = getAvailability(user);
+  const reasons = getMatchReasons(user);
+  const badges = getBadges(user);
+  const avatarSrc = user.avatar ? user.avatar : null;
+  const collegeName = useInstitutionName(user.college);
+  const expLevel = user.skills?.[0]?.proficiency ?? null;
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex flex-col h-full rounded-3xl overflow-hidden relative"
+      style={{
+        background: "linear-gradient(145deg, rgba(255,255,255,0.82) 0%, rgba(240,253,250,0.75) 50%, rgba(224,242,254,0.72) 100%)",
+        backdropFilter: "blur(20px) saturate(180%)",
+        WebkitBackdropFilter: "blur(20px) saturate(180%)",
+        border: "1.5px solid rgba(255,255,255,0.70)",
+      }}
+    >
+      <div className="absolute inset-0 pointer-events-none"
+        style={{ background: "radial-gradient(ellipse 70% 60% at 80% 100%, rgba(20,184,166,0.10) 0%, transparent 70%)" }} />
+
+      <div className="relative z-10 flex flex-col h-full p-5">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="rounded-2xl flex items-center justify-center flex-shrink-0 text-white font-black text-lg"
+              style={{ width: 56, height: 56, background: avatarBg(user.id), overflow: "hidden" }}>
+              {avatarSrc ? <img src={avatarSrc} alt={user.fullName} className="w-full h-full object-cover" /> : initials(user.fullName || "")}
+            </div>
+            <div>
+              <h3 className="font-black text-slate-900 text-lg leading-tight">{user.fullName || "Unnamed"}</h3>
+              <p className="font-bold text-sm text-teal-600">{user.primaryRole || "Team Member"}</p>
+            </div>
+          </div>
+          <ScoreRing score={score} />
+        </div>
+
+        <div className="flex gap-1.5 mb-3 flex-wrap">
+          {badges.map((b, i) => (
+            <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
+              style={{ background: b.bg, color: b.color, border: `1px solid ${b.border}` }}>
+              {b.label}
+            </span>
+          ))}
+        </div>
+
+        {user.bio && <p className="text-slate-600 text-xs line-clamp-2 mb-3 leading-relaxed">{user.bio}</p>}
+
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {user.skills?.slice(0, 3).map((s, i) => (
+            <span key={i} className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-white/60 border border-slate-200/50 text-slate-600">
+              {s.name}
+            </span>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-3 mb-4 text-[11px] text-slate-500 font-medium">
+          {expLevel && <span className="px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 border border-purple-100">{expLevel}</span>}
+          {user.city && <span className="flex items-center gap-1"><MapPin size={10} className="text-pink-500" />{getCityById(user.city || '')?.name || user.city}</span>}
+        </div>
+
+        <div className="rounded-2xl px-3 py-2.5 mb-4 flex-1 bg-teal-50/50 border border-teal-100/50">
+          <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-teal-700 mb-1.5">
+            <Sparkles size={10} /> Match Details
+          </p>
+          <div className="space-y-1">
+            {reasons.slice(0, 2).map((r, i) => (
+              <div key={i} className="flex items-start gap-1.5">
+                <Check size={10} className="text-teal-600 mt-0.5" />
+                <span className="text-[11px] text-slate-700 leading-tight">{r.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={() => onExpand(user)}
+            className="w-full py-2 rounded-xl text-xs font-bold text-slate-600 bg-white/80 border border-slate-200 hover:bg-slate-50 transition-colors"
+          >
+            View Profile
+          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onSwipe(user.id, "right")}
+              className="flex-1 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-br from-teal-500 to-cyan-600 shadow-md shadow-teal-500/20"
+            >
+              Invite
+            </button>
+            {isLeader && (
+              <button
+                id="tour-discover-interview"
+                onClick={() => onInterview(user)}
+                className="px-3 py-2 rounded-xl text-white bg-slate-900 hover:bg-slate-800 transition-colors"
+              >
+                <Video size={14} />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── Details View Row ───────────────────────────────────────────────────────────
+
+function PeopleDetailRow({ user, onClick }: { user: UserProfile, onClick: () => void }) {
+  const score = computeMatchScore(user);
+  const collegeName = useInstitutionName(user.college);
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      onClick={onClick}
+      className="group flex items-center p-3 rounded-2xl hover:bg-white/80 transition-all cursor-pointer border border-transparent hover:border-slate-200/60 hover:shadow-sm"
+    >
+      <div className="flex items-center gap-4 flex-1 min-w-0">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white font-bold text-sm"
+          style={{ background: avatarBg(user.id), overflow: "hidden" }}>
+          {user.avatar ? <img src={user.avatar} className="w-full h-full object-cover" /> : initials(user.fullName || "")}
+        </div>
+        <div className="min-w-0">
+          <h4 className="font-bold text-slate-900 text-sm truncate">{user.fullName || "Unnamed"}</h4>
+          <p className="text-teal-600 text-[11px] font-semibold truncate">{user.primaryRole || "Team Member"}</p>
+        </div>
+      </div>
+
+      <div className="flex-1 px-4 hidden md:block min-w-0">
+        <p className="text-slate-500 text-xs truncate">
+          {collegeName || "Institution not set"}
+        </p>
+      </div>
+
+      <div className="flex-1 px-4 hidden sm:block min-w-0">
+        <div className="flex items-center gap-1.5 text-slate-500">
+          <MapPin size={12} className="text-pink-400" />
+          <span className="text-xs truncate">{getCityById(user.city || '')?.name || user.city || "Remote"}</span>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 px-2">
+        <div className="flex flex-col items-end">
+          <span className="text-[10px] font-black text-slate-400 leading-none mb-0.5">FIT</span>
+          <span className="text-sm font-black leading-none" style={{ color: scoreColor(score) }}>{score}%</span>
+        </div>
+        <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-teal-50 group-hover:text-teal-600 transition-colors">
+          <ChevronRight size={16} />
+        </div>
+      </div>
     </motion.div>
   );
 }
@@ -676,7 +895,13 @@ const DiscoverPeople = ({ onViewProfile, openAuth }: DiscoverPeopleProps) => {
   const [expandedUser, setExpandedUser] = useState<UserProfile | null>(null);
   const [showModal, setShowModal] = useState<UserProfile | null>(null);
   const [interviewTarget, setInterviewTarget] = useState<UserProfile | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>(() => (localStorage.getItem("teamup:people_view") as ViewMode) || "swipe");
   const [showDemoLock, setShowDemoLock] = useState(false);
+
+  // Persist view mode
+  useEffect(() => {
+    localStorage.setItem("teamup:people_view", viewMode);
+  }, [viewMode]);
   const [sending, setSending] = useState(false);
   const [toastMsg, setToastMsg] = useState<{ msg: string; type: "connect" | "skip" } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -879,27 +1104,36 @@ const DiscoverPeople = ({ onViewProfile, openAuth }: DiscoverPeopleProps) => {
       className="flex flex-col"
       style={{ height: "calc(100vh - 80px)", overflow: "hidden" }}
     >
-      {/* ── HEADER ─────────────────────────────────────────────────── */}
+      {/* ── HEADER ────────────────────────────────────────────────── */}
       <div className="flex-shrink-0 pb-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-primary/10">
-              <Users className="w-5 h-5 text-primary" />
+            <div className="bg-teal-100 p-2.5 rounded-2xl text-teal-700 shadow-inner">
+              <Users size={22} className="drop-shadow-sm" />
             </div>
             <div>
-              <h1 className="font-display font-bold text-2xl text-foreground leading-tight">Discover People</h1>
-              <p className="text-muted-foreground text-sm">Find talented teammates · swipe right to connect</p>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight leading-none">Discover People</h1>
+              <p className="text-slate-500 text-sm font-medium mt-1">
+                {filteredUsers.length} active members looking for teams
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            {connected.length > 0 && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-primary/10 text-primary border border-primary/20">
-                <Check size={13} /> {connected.length} connected
-              </span>
-            )}
-            <span className="hidden lg:block text-xs text-muted-foreground bg-muted px-3 py-1.5 rounded-lg border border-border">
-              ← skip · → connect · ↑ profile
-            </span>
+
+          <div className="flex items-center gap-4">
+            {viewMode === "swipe" && queue.length > 0 && <SwipeIndicator text="connect" />}
+            <ViewSwitcher current={viewMode} onChange={setViewMode} />
+            <button
+              onClick={() => {
+                setConnected([]);
+                setSkipped([]);
+                sessionStorage.removeItem("teamup:swiped_right");
+                sessionStorage.removeItem("teamup:swiped_left");
+              }}
+              className="p-2.5 rounded-2xl text-slate-400 hover:text-teal-600 hover:bg-white transition-all duration-200 border border-transparent hover:border-slate-200 shadow-sm"
+              title="Reset discovery"
+            >
+              <RotateCcw size={20} />
+            </button>
           </div>
         </div>
 
@@ -917,7 +1151,7 @@ const DiscoverPeople = ({ onViewProfile, openAuth }: DiscoverPeopleProps) => {
         </div>
 
         {/* Filters Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3">
+        <div id="tour-discover-filters" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3">
           <div className="lg:col-span-3 min-w-0">
             <div className="relative h-full">
               <Filter className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -960,71 +1194,154 @@ const DiscoverPeople = ({ onViewProfile, openAuth }: DiscoverPeopleProps) => {
         </div>
       </div>
 
-      {/* ── CARD STACK ─────────────────────────────────────────────── */}
-      <div className="flex-1 min-h-0 flex flex-col">
-        {cardCount === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-4">
-            <Coffee className="w-12 h-12 text-muted-foreground" />
-            <div className="text-center">
-              <h3 className="font-display font-bold text-xl text-foreground mb-1">
-                {filteredUsers.length === 0 && (searchTerm || roleFilter || cityFilter || availabilityFilter !== "all")
-                  ? "No people match your filters"
-                  : "You've seen everyone!"}
-              </h3>
-              <p className="text-muted-foreground text-sm mb-5">
-                {filteredUsers.length === 0 && (searchTerm || roleFilter || cityFilter || availabilityFilter !== "all")
-                  ? "Try adjusting your search or filters"
-                  : `${connected.length} connection${connected.length !== 1 ? "s" : ""} sent · ${skipped.length} skipped`}
-              </p>
-              {(connected.length > 0 || skipped.length > 0) && (
+      {/* ── CONTENT AREA ── */}
+      <div id="tour-people-stack" className="flex-1 relative min-h-0">
+
+        {/* SWIPE VIEW — fills full remaining height, no scroll */}
+        {viewMode === "swipe" && (
+          <>
+            <AnimatePresence mode="wait">
+            {queue.length === 0 ? (
+              <motion.div
+                key="empty-swipe"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center"
+              >
+                <div className="w-24 h-24 bg-teal-50 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                  <Sparkles size={40} className="text-teal-400" />
+                </div>
+                <h3 className="text-2xl font-black text-slate-800 mb-2">You've reached the end!</h3>
+                <p className="text-slate-500 max-w-sm font-medium mb-8">
+                  {searchTerm || roleFilter || cityFilter || availabilityFilter !== 'all'
+                    ? "No more people match your specific filters. Try adjusting them for more results."
+                    : "You've seen everyone available for now. Check back later for new members!"}
+                </p>
                 <button
                   onClick={() => {
                     setConnected([]);
                     setSkipped([]);
-                    sessionStorage.removeItem("teamup:swiped_right"); // ✅ Clear storage
-                    sessionStorage.removeItem("teamup:swiped_left");  // ✅ Clear storage
+                    setRoleFilter("");
+                    setCityFilter("");
+                    setSearchTerm("");
+                    setAvailabilityFilter("all");
                   }}
-                  className="btn-primary inline-flex items-center gap-2 text-sm"
+                  className="px-8 py-3.5 bg-slate-900 text-white font-black rounded-2xl hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/20 active:scale-95"
                 >
-                  <RotateCcw size={14} /> Shuffle Again
+                  Reset All Filters
                 </button>
-              )}
-            </div>
-          </div>
-        ) : (
-          <>
-            {/*
-              Stack container — extra bottom padding to visually show the
-              peeking cards below without clipping them
-            */}
-            <div
-              className="relative flex-1 min-h-0"
-              style={{
-                // Reserve space so cards 2 & 3 peek out below
-                paddingBottom: 28,
-              }}
-            >
-              {queue
-                .slice(0, 3)
-                .map((u, idx) => (
+              </motion.div>
+            ) : (
+              <motion.div
+                key="swipe-cards"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0"
+                style={{ paddingBottom: 28 }}
+              >
+                {queue.slice(0, 3).reverse().map((u, i) => (
                   <SwipeCard
                     key={u.id}
                     user={u}
-                    index={idx}
-                    total={Math.min(cardCount, 3)}
+                    index={Math.min(queue.length, 3) - 1 - i}
+                    total={Math.min(queue.length, 3)}
                     onSwipe={handleSwipe}
-                    onExpand={p => { setExpandedUser(p); onViewProfile(p.id); }}
+                    onExpand={setExpandedUser}
                     onInterview={handleInterview}
-                    active={idx === 0}
-                    isLeader={isLeader}
+                    active={i === Math.min(queue.length, 3) - 1}
+                    isLeader={leaderTeams.length > 0}
                   />
-                ))
-                .reverse() /* render back-cards first so top card is on top */
-              }
-            </div>
+                ))}
+              </motion.div>
+            )}
+            </AnimatePresence>
           </>
         )}
+
+        {/* GRID & DETAIL VIEWS — scrollable */}
+        {viewMode !== "swipe" && (
+          <div className="absolute inset-0 overflow-y-auto no-scrollbar pb-10">
+            <AnimatePresence mode="wait">
+              {queue.length === 0 ? (
+                <motion.div
+                  key="empty"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="flex flex-col items-center justify-center py-20 px-6 text-center"
+                >
+                  <div className="w-24 h-24 bg-teal-50 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                    <Sparkles size={40} className="text-teal-400" />
+                  </div>
+                  <h3 className="text-2xl font-black text-slate-800 mb-2">You've reached the end!</h3>
+                  <p className="text-slate-500 max-w-sm font-medium mb-8">
+                    {searchTerm || roleFilter || cityFilter || availabilityFilter !== 'all'
+                      ? "No more people match your specific filters. Try adjusting them for more results."
+                      : "You've seen everyone available for now. Check back later for new members!"}
+                  </p>
+                  <button
+                    onClick={() => {
+                      setConnected([]);
+                      setSkipped([]);
+                      setRoleFilter("");
+                      setCityFilter("");
+                      setSearchTerm("");
+                      setAvailabilityFilter("all");
+                    }}
+                    className="px-8 py-3.5 bg-slate-900 text-white font-black rounded-2xl hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/20 active:scale-95"
+                  >
+                    Reset All Filters
+                  </button>
+                </motion.div>
+              ) : viewMode === "grid" ? (
+                <motion.div
+                  key="grid"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4 pr-2"
+                >
+                  {queue.map((u) => (
+                    <PeopleGridCard
+                      key={u.id}
+                      user={u}
+                      onSwipe={handleSwipe}
+                      onExpand={setExpandedUser}
+                      onInterview={handleInterview}
+                      isLeader={leaderTeams.length > 0}
+                    />
+                  ))}
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="detail"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="flex flex-col gap-2 mt-4 pr-2"
+                >
+                  <div className="flex items-center px-4 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 mb-2">
+                    <div className="flex-1">Profile / Role</div>
+                    <div className="flex-1 hidden md:block">Institution</div>
+                    <div className="flex-1 hidden sm:block">Location</div>
+                    <div className="w-20 text-right">Match</div>
+                  </div>
+                  {queue.map((u) => (
+                    <PeopleDetailRow
+                      key={u.id}
+                      user={u}
+                      onClick={() => setExpandedUser(u)}
+                    />
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+
       </div>
+
+      {/* ── MODALS & OVERLAYS ──────────────────────────────────────── */}
 
       {/* ── MODALS & OVERLAYS ──────────────────────────────────────── */}
 
@@ -1032,6 +1349,11 @@ const DiscoverPeople = ({ onViewProfile, openAuth }: DiscoverPeopleProps) => {
         {expandedUser && (
           <ProfileDrawer
             user={expandedUser}
+            isLeader={isLeader} // Pass the leader status
+            onInterview={(u) => { // Handle the interview click
+              setExpandedUser(null);
+              handleInterview(u);
+            }}
             onClose={() => setExpandedUser(null)}
             onConnect={() => {
               if (isDemoUser) { setShowDemoLock(true); setExpandedUser(null); return; }

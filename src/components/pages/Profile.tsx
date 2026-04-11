@@ -1,15 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import PitchModal from '../PitchModal';
 import IdentityVerificationModal from '../IdentityVerificationModal';
-import { MapPin, Calendar, Award, Quote, Sparkles, Shield, ExternalLink, Loader2, Edit, Trash2, PenSquare, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { MapPin, Calendar, Award, Quote, Sparkles, Shield, ExternalLink, Loader2, Edit, Trash2, PenSquare, CheckCircle2, ShieldCheck, User } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { 
-  getProfile, 
-  subscribeToUserPosts, 
-  updatePost, 
-  deletePost, 
-  UserProfile, 
+import {
+  getProfile,
+  subscribeToUserPosts,
+  updatePost,
+  deletePost,
+  UserProfile,
   FeedPost,
   getSkillVerification,
   subscribeToSkillVerification,
@@ -50,7 +50,7 @@ interface ProfileProps {
   onEditProfile?: () => void;
   onOpenVerification?: () => void;
   onMessage?: (userId: string) => void;
-  onProfileUpdated?: (profile: UserProfile) => void; 
+  onProfileUpdated?: (profile: UserProfile) => void;
   openAuth: () => void;
 }
 
@@ -291,7 +291,7 @@ const Profile = ({ userId, isOwnProfile = true, userProfile: passedProfile, onEd
 
   const totalProfileSkills = profile.skills?.length || 0;
   const verifiedSkillsCount = skillVerification?.verifiedSkills.length || 0;
-  const hasVerifiedSkills = skillVerification?.status === 'verified' && totalProfileSkills > 0 && verifiedSkillsCount === totalProfileSkills;
+  const hasVerifiedSkills = (skillVerification?.status === 'verified' && verifiedSkillsCount > 0) || profile.isSkillVerified;
   const visiblePosts = showAllPosts ? myPosts : myPosts.slice(0, 2);
   const languageUsage = skillVerification?.stats?.languageUsage ?? [];
 
@@ -306,7 +306,7 @@ const Profile = ({ userId, isOwnProfile = true, userProfile: passedProfile, onEd
 
   return (
     <div className="space-y-5">
-      
+
       {/* ═══ Hero Cover + Identity — full-width card ═══ */}
       <div className="card-base overflow-hidden">
         {/* Cover pattern — taller, more visual */}
@@ -318,10 +318,10 @@ const Profile = ({ userId, isOwnProfile = true, userProfile: passedProfile, onEd
 
         {/* Profile info row - overlapping cover */}
         <div className="px-6 pb-5">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between -mt-12 gap-4">
-            
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+
             {/* Avatar + name block */}
-            <div className="flex items-end gap-4">
+            <div id="tour-header-profile" className="flex items-end gap-4">
               <div className="relative z-10 flex-shrink-0">
                 <img
                   src={
@@ -329,7 +329,7 @@ const Profile = ({ userId, isOwnProfile = true, userProfile: passedProfile, onEd
                       ? `${profile.avatar}?t=${Date.now()}`
                       : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(profile.fullName || 'User')}`
                   }
-                  className="w-24 h-24 rounded-full object-cover border-4 border-card shadow-lg cursor-pointer"
+                  className="w-[120px] h-[120px] rounded-full object-cover border-4 border-card shadow-lg cursor-pointer -mt-3"
                   onClick={() => isOwnProfile && document.getElementById('avatarInput')?.click()}
                 />
                 {isOwnProfile && (
@@ -348,7 +348,7 @@ const Profile = ({ userId, isOwnProfile = true, userProfile: passedProfile, onEd
               <div className="mb-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="font-display font-bold text-xl sm:text-2xl text-foreground">{profile.fullName}</h1>
-                  {(hasVerifiedSkills || profile.isProfileVerified || profile.teamId) && (
+                  {(hasVerifiedSkills || profile.isProfileVerified || profile.teamId || (profile.teamIds && profile.teamIds.length > 0)) && (
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {hasVerifiedSkills && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#1CB0A3]/15 border border-[#1CB0A3]/30 text-[11px] font-medium text-[#1CB0A3]">
@@ -362,7 +362,7 @@ const Profile = ({ userId, isOwnProfile = true, userProfile: passedProfile, onEd
                           Identity Verified
                         </span>
                       )}
-                      {profile.teamId && (
+                      {(profile.teamId || (profile.teamIds && profile.teamIds.length > 0)) && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-[11px] font-medium text-primary">
                           <Shield className="w-3 h-3" />
                           In a Team
@@ -371,6 +371,7 @@ const Profile = ({ userId, isOwnProfile = true, userProfile: passedProfile, onEd
                     </div>
                   )}
                 </div>
+
                 {profile.username && (
                   <p className="text-sm text-muted-foreground/70">@{profile.username}</p>
                 )}
@@ -394,15 +395,21 @@ const Profile = ({ userId, isOwnProfile = true, userProfile: passedProfile, onEd
               </div>
             )}
             {isOwnProfile && (
-              <div className="flex items-center gap-2 flex-wrap mb-1">
+              <div className="flex flex-row items-center gap-2">
                 <button
                   onClick={() => setShowCertificationModal(true)}
-                  className="btn-primary text-sm py-1.5 px-4 flex items-center gap-1.5"
+                  className="btn-primary text-sm py-1.5 px-4 flex items-center gap-1.5 whitespace-nowrap"
                 >
-                  <Award className="w-3.5 h-3.5" /> Verified Portfolio
+                  <Award className="w-3.5 h-3.5" />
+                  Verified Portfolio
                 </button>
-                <button onClick={onEditProfile} className="btn-secondary text-sm py-1.5 px-4 flex items-center gap-1.5">
-                  <Edit className="w-3.5 h-3.5" /> Edit Profile
+
+                <button
+                  onClick={onEditProfile}
+                  className="btn-secondary text-sm py-1.5 px-4 flex items-center gap-1.5 whitespace-nowrap"
+                >
+                  <Edit className="w-3.5 h-3.5" />
+                  Edit Profile
                 </button>
               </div>
             )}
@@ -566,7 +573,7 @@ const Profile = ({ userId, isOwnProfile = true, userProfile: passedProfile, onEd
           {activeTab === 'skills' && (
             <>
               {profile.skills && profile.skills.length > 0 && (
-                <div className="card-base p-5">
+                <div id="tour-profile-stats" className="card-base p-5">
                   <div className="flex items-center justify-between mb-4">
                     <h2 className="section-title">Skills</h2>
                     {hasVerifiedSkills && (
@@ -646,7 +653,7 @@ const Profile = ({ userId, isOwnProfile = true, userProfile: passedProfile, onEd
                     </div>
 
                     <div className="flex gap-4 items-start">
-                      <div 
+                      <div
                         className="flex flex-col justify-between text-[11px] font-medium text-muted-foreground/40 w-8 -ml-4"
                         style={{ height: 'calc(7 * 27px + 6 * 4px)' }}
                       >
@@ -655,11 +662,11 @@ const Profile = ({ userId, isOwnProfile = true, userProfile: passedProfile, onEd
                         <span className="h-[27px] flex items-center rotate-[-90deg]">Fri</span>
                       </div>
 
-                      <div 
-                        className="grid gap-[4px] -ml-3" 
-                        style={{ 
-                          gridTemplateRows: 'repeat(7, 1fr)', 
-                          gridAutoFlow: 'column' 
+                      <div
+                        className="grid gap-[4px] -ml-3"
+                        style={{
+                          gridTemplateRows: 'repeat(7, 1fr)',
+                          gridAutoFlow: 'column'
                         }}
                       >
                         {heatmapCells.map((level, i) => (
@@ -708,6 +715,13 @@ const Profile = ({ userId, isOwnProfile = true, userProfile: passedProfile, onEd
           <div className="card-base p-5">
             <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Profile Details</h2>
             <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <User className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wider font-medium">Full Name</p>
+                  <p className="text-sm text-foreground">{profile.fullName}</p>
+                </div>
+              </div>
               {profile.primaryRole && (
                 <div className="flex items-start gap-3">
                   <Award className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
@@ -740,7 +754,7 @@ const Profile = ({ userId, isOwnProfile = true, userProfile: passedProfile, onEd
           </div>
 
           {/* Identity Verification Card */}
-          <div className="card-base p-5">
+          <div id="tour-profile-badges" className="card-base p-5">
             <div className="flex items-center gap-2 mb-3">
               <ShieldCheck className="w-4 h-4 text-primary" />
               <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Identity Verification</h2>

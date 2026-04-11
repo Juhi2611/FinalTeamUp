@@ -47,34 +47,36 @@ const Notifications: React.FC<NotificationsProps> = ({ onNavigateToMessages, onV
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'invitations' | 'all'>('invitations');
+  
   useEffect(() => {
-  const loadProfiles = async () => {
-    const ids = [
-      ...new Set([
-        ...notifications.map(n => n.fromUserId),
-        ...incoming.map(i => i.fromUserId)
-      ])
-    ];
+    const loadProfiles = async () => {
+      const ids = [
+        ...new Set([
+          ...notifications.map(n => n.fromUserId),
+          ...incoming.map(i => i.fromUserId)
+        ])
+      ];
 
-    const profilesMap: Record<string, any> = {};
+      const profilesMap: Record<string, any> = {};
 
-    await Promise.all(
-      ids.map(async (id) => {
-        if (!id) return;
-        const profile = await getProfile(id);
-        if (profile) {
-          profilesMap[id] = profile;
-        }
-      })
-    );
+      await Promise.all(
+        ids.map(async (id) => {
+          if (!id) return;
+          const profile = await getProfile(id);
+          if (profile) {
+            profilesMap[id] = profile;
+          }
+        })
+      );
 
-    setUserProfiles(profilesMap);
-  };
+      setUserProfiles(profilesMap);
+    };
 
-  if (notifications.length || incoming.length) {
-    loadProfiles();
-  }
-}, [notifications, incoming]);
+    if (notifications.length || incoming.length) {
+      loadProfiles();
+    }
+  }, [notifications, incoming]);
+
   useEffect(() => {
     if (!isFirebaseConfigured() || !user) {
       setLoading(false);
@@ -103,7 +105,6 @@ const Notifications: React.FC<NotificationsProps> = ({ onNavigateToMessages, onV
     setProcessingId(invitation.id);
 
     try {
-      // Users can join multiple teams - no check needed
       await respondToInvitation(
         invitation.id,
         accept ? 'accepted' : 'rejected',
@@ -137,32 +138,12 @@ const Notifications: React.FC<NotificationsProps> = ({ onNavigateToMessages, onV
     if (notification.type === 'MESSAGE') {
       if (blockDemo()) return;
     }
-    // Mark as read
     if (!notification.read) {
       await handleMarkAsRead(notification.id);
     }
 
-    // Handle MESSAGE notifications
     if (notification.type === 'MESSAGE' && notification.conversationId && onNavigateToMessages) {
       onNavigateToMessages(notification.conversationId);
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending': return 'bg-accent/10 text-accent';
-      case 'accepted': return 'bg-skill-mobile/10 text-skill-mobile';
-      case 'rejected': return 'bg-destructive/10 text-destructive';
-      default: return 'bg-muted text-muted-foreground';
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'pending': return 'Pending';
-      case 'accepted': return 'Accepted';
-      case 'rejected': return 'Rejected';
-      default: return status;
     }
   };
 
@@ -213,9 +194,7 @@ const Notifications: React.FC<NotificationsProps> = ({ onNavigateToMessages, onV
 
   return (
     <div className="space-y-5">
-      {/* ═══════════════════════════════════════════
-          HEADER
-         ═══════════════════════════════════════════ */}
+      {/* Header */}
       <div className="card-base p-6">
         <div className="flex justify-between items-center mb-5">
           <div className="flex items-center gap-3">
@@ -247,7 +226,7 @@ const Notifications: React.FC<NotificationsProps> = ({ onNavigateToMessages, onV
           )}
         </div>
 
-        {/* ── Segment Control Tabs ── */}
+        {/* Tab Switcher */}
         <div className="segment-control">
           <button
             onClick={() => setActiveTab('invitations')}
@@ -280,12 +259,10 @@ const Notifications: React.FC<NotificationsProps> = ({ onNavigateToMessages, onV
         </div>
       </div>
 
-      {/* ═══════════════════════════════════════════
-          INVITATIONS TAB
-         ═══════════════════════════════════════════ */}
-      {activeTab === 'invitations' && (
-        <div className="space-y-3">
-          {incoming.length === 0 ? (
+      {/* List Container */}
+      <div id="tour-notifications-list" className="space-y-3">
+        {activeTab === 'invitations' ? (
+          incoming.length === 0 ? (
             <div className="card-base p-10 text-center">
               <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
                 <Send className="w-7 h-7 text-primary/40" />
@@ -296,15 +273,9 @@ const Notifications: React.FC<NotificationsProps> = ({ onNavigateToMessages, onV
           ) : (
             incoming.map((inv) => (
               <div key={inv.id} className="notification-item">
-                {/* Left accent bar */}
                 <div className="notification-bar invite" />
-
-                {/* Avatar */}
                 <img
-                  src={
-                    userProfiles[inv.fromUserId]?.avatar ||
-                    `https://api.dicebear.com/7.x/initials/svg?seed=${inv.fromUserName}`
-                  }
+                  src={userProfiles[inv.fromUserId]?.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${inv.fromUserName}`}
                   alt={inv.fromUserName}
                   className="w-11 h-11 rounded-full object-cover cursor-pointer hover:opacity-80 transition flex-shrink-0 ml-2"
                   onClick={(e) => {
@@ -318,39 +289,21 @@ const Notifications: React.FC<NotificationsProps> = ({ onNavigateToMessages, onV
                     }
                   }}
                 />
-
                 <div className="flex-1 min-w-0">
                   <p className="text-foreground text-sm mb-1">
                     <span className="font-semibold">{inv.fromUserName}</span> invited you to join{' '}
                     <span className="font-semibold text-primary">{inv.teamName}</span>
                   </p>
-                  {inv.teamDescription && (
-                    <p className="text-xs text-muted-foreground mb-1.5 line-clamp-1">{inv.teamDescription}</p>
-                  )}
-                  {inv.message && (
-                    <p className="text-xs text-muted-foreground italic mb-2">"{inv.message}"</p>
-                  )}
-
+                  {inv.teamDescription && <p className="text-xs text-muted-foreground mb-1.5 line-clamp-1">{inv.teamDescription}</p>}
+                  {inv.message && <p className="text-xs text-muted-foreground italic mb-2">"{inv.message}"</p>}
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] text-muted-foreground/60">{formatTimestamp(inv.createdAt)}</span>
                     <div className="flex gap-2 ml-auto">
-                      <button
-                        onClick={() => handleRespond(inv, true)}
-                        disabled={processingId === inv.id}
-                        className="btn-primary text-xs py-1.5 px-3 flex items-center gap-1"
-                      >
-                        {processingId === inv.id ? (
-                          <Loader2 className="animate-spin h-3.5 w-3.5" />
-                        ) : (
-                          <Check className="w-3.5 h-3.5" />
-                        )}
+                      <button onClick={() => handleRespond(inv, true)} disabled={processingId === inv.id} className="btn-primary text-xs py-1.5 px-3 flex items-center gap-1">
+                        {processingId === inv.id ? <Loader2 className="animate-spin h-3.5 w-3.5" /> : <Check className="w-3.5 h-3.5" />}
                         Accept
                       </button>
-                      <button
-                        onClick={() => handleRespond(inv, false)}
-                        disabled={processingId === inv.id}
-                        className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1"
-                      >
+                      <button onClick={() => handleRespond(inv, false)} disabled={processingId === inv.id} className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1">
                         <X className="w-3.5 h-3.5" />
                         Reject
                       </button>
@@ -359,16 +312,9 @@ const Notifications: React.FC<NotificationsProps> = ({ onNavigateToMessages, onV
                 </div>
               </div>
             ))
-          )}
-        </div>
-      )}
-
-      {/* ═══════════════════════════════════════════
-          ALL NOTIFICATIONS TAB
-         ═══════════════════════════════════════════ */}
-      {activeTab === 'all' && (
-        <div className="space-y-2">
-          {notifications.length === 0 ? (
+          )
+        ) : (
+          notifications.length === 0 ? (
             <div className="card-base p-10 text-center">
               <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
                 <Bell className="w-7 h-7 text-primary/40" />
@@ -378,20 +324,10 @@ const Notifications: React.FC<NotificationsProps> = ({ onNavigateToMessages, onV
             </div>
           ) : (
             notifications.map((notif) => (
-              <div
-                key={notif.id}
-                onClick={() => handleNotificationClick(notif)}
-                className={cn("notification-item", !notif.read && 'unread')}
-              >
-                {/* Left accent bar */}
+              <div key={notif.id} onClick={() => handleNotificationClick(notif)} className={cn("notification-item", !notif.read && 'unread')}>
                 <div className={cn("notification-bar", getNotificationBarClass(notif.type))} />
-
-                {/* Avatar */}
                 <img
-                  src={
-                    userProfiles[notif.fromUserId]?.avatar ||
-                    `https://api.dicebear.com/7.x/initials/svg?seed=${notif.fromUserName}`
-                  }
+                  src={userProfiles[notif.fromUserId]?.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${notif.fromUserName}`}
                   alt={notif.fromUserName}
                   className="w-10 h-10 rounded-full object-cover cursor-pointer hover:opacity-80 transition flex-shrink-0 ml-2"
                   onClick={(e) => {
@@ -405,41 +341,23 @@ const Notifications: React.FC<NotificationsProps> = ({ onNavigateToMessages, onV
                     }
                   }}
                 />
-
-                {/* Content */}
                 <div className="flex-1 min-w-0">
                   {notif.type === 'MESSAGE' ? (
-                    <p className="text-sm text-foreground">
-                      <strong>{notif.fromUserName}</strong> sent you a message
-                    </p>
+                    <p className="text-sm text-foreground"><strong>{notif.fromUserName}</strong> sent you a message</p>
                   ) : (
                     <p className="text-sm text-foreground">
-                      {notif.type === 'ACCEPTED' && (
-                        <><strong>{notif.fromUserName}</strong> accepted your invitation to <strong className="text-primary">{notif.teamName}</strong></>
-                      )}
-                      {notif.type === 'REJECTED' && (
-                        <><strong>{notif.fromUserName}</strong> declined your invitation to <strong>{notif.teamName}</strong></>
-                      )}
-                      {notif.type === 'JOIN_REQUEST' && (
-                        <><strong>{notif.fromUserName}</strong> requested to join <strong className="text-primary">{notif.teamName}</strong></>
-                      )}
-                      {notif.type === 'INVITE' && (
-                        <><strong>{notif.fromUserName}</strong> invited you to <strong className="text-primary">{notif.teamName}</strong></>
-                      )}
+                      {notif.type === 'ACCEPTED' && <><strong>{notif.fromUserName}</strong> accepted your invitation to <strong className="text-primary">{notif.teamName}</strong></>}
+                      {notif.type === 'REJECTED' && <><strong>{notif.fromUserName}</strong> declined your invitation to <strong>{notif.teamName}</strong></>}
+                      {notif.type === 'JOIN_REQUEST' && <><strong>{notif.fromUserName}</strong> requested to join <strong className="text-primary">{notif.teamName}</strong></>}
+                      {notif.type === 'INVITE' && <><strong>{notif.fromUserName}</strong> invited you to <strong className="text-primary">{notif.teamName}</strong></>}
                     </p>
                   )}
-                  {notif.message && (
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">"{notif.message}"</p>
-                  )}
+                  {notif.message && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">"{notif.message}"</p>}
                   <div className="flex items-center gap-2 mt-1.5">
                     <span className="text-[11px] text-muted-foreground/60">{formatTimestamp(notif.createdAt)}</span>
-                    <div className="flex items-center gap-1">
-                      {getNotificationIcon(notif.type)}
-                    </div>
+                    <div className="flex items-center gap-1">{getNotificationIcon(notif.type)}</div>
                   </div>
                 </div>
-
-                {/* Unread dot */}
                 {!notif.read && (
                   <div className="flex-shrink-0">
                     <span className="w-2.5 h-2.5 rounded-full bg-primary block" />
@@ -447,9 +365,9 @@ const Notifications: React.FC<NotificationsProps> = ({ onNavigateToMessages, onV
                 )}
               </div>
             ))
-          )}
-        </div>
-      )}
+          )
+        )}
+      </div>
 
       <DemoLockModal
         open={showDemoLock}

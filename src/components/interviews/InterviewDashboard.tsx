@@ -251,18 +251,18 @@ const InterviewDashboard = ({ onStartInterview }: Props) => {
           HEADER
          ═══════════════════════════════════════════ */}
       <div className="card-base p-6">
-        <div className="flex items-center gap-3 mb-5">
-          <div className="p-2.5 rounded-xl bg-primary/10">
-            <Shield className="w-6 h-6 text-primary" />
+          <div id="tour-nav-interviews" className="flex items-center gap-3 mb-5">
+            <div className="p-2.5 rounded-xl bg-primary/10">
+              <Shield className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h1 className="font-display font-bold text-2xl text-foreground">Interviews</h1>
+              <p className="text-sm text-muted-foreground">Manage interview requests and sessions</p>
+            </div>
           </div>
-          <div>
-            <h1 className="font-display font-bold text-2xl text-foreground">Interviews</h1>
-            <p className="text-sm text-muted-foreground">Manage interview requests and sessions</p>
-          </div>
-        </div>
 
         {/* ── Quick Stat Cards ── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+        <div id="tour-interviews-stats" className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
           <div className="stat-card">
             <span className="stat-card-value text-amber-600">{pendingCount}</span>
             <span className="stat-card-label">Pending</span>
@@ -317,9 +317,9 @@ const InterviewDashboard = ({ onStartInterview }: Props) => {
       {/* ═══════════════════════════════════════════
           CONTENT
          ═══════════════════════════════════════════ */}
-      {tab === 'requests' && (
-        <div className="space-y-3">
-          {incoming.length === 0 ? (
+      <div id="tour-interviews-list" className="space-y-3">
+        {tab === 'requests' ? (
+          incoming.length === 0 ? (
             <div className="card-base p-12 text-center">
               <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
                 <Shield className="w-8 h-8 text-primary/40" />
@@ -338,13 +338,9 @@ const InterviewDashboard = ({ onStartInterview }: Props) => {
                 onStart={() => onStartInterview(req)}
               />
             ))
-          )}
-        </div>
-      )}
-
-      {tab === 'scheduled' && (
-        <div className="space-y-3">
-          {outgoing.length === 0 ? (
+          )
+        ) : (
+          outgoing.length === 0 ? (
             <div className="card-base p-12 text-center">
               <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
                 <Calendar className="w-8 h-8 text-primary/40" />
@@ -361,9 +357,9 @@ const InterviewDashboard = ({ onStartInterview }: Props) => {
                 onStart={() => onStartInterview(req)}
               />
             ))
-          )}
-        </div>
-      )}
+          )
+        )}
+      </div>
     </div>
   );
 };
