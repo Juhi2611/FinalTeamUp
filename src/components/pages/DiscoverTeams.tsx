@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Search, Users, Loader2, Filter, ChevronDown,
-  MapPin, RotateCcw, Sparkles, Check, X, Eye, ChevronRight,
+  MapPin, RotateCcw, Sparkles, Check, X, Eye, ChevronRight, FileText,
   Zap, BadgeCheck, Clock, Crown, Coffee, LayoutGrid, List, Layers, MoreHorizontal
 } from 'lucide-react';
 import {
@@ -27,6 +27,8 @@ import CitySelect from "@/components/ui/CitySelect";
 import { normalizeCityString, getCityById } from "@/utils/cityData";
 import InstitutionSelect from "@/components/ui/InstitutionSelect";
 import { useInstitutionName } from "@/utils/useInstitutionName";
+import PresentationDeckCard from '@/components/PresentationDeckCard';
+import PresentationViewerModal from '@/components/PresentationViewerModal';
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
@@ -148,10 +150,11 @@ interface TeamSwipeCardProps {
   onExpand: (team: Team) => void;
   onRequestJoin: (team: Team) => void;
   onViewProfile: (userId: string) => void;
+  onOpenDocumentation: (team: Team) => void;
 }
 
 function TeamSwipeCard({
-  team, index, total, active, onSwipe, onExpand, onRequestJoin, onViewProfile,
+  team, index, total, active, onSwipe, onExpand, onRequestJoin, onViewProfile, onOpenDocumentation
 }: TeamSwipeCardProps) {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
@@ -309,6 +312,21 @@ function TeamSwipeCard({
             >
               {team.members.length}/{team.maxMembers} members
             </span>
+            {team.presentation && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onOpenDocumentation(team); }}
+                className="group relative flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[11px] font-black transition-all hover:-translate-y-0.5 shadow-[0_4px_14px_0_rgba(14,165,233,0.39)] hover:shadow-[0_6px_20px_rgba(14,165,233,0.23)]"
+                style={{ background: 'linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)', color: '#ffffff' }}
+              >
+                <div className="absolute inset-0 rounded-full bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <FileText size={13} className="text-sky-100" />
+                <span>View Deck</span>
+                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500 border border-transparent"></span>
+                </span>
+              </button>
+            )}
             {collegeName && (
               <span className="text-sm" style={{ color: "#64748b" }}>
                 · {collegeName}
@@ -407,13 +425,14 @@ function TeamSwipeCard({
 // ─── Team Drawer ──────────────────────────────────────────────────────────────
 
 function TeamDrawer({
-  team, onClose, onJoin, onSkip, onViewProfile,
+  team, onClose, onJoin, onSkip, onViewProfile, viewMode
 }: {
   team: Team;
   onClose: () => void;
   onJoin: () => void;
   onSkip: () => void;
   onViewProfile: (userId: string) => void;
+  viewMode?: "swipe" | "grid" | "detail";
 }) {
   const score = computeTeamScore(team);
   const badges = getTeamBadges(team);
@@ -496,8 +515,18 @@ function TeamDrawer({
             ))}
           </div>
 
+          {/* ─── Project Presentation ─── */}
+          <div>
+            <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Project Presentation</h4>
+            <PresentationDeckCard team={team} />
+          </div>
+
           <div className="flex gap-3">
-            <button onClick={onSkip} className="flex-1 py-3.5 rounded-2xl font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">Skip</button>
+            {viewMode === "swipe" ? (
+              <button onClick={onSkip} className="flex-1 py-3.5 rounded-2xl font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">Skip</button>
+            ) : (
+              <button onClick={onClose} className="flex-1 py-3.5 rounded-2xl font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">Cancel</button>
+            )}
             <button onClick={onJoin} className="flex-[2] py-3.5 rounded-2xl font-bold bg-teal-600 text-white hover:bg-teal-700 transition-colors shadow-lg shadow-teal-500/25">Join Team</button>
           </div>
         </div>
@@ -574,12 +603,13 @@ function ViewSwitcher({ current, onChange }: { current: ViewMode; onChange: (v: 
 // ─── Teams Grid Card ─────────────────────────────────────────────────────────────
 
 function TeamsGridCard({
-  team, onSwipe, onExpand, onRequestJoin
+  team, onSwipe, onExpand, onRequestJoin, onOpenDocumentation
 }: {
   team: Team;
   onSwipe: (id: string, dir: "left" | "right" | "up") => void;
   onExpand: (team: Team) => void;
   onRequestJoin: (team: Team) => void;
+  onOpenDocumentation: (team: Team) => void;
 }) {
   const score = computeTeamScore(team);
   const collegeName = useInstitutionName(team.college);
@@ -623,6 +653,19 @@ function TeamsGridCard({
       <div className="mt-auto pt-4 border-t border-slate-50 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold text-slate-600">{team.members.length}/{team.maxMembers} members</span>
+          {team.presentation && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onOpenDocumentation(team); }}
+              className="relative flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-black hover:scale-105 transition-all shadow-[0_2px_8px_rgba(14,165,233,0.3)]"
+              style={{ background: 'linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)', color: '#ffffff' }}
+            >
+              <FileText size={10} className="text-sky-100" /> Deck
+              <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500 border border-transparent"></span>
+              </span>
+            </button>
+          )}
           <div className="flex -space-x-1.5">
             {team.members.slice(0, 3).map((m, i) => (
               <div key={i} className="w-5 h-5 rounded-full border border-white bg-slate-100 overflow-hidden">
@@ -721,6 +764,7 @@ const DiscoverTeams = ({ onNavigate, openAuth, onViewProfile }: DiscoverTeamsPro
 
   const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
   const [showDemoLock, setShowDemoLock] = useState(false);
+  const [viewingDeckTeam, setViewingDeckTeam] = useState<Team | null>(null);
   const [toastMsg, setToastMsg] = useState<{ msg: string; type: "join" | "skip" } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -898,6 +942,7 @@ const DiscoverTeams = ({ onNavigate, openAuth, onViewProfile }: DiscoverTeamsPro
                       else setSelectedTeam(t);
                     }}
                     onViewProfile={onViewProfile}
+                    onOpenDocumentation={setViewingDeckTeam}
                   />
                 ))}
               </motion.div>
@@ -937,6 +982,7 @@ const DiscoverTeams = ({ onNavigate, openAuth, onViewProfile }: DiscoverTeamsPro
                         if (isDemoUser) setShowDemoLock(true);
                         else setSelectedTeam(t);
                       }}
+                      onOpenDocumentation={setViewingDeckTeam}
                     />
                   ))}
                 </motion.div>
@@ -963,6 +1009,7 @@ const DiscoverTeams = ({ onNavigate, openAuth, onViewProfile }: DiscoverTeamsPro
         {expandedTeam && (
           <TeamDrawer
             team={expandedTeam}
+            viewMode={viewMode}
             onClose={() => setExpandedTeam(null)}
             onJoin={() => {
               if (isDemoUser) { setShowDemoLock(true); setExpandedTeam(null); return; }
@@ -994,6 +1041,14 @@ const DiscoverTeams = ({ onNavigate, openAuth, onViewProfile }: DiscoverTeamsPro
 
       <DemoLockModal open={showDemoLock} onClose={() => setShowDemoLock(false)} onSignup={() => { setShowDemoLock(false); openAuth(); }} />
       <AnimatePresence>{toastMsg && <ToastBanner msg={toastMsg.msg} type={toastMsg.type} />}</AnimatePresence>
+
+      {/* VIEW DECK MODAL */}
+      {viewingDeckTeam && viewingDeckTeam.presentation && (
+        <PresentationViewerModal 
+          team={viewingDeckTeam} 
+          onClose={() => setViewingDeckTeam(null)} 
+        />
+      )}
     </div>
   );
 };

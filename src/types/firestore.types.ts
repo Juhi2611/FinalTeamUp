@@ -187,6 +187,16 @@ export interface Team {
     avatar?: string | null;
     leftAt: Timestamp;
   }[];
+  /** Project Presentation deck uploaded by team leader */
+  presentation?: {
+    fileUrl: string;
+    fileName: string;
+    fileType: 'pdf' | 'ppt' | 'pptx';
+    uploadedAt: Timestamp | FieldValue;
+    updatedAt: Timestamp | FieldValue;
+    downloadEnabled: boolean;
+    viewCount: number;
+  };
 }
 
 export interface TeamMember {

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   MoreVertical, FolderKanban, Folder, Users, BarChart3,
   Sparkles, Settings, Edit, CheckCircle, LogOut, Trash2,
-  Loader2, Plus, Crown, AlertTriangle, MapPin, Target
+  Loader2, Plus, Crown, AlertTriangle, MapPin, Target, Presentation
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import EditTeam from './EditTeam';
@@ -28,6 +28,8 @@ import { Timestamp } from 'firebase/firestore';
 import { getCityById } from '@/utils/cityData';
 import { cn } from '@/lib/utils';
 import { createPortal } from "react-dom";
+import PresentationUploadModal from '@/components/PresentationUploadModal';
+import PresentationDeckCard from '@/components/PresentationDeckCard';
 
 interface MyTeamsProps {
   onNavigate: (page: string) => void;
@@ -92,6 +94,7 @@ const MyTeams = ({ onNavigate, onViewWorkspace, onViewProfile, onViewFiles, open
   const [ratings, setRatings] = useState<Record<string, number>>({});
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [presentationTeamId, setPresentationTeamId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!showRatingTeam || !user) return;
@@ -383,6 +386,7 @@ const MyTeams = ({ onNavigate, onViewWorkspace, onViewProfile, onViewFiles, open
                           <button onClick={() => { setOpenMenu(null); navigate(`/team/${team.id}/dashboard`); }} className="menu-item"><BarChart3 className="w-4 h-4" /> View Dashboard</button>
                           <button onClick={() => { setOpenMenu(null); navigate(`/teams/${team.id}/files`); }} className="menu-item"><Folder className="w-4 h-4" /> View Files</button>
                           <button onClick={() => { setOpenMenu(null); setShowProgress(team.id); }} className="menu-item"><BarChart3 className="w-4 h-4" /> Progress</button>
+                          <button onClick={() => { setOpenMenu(null); setPresentationTeamId(team.id); }} className="menu-item"><Presentation className="w-4 h-4" /> {isLeader ? ' Manage Deck' : '📽️ View Deck'}</button>
                           {!isCompleted && (
                             <>
                               <button onClick={() => { setOpenMenu(null); sessionStorage.setItem('inviteForTeamId', team.id); sessionStorage.setItem('inviteForTeamName', team.name); onNavigate('discover'); }} className="menu-item"><Users className="w-4 h-4" /> Find Teammates</button>
@@ -432,6 +436,20 @@ const MyTeams = ({ onNavigate, onViewWorkspace, onViewProfile, onViewFiles, open
                         +{team.rolesNeeded.length - 3}
                       </span>
                     )}
+                  </div>
+                )}
+
+                {/* Presentation deck mini badge */}
+                {team.presentation && (
+                  <div
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-bold mb-3"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(139,92,246,0.12))',
+                      border: '1px solid rgba(99,102,241,0.25)',
+                      color: '#818cf8',
+                    }}
+                  >
+                    🚀 Live Project Deck · {(team.presentation.viewCount ?? 0)} views
                   </div>
                 )}
 
@@ -681,6 +699,33 @@ const MyTeams = ({ onNavigate, onViewWorkspace, onViewProfile, onViewFiles, open
           </div>
         </div>
       )}
+
+      {/* Presentation upload/view modal */}
+      {presentationTeamId && (() => {
+        const team = teams.find(t => t.id === presentationTeamId);
+        if (!team) return null;
+        const isLeader = team.leaderId === user?.uid;
+        if (isLeader) {
+          return (
+            <PresentationUploadModal
+              team={team}
+              onClose={() => setPresentationTeamId(null)}
+              onSuccess={() => setPresentationTeamId(null)}
+            />
+          );
+        }
+        // Non-leader: show the deck viewer via PresentationDeckCard in a modal
+        return (
+          <div className="modal-overlay" onClick={() => setPresentationTeamId(null)}>
+            <div className="bg-card rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+              <h2 className="font-display font-bold text-lg text-foreground mb-4 flex items-center gap-2">
+                <Presentation className="w-5 h-5 text-primary" /> Project Presentation
+              </h2>
+              <PresentationDeckCard team={team} />
+            </div>
+          </div>
+        );
+      })()}
 
       <DemoLockModal open={showDemoLock} onClose={() => setShowDemoLock(false)} onSignup={() => { setShowDemoLock(false); openAuth(); }} />
     </div>

@@ -213,18 +213,37 @@ service cloud.firestore {
 
       allow update: if isAuthed() &&
         (
+          // 1. Leader can change anything
           resource.data.leaderId == request.auth.uid
           ||
+          // 2. Any member joining/leaving (existing rule)
           (
             request.resource.data.diff(resource.data)
               .changedKeys()
               .hasOnly(['members'])
+          )
+          ||
+          // 3. Any authed user can increment presentation view count only
+          //    (triggered when someone opens the presentation viewer)
+          (
+            request.resource.data.diff(resource.data)
+              .changedKeys()
+              .hasOnly(['presentation'])
+            &&
+            request.resource.data.presentation.keys()
+              .hasAll(['viewCount'])
+            &&
+            // Ensure no other presentation sub-fields are tampered with
+            request.resource.data.presentation.diff(resource.data.presentation)
+              .changedKeys()
+              .hasOnly(['viewCount'])
           )
         );
 
       allow delete: if isAuthed()
         && resource.data.leaderId == request.auth.uid;
     }
+
     
     // ========================
     // RATINGS

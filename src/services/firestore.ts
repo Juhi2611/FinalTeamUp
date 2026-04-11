@@ -366,6 +366,94 @@ import {
     if (!isFirebaseConfigured()) return;
     await updateDoc(doc(db, 'teams', teamId), data);
   };
+
+  // ========================
+  // PRESENTATION FUNCTIONS
+  // ========================
+
+  export const uploadTeamPresentation = async (
+    teamId: string,
+    leaderId: string,
+    file: File,
+    downloadEnabled: boolean,
+    onProgress?: (pct: number) => void
+  ): Promise<string> => {
+    if (!isFirebaseConfigured()) return '';
+    const team = await getTeam(teamId);
+    if (!team) throw new Error('Team not found');
+    if (team.leaderId !== leaderId) throw new Error('Only the team leader can upload presentations');
+
+    // Delete old file from Supabase if it exists
+    if (team.presentation?.fileName) {
+      try {
+        await supabase.storage
+          .from('team-files')
+          .remove([`presentations/${teamId}/${team.presentation.fileName}`]);
+      } catch (_) { /* ignore */ }
+    }
+
+    const ext = file.name.split('.').pop()?.toLowerCase() as 'pdf' | 'ppt' | 'pptx';
+    const safeName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+    const filePath = `presentations/${teamId}/${safeName}`;
+
+    // Start progress
+    if (onProgress) onProgress(10);
+    
+    // Upload to Supabase
+    const { error: uploadError } = await supabase.storage
+      .from('team-files')
+      .upload(filePath, file);
+
+    if (uploadError) throw new Error(uploadError.message);
+    
+    // Finish progress
+    if (onProgress) onProgress(100);
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('team-files')
+      .getPublicUrl(filePath);
+
+    const isUpdate = !!team.presentation;
+    await updateDoc(doc(db, 'teams', teamId), {
+      presentation: {
+        fileUrl: publicUrl,
+        fileName: safeName,
+        fileType: ext || 'pdf',
+        uploadedAt: isUpdate ? (team.presentation?.uploadedAt ?? serverTimestamp()) : serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        downloadEnabled,
+        viewCount: team.presentation?.viewCount ?? 0,
+      }
+    });
+
+    return publicUrl;
+  };
+
+  export const deleteTeamPresentation = async (teamId: string, leaderId: string): Promise<void> => {
+    if (!isFirebaseConfigured()) return;
+    const team = await getTeam(teamId);
+    if (!team) throw new Error('Team not found');
+    if (team.leaderId !== leaderId) throw new Error('Only the team leader can delete presentations');
+    if (!team.presentation) return;
+
+    try {
+      await supabase.storage
+        .from('team-files')
+        .remove([`presentations/${teamId}/${team.presentation.fileName}`]);
+    } catch (_) { /* ignore */ }
+
+    await updateDoc(doc(db, 'teams', teamId), { presentation: null });
+  };
+
+  export const incrementPresentationViewCount = async (teamId: string): Promise<void> => {
+    if (!isFirebaseConfigured()) return;
+    try {
+      await updateDoc(doc(db, 'teams', teamId), {
+        'presentation.viewCount': increment(1)
+      });
+    } catch (_) { /* silent – view count is non-critical */ }
+  };
   // ========================
   // TEAM MEMBER FUNCTIONS
   // ========================
