@@ -48,6 +48,7 @@ import { normalizeCityString, getCityById } from "@/utils/cityData";
 import InstitutionSelect from "@/components/ui/InstitutionSelect";
 import { normalizeInstitutionString, getInstitutionById } from "@/utils/institutionData";
 import { useInstitutionName } from "@/utils/useInstitutionName";
+import { TeamSynergySection } from "./TeamSynergySection";
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
@@ -484,7 +485,7 @@ function SwipeCard({
 type ViewMode = "swipe" | "grid" | "detail";
 
 function ProfileDrawer({
-  user, onClose, onConnect, onSkip, onInterview, isLeader, viewMode,
+  user, onClose, onConnect, onSkip, onInterview, isLeader, viewMode, leaderTeams,
 }: {
   user: UserProfile;
   onClose: () => void;
@@ -493,6 +494,7 @@ function ProfileDrawer({
   onInterview: (user: UserProfile) => void; 
   isLeader: boolean;
   viewMode?: ViewMode;
+  leaderTeams?: Team[];
 }) {
   const score = computeMatchScore(user);
   const avail = getAvailability(user);
@@ -579,7 +581,7 @@ function ProfileDrawer({
             </div>
           )}
 
-          <div className="rounded-2xl p-4" style={{ background: "linear-gradient(135deg, rgba(240,253,250,0.90) 0%, rgba(224,242,254,0.80) 100%)", border: "1px solid rgba(153,246,228,0.60)" }}>
+          <div className="rounded-2xl p-4" style={{ background: "linear-gradient(135deg, rgba(240,253,250,0.90) 0%, rgba(224,242,254,0.80) 100%)", border: "1.5px solid rgba(153,246,228,0.60)" }}>
             <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#0d9488" }}>
               <Sparkles size={12} /> Why this match?
             </p>
@@ -590,6 +592,13 @@ function ProfileDrawer({
               </div>
             ))}
           </div>
+
+          {isLeader && (
+            <TeamSynergySection 
+              discoveredUser={user} 
+              leaderTeams={leaderTeams || []} 
+            />
+          )}
 
           <div className="flex flex-col gap-3 pb-4">
             {/* Primary Action Row */}
@@ -935,12 +944,25 @@ const DiscoverPeople = ({ onViewProfile, openAuth }: DiscoverPeopleProps) => {
   }, []);
 
   useEffect(() => {
+    const fetchLeaderTeams = async () => {
+      if (!user?.uid) return;
+      try {
+        const teams = await getLeaderTeams(user.uid);
+        const filtered = teams.filter(t => t.leaderId === user.uid);
+        console.log(`[DiscoverPeople] Fetched ${filtered.length} leader teams for ${user.uid}`);
+        setLeaderTeams(filtered);
+      } catch (err) {
+        console.error('[DiscoverPeople] Error fetching leader teams:', err);
+      }
+    };
+    fetchLeaderTeams();
+  }, [user?.uid, expandedUser !== null]);
+
+  useEffect(() => {
     if (!isFirebaseConfigured() || !user) { setLoading(false); return; }
 
     getProfile(user.uid).then(async profile => {
       setCurrentUserProfile(profile);
-      const teams = await getLeaderTeams(user.uid);
-      setLeaderTeams(teams.filter(t => t.leaderId === user.uid));
     });
 
     const unsub = subscribeToAllUsers(user.uid, fetched => {
@@ -1106,7 +1128,8 @@ const DiscoverPeople = ({ onViewProfile, openAuth }: DiscoverPeopleProps) => {
   }
 
   const cardCount = queue.length;
-  const isLeader = leaderTeams.length > 0;
+  // Use profile data directly for initial check to avoid race conditions with leaderTeams state
+  const isLeader = Boolean(currentUserProfile?.leaderOfTeamIds && currentUserProfile.leaderOfTeamIds.length > 0) || leaderTeams.length > 0;
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -1354,14 +1377,13 @@ const DiscoverPeople = ({ onViewProfile, openAuth }: DiscoverPeopleProps) => {
 
       {/* ── MODALS & OVERLAYS ──────────────────────────────────────── */}
 
-      {/* ── MODALS & OVERLAYS ──────────────────────────────────────── */}
-
       <AnimatePresence>
         {expandedUser && (
           <ProfileDrawer
             user={expandedUser}
             isLeader={isLeader} // Pass the leader status
             viewMode={viewMode}
+            leaderTeams={leaderTeams}
             onInterview={(u) => { // Handle the interview click
               setExpandedUser(null);
               handleInterview(u);
@@ -1395,7 +1417,7 @@ const DiscoverPeople = ({ onViewProfile, openAuth }: DiscoverPeopleProps) => {
         />
       )}
 
-      {interviewTarget && leaderTeams.length > 0 && (
+      {interviewTarget && (
         <InterviewRequestModal
           candidate={interviewTarget}
           leaderTeams={leaderTeams}
