@@ -481,15 +481,18 @@ function SwipeCard({
   );
 }
 
+type ViewMode = "swipe" | "grid" | "detail";
+
 function ProfileDrawer({
-  user, onClose, onConnect, onSkip, onInterview, isLeader,
+  user, onClose, onConnect, onSkip, onInterview, isLeader, viewMode,
 }: {
   user: UserProfile;
   onClose: () => void;
   onConnect: () => void;
   onSkip: () => void;
-  onInterview: (user: UserProfile) => void; // Add this
-  isLeader: boolean;                        // Add this
+  onInterview: (user: UserProfile) => void; 
+  isLeader: boolean;
+  viewMode?: ViewMode;
 }) {
   const score = computeMatchScore(user);
   const avail = getAvailability(user);
@@ -591,13 +594,23 @@ function ProfileDrawer({
           <div className="flex flex-col gap-3 pb-4">
             {/* Primary Action Row */}
             <div className="flex gap-3">
-              <button
-                onClick={onSkip}
-                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold text-sm"
-                style={{ background: "rgba(241,245,249,0.90)", color: "#64748b", border: "1.5px solid #e2e8f0" }}
-              >
-                <X size={16} /> Skip
-              </button>
+              {(!viewMode || viewMode === "swipe") ? (
+                <button
+                  onClick={onSkip}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold text-sm"
+                  style={{ background: "rgba(241,245,249,0.90)", color: "#64748b", border: "1.5px solid #e2e8f0" }}
+                >
+                  <X size={16} /> Skip
+                </button>
+              ) : (
+                <button
+                  onClick={onClose}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold text-sm"
+                  style={{ background: "rgba(241,245,249,0.90)", color: "#64748b", border: "1.5px solid #e2e8f0" }}
+                >
+                  <X size={16} /> Cancel
+                </button>
+              )}
               <button
                 onClick={onConnect}
                 className="flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-sm text-white"
@@ -678,8 +691,6 @@ function SwipeIndicator({ text = "connect" }: { text?: string }) {
 }
 
 // ─── View Switcher ────────────────────────────────────────────────────────────
-
-type ViewMode = "swipe" | "grid" | "detail";
 
 function ViewSwitcher({ current, onChange }: { current: ViewMode; onChange: (v: ViewMode) => void }) {
   return (
@@ -1350,6 +1361,7 @@ const DiscoverPeople = ({ onViewProfile, openAuth }: DiscoverPeopleProps) => {
           <ProfileDrawer
             user={expandedUser}
             isLeader={isLeader} // Pass the leader status
+            viewMode={viewMode}
             onInterview={(u) => { // Handle the interview click
               setExpandedUser(null);
               handleInterview(u);
