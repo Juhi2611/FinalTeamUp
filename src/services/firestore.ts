@@ -1475,6 +1475,7 @@ if (isJoinRequest) {
       completed: true,
       completedBy: submittedBy,
       completedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
     });
   };
 
