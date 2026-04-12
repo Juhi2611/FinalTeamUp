@@ -606,26 +606,30 @@ function ProfileDrawer({
               {(!viewMode || viewMode === "swipe") ? (
                 <button
                   onClick={onSkip}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold text-sm"
-                  style={{ background: "rgba(241,245,249,0.90)", color: "#64748b", border: "1.5px solid #e2e8f0" }}
+                  className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-sm transition-all hover:bg-slate-50 active:scale-95"
+                  style={{ background: "#ffffff", color: "#64748b", border: "1.5px solid #e2e8f0" }}
                 >
                   <X size={16} /> Skip
                 </button>
               ) : (
                 <button
                   onClick={onClose}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold text-sm"
-                  style={{ background: "rgba(241,245,249,0.90)", color: "#64748b", border: "1.5px solid #e2e8f0" }}
+                  className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-sm transition-all hover:bg-slate-50 active:scale-95"
+                  style={{ background: "#ffffff", color: "#64748b", border: "1.5px solid #e2e8f0" }}
                 >
                   <X size={16} /> Cancel
                 </button>
               )}
               <button
                 onClick={onConnect}
-                className="flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-sm text-white"
-                style={{ flex: 2.5, background: "linear-gradient(135deg,#0d9488,#0891b2)", boxShadow: "0 4px 16px rgba(13,148,136,0.30)" }}
+                className="flex items-center justify-center gap-2 py-3.5 rounded-2xl font-black text-sm text-white transition-all hover:opacity-90 active:scale-95"
+                style={{ 
+                  flex: 2.5, 
+                  background: "linear-gradient(135deg, #0d9488 0%, #06b6d4 100%)", 
+                  boxShadow: "0 8px 20px -6px rgba(13,148,136,0.5)" 
+                }}
               >
-                <Check size={16} /> Connect & Invite
+                <Check size={18} strokeWidth={3} /> Connect & Invite
               </button>
             </div>
 

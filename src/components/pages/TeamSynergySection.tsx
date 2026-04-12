@@ -96,24 +96,25 @@ export function TeamSynergySection({ discoveredUser, leaderTeams }: TeamSynergyS
   }, [selectedTeam, teamMemberProfiles, discoveredUser]);
 
   const synergyInsights = useMemo(() => {
-    if (!discoveredUser.skills || teamMemberProfiles.length === 0) return null;
+    if (teamMemberProfiles.length === 0) return null;
 
     const teamSkills = new Set(teamMemberProfiles.flatMap(p => p.skills?.map(s => s.name) || []));
-    const uniqueSkills = discoveredUser.skills.filter(s => !teamSkills.has(s.name));
-    const strengtheningSkills = discoveredUser.skills.filter(s => teamSkills.has(s.name));
+    const userSkills = discoveredUser.skills || [];
+    const uniqueSkills = userSkills.filter(s => !teamSkills.has(s.name));
+    const strengtheningSkills = userSkills.filter(s => teamSkills.has(s.name));
 
     let persona = "The Technical Ally";
-    let icon = <Zap className="text-amber-500" size={20} />;
+    let icon = <Zap className="text-white" size={24} />;
     
     if (uniqueSkills.length >= 2) {
       persona = "The Capability Expander";
-      icon = <Rocket className="text-purple-500" size={20} />;
+      icon = <Rocket className="text-white" size={24} />;
     } else if (strengtheningSkills.length >= 3) {
       persona = "The Core Powerhouse";
-      icon = <ShieldCheck className="text-blue-500" size={20} />;
+      icon = <ShieldCheck className="text-white" size={24} />;
     } else if (discoveredUser.primaryRole?.includes('Manager') || discoveredUser.primaryRole?.includes('Lead')) {
       persona = "The Strategic Pillar";
-      icon = <Target className="text-rose-500" size={20} />;
+      icon = <Target className="text-white" size={24} />;
     }
 
     return {
@@ -121,7 +122,7 @@ export function TeamSynergySection({ discoveredUser, leaderTeams }: TeamSynergyS
       icon,
       uniqueCount: uniqueSkills.length,
       strengthenCount: strengtheningSkills.length,
-      topGapFiller: uniqueSkills[0]?.name || null
+      topGapFiller: uniqueSkills[0]?.name || (userSkills.length > 0 ? userSkills[0].name : null)
     };
   }, [discoveredUser, teamMemberProfiles]);
 
@@ -234,61 +235,49 @@ export function TeamSynergySection({ discoveredUser, leaderTeams }: TeamSynergyS
               </div>
 
               {synergyInsights && !isLoading && (
-                <div className="space-y-3">
-                  {/* Synergy Metrics Cards */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <motion.div 
-                      initial={{ scale: 0.9, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      className="bg-white/80 border border-teal-100 rounded-2xl p-4 shadow-sm relative overflow-hidden group"
-                    >
-                      <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <Rocket size={40} className="text-teal-600" />
-                      </div>
-                      <div className="text-3xl font-black text-teal-600">{synergyInsights.uniqueCount}</div>
-                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-1">New Capabilities</div>
-                    </motion.div>
-
-                    <motion.div 
-                      initial={{ scale: 0.9, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ delay: 0.1 }}
-                      className="bg-white/80 border border-purple-100 rounded-2xl p-4 shadow-sm relative overflow-hidden group"
-                    >
-                      <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <ShieldCheck size={40} className="text-purple-600" />
-                      </div>
-                      <div className="text-3xl font-black text-purple-600">{synergyInsights.strengthenCount}</div>
-                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-1">Skills Reinforced</div>
-                    </motion.div>
-                  </div>
-
-                  {/* The Synergy Persona Card */}
+                <div className="space-y-4">
+                  {/* Consolidated Synergy Insights Card */}
                   <motion.div 
-                    initial={{ y: 10, opacity: 0 }}
+                    initial={{ y: 20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
-                    className="rounded-2xl p-5 bg-white border-2 border-teal-100 shadow-xl shadow-teal-500/5 relative overflow-hidden"
+                    className="rounded-[2rem] p-6 bg-teal-600 text-white shadow-xl shadow-teal-900/20 relative overflow-hidden"
                   >
-                    <div className="absolute -right-4 -top-4 opacity-5 text-teal-600">
-                      {synergyInsights.icon}
-                    </div>
-                    
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2.5 rounded-xl bg-teal-50 text-teal-600">
-                        {synergyInsights.icon}
-                      </div>
-                      <div>
-                        <h5 className="font-black text-lg leading-tight text-slate-800">{synergyInsights.persona}</h5>
-                        <p className="text-[10px] font-bold text-teal-600 uppercase tracking-widest mt-0.5">Primary Fit Logic</p>
-                      </div>
-                    </div>
+                    {/* Background decoration */}
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl" />
+                    <div className="absolute bottom-0 left-0 w-24 h-24 bg-teal-400/10 rounded-full -ml-12 -mb-12 blur-xl" />
 
-                    {synergyInsights.topGapFiller && (
-                      <div className="flex items-center gap-2 text-xs font-bold bg-teal-50 text-teal-700 rounded-lg px-3 py-2 border border-teal-100 italic">
-                        <Target size={14} className="text-teal-500" />
-                        <span>Critical Gap Fill: <span className="text-teal-900">{synergyInsights.topGapFiller}</span></span>
+                    <div className="relative z-10">
+                      {/* Persona Header */}
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="p-3 rounded-2xl bg-teal-500 shadow-inner">
+                          {React.cloneElement(synergyInsights.icon as React.ReactElement, { size: 24, className: 'text-white' })}
+                        </div>
+                        <div>
+                          <h5 className="font-black text-xl leading-tight">{synergyInsights.persona}</h5>
+                          <p className="text-[10px] font-black text-teal-200 uppercase tracking-[0.2em] mt-0.5">Projected Role</p>
+                        </div>
                       </div>
-                    )}
+
+                      {/* Synergy Metrics Grid */}
+                      <div className="grid grid-cols-2 gap-3 mb-6">
+                        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
+                          <div className="text-3xl font-black mb-1">{synergyInsights.uniqueCount}</div>
+                          <div className="text-[10px] font-bold text-teal-100 uppercase tracking-wider">New Capabilities</div>
+                        </div>
+                        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
+                          <div className="text-3xl font-black mb-1">{synergyInsights.strengthenCount}</div>
+                          <div className="text-[10px] font-bold text-teal-100 uppercase tracking-wider">Skills Reinforced</div>
+                        </div>
+                      </div>
+
+                      {/* Gap Filler Pill */}
+                      {synergyInsights.topGapFiller && (
+                        <div className="inline-flex items-center gap-2 bg-teal-800/40 backdrop-blur-sm px-4 py-2.5 rounded-full border border-white/5 text-xs font-bold text-teal-50">
+                          <Target size={14} className="text-teal-300" />
+                          <span>Fills the critical gap in <span className="text-white">{synergyInsights.topGapFiller}</span></span>
+                        </div>
+                      )}
+                    </div>
                   </motion.div>
 
                   {/* Quick Guide */}
