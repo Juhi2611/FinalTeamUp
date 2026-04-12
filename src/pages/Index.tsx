@@ -57,7 +57,7 @@ import { InterviewRequest } from "@/services/firestore_interviews";
 import { Settings } from "lucide-react";
 const Index = () => {
   const navigate = useNavigate();
-  const { user, loading: authLoading, logout } = useAuth();
+  const { user, loading: authLoading, logout, isDemoUser } = useAuth();
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [currentPage, setCurrentPage] = useState("feed");
   const [showLegal, setShowLegal] = useState(false);
@@ -137,7 +137,7 @@ const Index = () => {
   }, [user]);
 
   useEffect(() => {
-    if (user && profile && !authLoading && currentPage) {
+    if (user && profile && !authLoading && currentPage && !isDemoUser) {
       // Check if this specific page walkthrough has been completed
       const pageId = currentPage === "feed" ? "feed" : currentPage;
       const steps = walkthroughPages[pageId];
@@ -374,7 +374,7 @@ const Index = () => {
   }
 
   // 4️⃣ PROFILE SETUP
-  if ((needsProfileSetup || editingProfile) && user) {
+  if ((needsProfileSetup || editingProfile) && user && !isDemoUser) {
     return (
       <ProfileSetup
         existingProfile={editingProfile ? profile : null}

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { toast } from "sonner";
 
 const Header = ({ onGetStarted }: { onGetStarted: () => void }) => {
   const navigate = useNavigate();
@@ -42,15 +43,25 @@ const Header = ({ onGetStarted }: { onGetStarted: () => void }) => {
           {/* Explore */}
           <button
             onClick={async () => {
+              const toastId = toast.loading("Logging into Demo Account...");
               try {
-                await signInWithEmailAndPassword(
-                  auth,
-                  "demo@teamup.app",
-                  "TeamUpDemo123"
-                );
-                navigate("/");
-              } catch (e) {
+                const res = await authContext.login("demo@teamup.app", "TeamUpDemo123");
+                if (res.error) {
+                  // Fallback: If demo account was deleted or password changed, try to recreate
+                  const regRes = await authContext.register("demo@teamup.app", "TeamUpDemo123", "Demo User", "demouser");
+                  if (regRes.error) {
+                    toast.error("Failed to login to demo account: " + res.error, { id: toastId });
+                  } else {
+                    toast.success("Created and logged into Demo Account!", { id: toastId });
+                    navigate("/");
+                  }
+                } else {
+                  toast.success("Welcome to TeamUp Demo!", { id: toastId });
+                  navigate("/");
+                }
+              } catch (e: any) {
                 console.error(e);
+                toast.error("An unexpected error occurred", { id: toastId });
               }
             }}
             className="h-9 md:h-10 px-3 md:px-4 rounded-lg text-xs md:text-sm font-medium text-white bg-blue-600 shadow-md hover:shadow-lg transition"

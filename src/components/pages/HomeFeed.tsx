@@ -51,7 +51,7 @@ const HomeFeed = ({ onNavigate, onViewProfile, openAuth, profile }: HomeFeedProp
     }, user?.uid);
 
     const checkReminder = async () => {
-      if (!user) return;
+      if (!user || isDemoUser) return;
 
       try {
         const docRef = doc(db, "profiles", user.uid);
