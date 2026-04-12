@@ -11,9 +11,15 @@ interface LeftSidebarProps {
   onToggleCollapse?: () => void;
 }
 
+// Each cell is 14px wide + 2.5px gap = 16.5px per column
+const CELL_W = 15;
+const CELL_H = 15;
+const CELL_GAP = 2.5;
+const COL_STEP = CELL_W + CELL_GAP; // 16.5px
+
 /* ─── Compact Activity Heatmap ─── */
 function ActivityHeatmap({ userId }: { userId?: string }) {
-  const { cells, loading } = useActivityHeatmap(userId);
+  const { cells, loading, startDate } = useActivityHeatmap(userId);
 
   const colors = [
     'bg-muted/60',
@@ -23,60 +29,122 @@ function ActivityHeatmap({ userId }: { userId?: string }) {
     'bg-primary',
   ];
 
-  // 1. Generate Dynamic Month Labels for the X-axis
+  // Today at midnight — used for accurate future-cell detection
+  const todayMidnight = new Date();
+  todayMidnight.setHours(0, 0, 0, 0);
+
+  /**
+   * Build month labels that are pinned to the EXACT column where a new month begins.
+   * Uses the same COL_STEP math as the cell grid so labels sit over the right column.
+   */
   const getMonthLabels = () => {
-    const labels = [];
-    const now = new Date();
-    for (let i = 0; i < 3; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() - (2 - i), 1);
-      labels.push(d.toLocaleString('default', { month: 'short' }));
+    if (!startDate) return [];
+
+    const labels: { month: string; colIndex: number }[] = [];
+    let lastSeenMonth = -1;
+
+    for (let col = 0; col < 14; col++) {
+      // The date of the Sunday that starts each column
+      const colDate = new Date(startDate);
+      colDate.setDate(startDate.getDate() + col * 7);
+
+      const month = colDate.getMonth();
+      if (month !== lastSeenMonth) {
+        labels.push({
+          month: colDate.toLocaleString('default', { month: 'short' }),
+          colIndex: col,
+        });
+        lastSeenMonth = month;
+      }
     }
     return labels;
   };
 
-  if (loading) return <div className="text-[10px] animate-pulse">Loading Activity...</div>;
+  if (loading || !startDate) return <div className="text-[10px] animate-pulse">Loading activity…</div>;
 
   return (
-    <div className="space-y-2">
-      {/* X-AXIS: Dynamic Months */}
-      <div className="flex justify-between px-7 text-[9px] font-medium text-muted-foreground/60 -mt-1">
-        {getMonthLabels().map((month) => (
-          <span key={month}>{month}</span>
-        ))}
-      </div>
+    <div className="space-y-1.5">
 
-      <div className="flex gap-1.5">
-        {/* Y-AXIS: Fixed Day Labels */}
-        <div className="flex flex-col justify-between text-[8px] font-medium text-muted-foreground/40 leading-none py-0.5 -ml-3">
-          <span style={{ transform: 'rotate(-90deg)' }}>Mon</span>
-          <span style={{ transform: 'rotate(-90deg)' }}>Wed</span>
-          <span style={{ transform: 'rotate(-90deg)' }}>Fri</span>
-        </div>
-
-        {/* THE GRID */}
-        <div 
-          className="grid gap-[2.5px] -ml-1 -mt-1" 
-          style={{ 
-            gridTemplateRows: 'repeat(7, 1fr)', 
-            gridAutoFlow: 'column' 
-          }}
-        >
-          {cells.map((level, i) => (
-            <div
+      {/* ── X-AXIS: Month labels, pixel-aligned to grid columns ── */}
+      <div className="flex gap-1">
+        {/* Spacer matching y-axis width */}
+        <div className="w-[18px] flex-shrink-0" />
+        <div className="relative flex-1" style={{ height: '10px' }}>
+          {getMonthLabels().map((label, i) => (
+            <span
               key={i}
-              className={cn(
-                'w-[14px] h-[15px] rounded-[1.5px] transition-all duration-300 hover:ring-1 hover:ring-primary/50', 
-                colors[level]
-              )}
-              title={`Level ${level} activity`}
-            />
+              className="absolute top-0 text-[9px] font-medium text-muted-foreground/60 leading-none"
+              style={{ left: `${label.colIndex * COL_STEP}px` }}
+            >
+              {label.month}
+            </span>
           ))}
         </div>
       </div>
 
-      {/* FOOTER: Legend */}
+      {/* ── GRID ROW: Y-axis labels + cell grid ── */}
+      <div className="flex gap-1">
+
+        {/* Y-AXIS: Day labels, height-matched to cell rows */}
+        <div
+          className="w-[18px] flex-shrink-0 grid text-[8px] font-medium text-muted-foreground/40 leading-none text-right pr-0.5"
+          style={{ gridTemplateRows: `repeat(7, ${CELL_H}px)`, gap: `${CELL_GAP}px` }}
+        >
+          {/* Row 0 = Sunday (blank), 1 = Mon, 2 = blank, 3 = Wed, 4 = blank, 5 = Fri, 6 = blank */}
+          <div className="flex items-center justify-end" />
+          <div className="flex items-center justify-end -translate-x-2"><span className="-rotate-90">Mon</span></div>
+          <div className="flex items-center justify-end" />
+          <div className="flex items-center justify-end -translate-x-2"><span className="-rotate-90">Wed</span></div>
+          <div className="flex items-center justify-end" />
+          <div className="flex items-center justify-end -translate-x-2.5"><span className="-rotate-90">Fri</span></div>
+          <div className="flex items-center justify-end" />
+        </div>
+
+        {/* ── THE GRID ── 98 cells, column-first (Sun→Sat, week by week) */}
+        <div
+          className="grid -translate-x-2"
+          style={{
+            gridTemplateRows: `repeat(7, ${CELL_H}px)`,
+            gridAutoFlow: 'column',
+            gap: `${CELL_GAP}px`,
+          }}
+        >
+          {cells.map((level, i) => {
+            // Map linear index → calendar date
+            // Index 0 = startDate (a Sunday), index 1 = startDate+1 (Monday), etc.
+            const cellDate = new Date(startDate);
+            cellDate.setDate(startDate.getDate() + i);
+
+            const isFuture = cellDate > todayMidnight;
+            const isToday = cellDate.getTime() === todayMidnight.getTime();
+
+            const tooltipText = isFuture
+              ? ''
+              : `${cellDate.toLocaleDateString('default', { weekday: 'short', month: 'short', day: 'numeric' })}: ${
+                  level === 0 ? 'No activity' : `Level ${level} activity`
+                }`;
+
+            return (
+              <div
+                key={i}
+                title={tooltipText}
+                className={cn(
+                  'rounded-[1.5px] transition-all duration-200',
+                  isFuture
+                    ? 'bg-transparent'
+                    : cn(colors[level], 'hover:ring-1 hover:ring-primary/50'),
+                  isToday && 'ring-1 ring-primary/70',
+                )}
+                style={{ width: `${CELL_W}px`, height: `${CELL_H}px` }}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── FOOTER: Legend ── */}
       <div className="flex items-center justify-between mt-1">
-        <span className="text-[9px] text-muted-foreground/40 italic">90d scroll</span>
+        <span className="text-[9px] text-muted-foreground/40 italic">14 weeks</span>
         <div className="flex items-center gap-1">
           <span className="text-[8px] text-muted-foreground/50">Less</span>
           {colors.map((c, i) => (
@@ -132,7 +200,6 @@ const LeftSidebar = ({ currentPage, onNavigate, userProfile, collapsed = false }
   }
 
   return (
-    /* Fixed height, no overflow scroll */
     <aside className="flex-shrink-0 w-70 h-screen overflow-y-auto flex flex-col transition-all duration-300 gap-2.5">
 
       {/* ── Greeting + Profile Card ── */}
@@ -155,7 +222,7 @@ const LeftSidebar = ({ currentPage, onNavigate, userProfile, collapsed = false }
       </div>
 
       {/* ── Navigation ── */}
-      <div className="sidebar-nav-box flex-shrink-0 ">
+      <div className="sidebar-nav-box flex-shrink-0">
         <p className="text-[9px] font-semibold text-muted-foreground/60 uppercase tracking-wider px-3 py-1.5">
           Menu · {navItems.length}
         </p>
